@@ -96,7 +96,8 @@ function teardown() {
   delete_istio
 }
 
-teardown
+# Delete images in DOCKER_REPO_OVERRIDE repository and call teardown
+teardown_test_resources
 
 create_test_namespace
 
