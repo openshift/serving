@@ -8,7 +8,7 @@ export K8S_CLUSTER_OVERRIDE=$(oc config current-context | awk -F'/' '{print $2}'
 export DOCKER_REPO_OVERRIDE=gcr.io/$(gcloud config get-value project)/kserving-e2e-img
 export KO_DOCKER_REPO=${DOCKER_REPO_OVERRIDE}
 #satisfy e2e_flags.go#initializeFlags()
-export USER=`whoami`
+export USER=dev
 
 env
 
