@@ -7,6 +7,10 @@ export PATH=$BUILD_DIR/bin:$BUILD_DIR/google-cloud-sdk/bin:$PATH
 export K8S_CLUSTER_OVERRIDE=$(oc config current-context | awk -F'/' '{print $2}')
 export DOCKER_REPO_OVERRIDE=gcr.io/$(gcloud config get-value project)/kserving-e2e-img
 export KO_DOCKER_REPO=${DOCKER_REPO_OVERRIDE}
+#satisfy e2e_flags.go#initializeFlags()
+export USER=`whoami`
+
+env
 
 readonly ISTIO_URL='https://storage.googleapis.com/knative-releases/serving/latest/istio.yaml'
 readonly TEST_NAMESPACE=serving-tests
