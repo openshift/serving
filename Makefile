@@ -12,7 +12,7 @@ init:
 	@mkdir -p $(BUILD_DIR)/bin
 	@cd $(BUILD_DIR) && \
 	curl -LO $(GCLOUD_URL) && tar xzf $(GCLOUD_ARCHIVE) && \
-	gcloud -q auth configure-docker
+	google-cloud-sdk/bin/gcloud -q auth configure-docker
 	@echo "Downloading kubectl"
 	@cd $(BUILD_DIR)/bin && \
 	curl -LO $(KUBECTL_URL) && chmod +x ./kubectl
