@@ -4,8 +4,6 @@ BUILD_DIR=$(shell pwd)/build
 GCLOUD_URL=https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-222.0.0-linux-x86_64.tar.gz
 GCLOUD_ARCHIVE=$(shell echo $(GCLOUD_URL) | rev | cut -d/ -f1 | rev)
 KUBECTL_URL=https://storage.googleapis.com/kubernetes-release/release/v1.11.0/bin/linux/amd64/kubectl
-CI_SERVICE_ACCOUNT=aos-serviceaccount@openshift-gce-devel.iam.gserviceaccount.com
-CI_PROJECT=openshift-gce-devel-ci
 
 #TODO: Move this to a builder image in CI
 .PHONY: init
@@ -14,8 +12,6 @@ init:
 	@mkdir -p $(BUILD_DIR)/bin
 	@cd $(BUILD_DIR) && \
 	curl -LO $(GCLOUD_URL) && tar xzf $(GCLOUD_ARCHIVE) && \
-	google-cloud-sdk/bin/gcloud auth activate-service-account $(CI_SERVICE_ACCOUNT) \
-	--key-file=$(GOOGLE_APPLICATION_CREDENTIALS) --project=$(CI_PROJECT) && \
 	gcloud -q auth configure-docker
 	@echo "Downloading kubectl"
 	@cd $(BUILD_DIR)/bin && \
