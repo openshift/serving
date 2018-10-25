@@ -2,6 +2,12 @@
 
 source $(dirname $0)/cluster.sh
 
+export BUILD_DIR=`pwd`/build
+export PATH=$BUILD_DIR/bin:$BUILD_DIR/google-cloud-sdk/bin:$PATH
+export K8S_CLUSTER_OVERRIDE=$(oc config current-context | awk -F'/' '{print $2}')
+export DOCKER_REPO_OVERRIDE=gcr.io/$(gcloud config get-value project)/kserving-e2e-img
+export KO_DOCKER_REPO=${DOCKER_REPO_OVERRIDE}
+
 readonly ISTIO_URL='https://storage.googleapis.com/knative-releases/serving/latest/istio.yaml'
 readonly TEST_NAMESPACE=serving-tests
 
@@ -75,7 +81,7 @@ function run_e2e_tests(){
 
 function delete_istio(){
   echo ">> Bringing down Istio"
-  kubectl delete --ignore-not-found=true -f ${ISTIO_URL}
+  oc delete --ignore-not-found=true -f ${ISTIO_URL}
 }
 
 function delete_test_namespace(){
@@ -89,10 +95,6 @@ function teardown() {
   delete_serving
   delete_istio
 }
-
-export K8S_CLUSTER_OVERRIDE=$(oc config current-context | awk -F'/' '{print $2}')
-export DOCKER_REPO_OVERRIDE=gcr.io/$(gcloud config get-value project)/kserving-e2e-img
-export KO_DOCKER_REPO=${DOCKER_REPO_OVERRIDE}
 
 teardown
 
