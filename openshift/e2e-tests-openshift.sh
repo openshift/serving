@@ -16,8 +16,11 @@ readonly ISTIO_URL='https://storage.googleapis.com/knative-releases/serving/late
 readonly TEST_NAMESPACE=serving-tests
 
 function enable_admission_webhooks(){
+  echo "Enabling admission webhooks"
+  echo "API_SERVER=$API_SERVER"
+  echo "KUBE_SSH_USER=$KUBE_SSH_USER"
   echo "$API_SERVER ansible_ssh_private_key_file=~/.ssh/google_compute_engine" > inventory.ini
-  ansible-playbook ${REPO_ROOT_DIR}/openshift/admission-webhooks.yaml -i inventory.ini -u $KUBE_SSH_USER
+  ansible-playbook ${REPO_ROOT_DIR}/openshift/admission-webhooks.yaml -i inventory.ini -u $KUBE_SSH_USER -e "ansible_ssh_user=$KUBE_SSH_USER"
   rm inventory.ini
 }
 
