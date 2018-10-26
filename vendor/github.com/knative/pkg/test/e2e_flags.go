@@ -21,6 +21,7 @@ package test
 
 import (
 	"flag"
+	"fmt"
 	"os"
 	"os/user"
 	"path"
@@ -45,8 +46,12 @@ func initializeFlags() *EnvironmentFlags {
 	flag.StringVar(&f.Cluster, "cluster", defaultCluster,
 		"Provide the cluster to test against. Defaults to $K8S_CLUSTER_OVERRIDE, then current cluster in kubeconfig if $K8S_CLUSTER_OVERRIDE is unset.")
 
-	usr, _ := user.Current()
-	defaultKubeconfig := path.Join(usr.HomeDir, ".kube/config")
+	var defaultKubeconfig string
+	if usr, err := user.Current(); err == nil {
+		defaultKubeconfig = path.Join(usr.HomeDir, ".kube/config")
+	} else {
+		fmt.Printf("Could not get current user: %v", err)
+	}
 
 	flag.StringVar(&f.Kubeconfig, "kubeconfig", defaultKubeconfig,
 		"Provide the path to the `kubeconfig` file you'd like to use for these tests. The `current-context` will be used.")
