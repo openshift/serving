@@ -25,5 +25,5 @@ clean:
 	rm -rf $(BUILD_DIR)
 
 .PHONY: test-e2e
-test-e2e: init
-	sh test/e2e-tests-openshift.sh
+test-e2e:
+	sh openshift/e2e-tests-openshift.sh

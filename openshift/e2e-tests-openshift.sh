@@ -1,19 +1,25 @@
 #!/bin/sh 
 
-source $(dirname $0)/cluster.sh
+source $(dirname $0)/../test/cluster.sh
 
-export BUILD_DIR=`pwd`/build
+export BUILD_DIR=`pwd`/../build
 export PATH=$BUILD_DIR/bin:$BUILD_DIR/google-cloud-sdk/bin:$PATH
 export K8S_CLUSTER_OVERRIDE=$(oc config current-context | awk -F'/' '{print $2}')
+export API_SERVER=$(oc config current-context | awk -F'/' '{print $2}' | awk -F':' '{print $1}')
 export DOCKER_REPO_OVERRIDE=gcr.io/$(gcloud config get-value project)/kserving-e2e-img
 export KO_DOCKER_REPO=${DOCKER_REPO_OVERRIDE}
-#satisfy e2e_flags.go#initializeFlags()
-export USER=dev
+export USER=testuser #satisfy e2e_flags.go#initializeFlags()
 
 env
 
 readonly ISTIO_URL='https://storage.googleapis.com/knative-releases/serving/latest/istio.yaml'
 readonly TEST_NAMESPACE=serving-tests
+
+function enable_admission_webhooks(){
+  echo "$API_SERVER ansible_ssh_private_key_file=~/.ssh/google_compute_engine" > inventory.ini
+  ansible-playbook ${REPO_ROOT_DIR}/openshift/admission-webhooks.yaml -i inventory.ini -u $KUBE_SSH_USER
+  rm inventory.ini
+}
 
 function install_istio(){
   header "Installing Istio"
@@ -100,7 +106,9 @@ function teardown() {
   delete_istio
 }
 
-# Delete images in DOCKER_REPO_OVERRIDE repository and call teardown
+enable_admission_webhooks
+
+# Delete images in DOCKER_REPO_OVERRIDE repository and call teardown function
 teardown_test_resources
 
 create_test_namespace
