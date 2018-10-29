@@ -5,10 +5,10 @@ source $(dirname $0)/../test/cluster.sh
 export BUILD_DIR=`pwd`/../build
 export PATH=$BUILD_DIR/bin:$BUILD_DIR/google-cloud-sdk/bin:$PATH
 export K8S_CLUSTER_OVERRIDE=$(oc config current-context | awk -F'/' '{print $2}')
-export API_SERVER=$(oc config current-context | awk -F'/' '{print $2}' | awk -F':' '{print $1}')
+export API_SERVER=$(oc config view --minify | grep server | awk -F'//' '{print $2}' | awk -F':' '{print $1}')
 export DOCKER_REPO_OVERRIDE=gcr.io/$(gcloud config get-value project)/kserving-e2e-img
 export KO_DOCKER_REPO=${DOCKER_REPO_OVERRIDE}
-export USER=testuser #satisfy e2e_flags.go#initializeFlags()
+export USER=$KUBE_SSH_USER #satisfy e2e_flags.go#initializeFlags()
 
 env
 
@@ -16,9 +16,30 @@ readonly ISTIO_URL='https://storage.googleapis.com/knative-releases/serving/late
 readonly TEST_NAMESPACE=serving-tests
 
 function enable_admission_webhooks(){
+  header "Enabling admission webhooks"
+  add_current_user_to_etc_passwd
+  disable_strict_host_checking
+  echo "API_SERVER=$API_SERVER"
+  echo "KUBE_SSH_USER=$KUBE_SSH_USER"
+  chmod 600 ~/.ssh/google_compute_engine
   echo "$API_SERVER ansible_ssh_private_key_file=~/.ssh/google_compute_engine" > inventory.ini
   ansible-playbook ${REPO_ROOT_DIR}/openshift/admission-webhooks.yaml -i inventory.ini -u $KUBE_SSH_USER
   rm inventory.ini
+}
+
+function add_current_user_to_etc_passwd(){
+  if ! whoami &>/dev/null; then
+    echo "${USER:-default}:x:$(id -u):$(id -g):Default User:$HOME:/sbin/nologin" >> /etc/passwd
+  fi
+  cat /etc/passwd
+}
+
+function disable_strict_host_checking(){
+  cat >> ~/.ssh/config <<EOF
+Host *
+   StrictHostKeyChecking no
+   UserKnownHostsFile=/dev/null
+EOF
 }
 
 function install_istio(){
