@@ -2,18 +2,19 @@
 
 source $(dirname $0)/../test/cluster.sh
 
+set -x
+
 export BUILD_DIR=`pwd`/../build
 export PATH=$BUILD_DIR/bin:$BUILD_DIR/google-cloud-sdk/bin:$PATH
 export K8S_CLUSTER_OVERRIDE=$(oc config current-context | awk -F'/' '{print $2}')
 export API_SERVER=$(oc config view --minify | grep server | awk -F'//' '{print $2}' | awk -F':' '{print $1}')
-export DOCKER_REPO_OVERRIDE=gcr.io/$(gcloud config get-value project)/kserving-e2e-img
-export KO_DOCKER_REPO=${DOCKER_REPO_OVERRIDE}
 export USER=$KUBE_SSH_USER #satisfy e2e_flags.go#initializeFlags()
-
-env
 
 readonly ISTIO_URL='https://storage.googleapis.com/knative-releases/serving/latest/istio.yaml'
 readonly TEST_NAMESPACE=serving-tests
+readonly SERVING_NAMESPACE=knative-serving
+
+env
 
 function enable_admission_webhooks(){
   header "Enabling admission webhooks"
@@ -78,7 +79,10 @@ function install_knative(){
   oc adm policy add-cluster-role-to-user cluster-admin -z controller -n knative-serving
 
   # Deploy Knative Serving from the current source repository. This will also install Knative Build.
-  create_serving
+  create_serving_and_build
+
+  echo ">> Patching Istio"
+  oc patch hpa -n istio-system knative-ingressgateway --patch '{"spec": {"maxReplicas": 1}}'
 
   wait_until_pods_running knative-build || return 1
   wait_until_pods_running knative-serving || return 1
@@ -86,16 +90,86 @@ function install_knative(){
   header "Knative Installed successfully"
 }
 
-function publish_test_images() {
-  header "Publishing test images"
-  image_dirs="$(find ${REPO_ROOT_DIR}/test/test_images -mindepth 1 -maxdepth 1 -type d)"
-  for image_dir in ${image_dirs}; do
-    ko publish -P "github.com/knative/serving/test/test_images/$(basename ${image_dir})"
+function create_serving_and_build(){
+  echo ">> Bringing up Build and Serving"
+  oc apply -f third_party/config/build/release.yaml
+  
+  resolve_resources config/ $SERVING_NAMESPACE serving-resolved.yaml
+  oc apply -f serving-resolved.yaml
+
+  skip_image_tag_resolving
+}
+
+function create_test_resources_openshift() {
+  echo ">> Creating test resources for OpenShift (test/config/)"
+  resolve_resources test/config/ $TEST_NAMESPACE tests-resolved.yaml
+  oc apply -f tests-resolved.yaml
+}
+
+function resolve_resources(){
+  local dir=$1
+  local resolved_file_name=$3
+  for yaml in $(find $dir -name "*.yaml"); do
+    echo "---" >> $resolved_file_name
+    #first prefix all test images with "test-", then replace all image names with proper repository
+    sed -e 's/\(.* image: \)\(github.com\)\(.*\/\)\(test\/\)\(.*\)/\1\2 \3\4test-\5/' $yaml | \
+    sed -e 's/\(.* image: \)\(github.com\)\(.*\/\)\(.*\)/\1 docker-registry.default.svc:5000\/'"$OPENSHIFT_BUILD_NAMESPACE"'\/stable:\4/' \
+        -e 's/\(.* queueSidecarImage: \)\(github.com\)\(.*\/\)\(.*\)/\1 docker-registry.default.svc:5000\/'"$OPENSHIFT_BUILD_NAMESPACE"'\/stable:\4/' >> $resolved_file_name
   done
+}
+
+function enable_docker_schema2(){
+  cat > config.yaml <<EOF
+  version: 0.1
+  log:
+    level: debug
+  http:
+    addr: :5000
+  storage:
+    cache:
+      blobdescriptor: inmemory
+    filesystem:
+      rootdirectory: /registry
+    delete:
+      enabled: true
+  auth:
+    openshift:
+      realm: openshift
+  middleware:
+    registry:
+      - name: openshift
+    repository:
+      - name: openshift
+        options:
+          acceptschema2: true
+          pullthrough: true
+          enforcequota: false
+          projectcachettl: 1m
+          blobrepositorycachettl: 10m
+    storage:
+      - name: openshift
+  openshift:
+    version: 1.0
+    metrics:
+      enabled: false
+      secret: <secret>
+EOF
+  oc project default
+  oc create configmap registry-config --from-file=./config.yaml
+  oc set volume dc/docker-registry --add --type=configmap --configmap-name=registry-config -m /etc/docker/registry/
+  oc set env dc/docker-registry REGISTRY_CONFIGURATION_PATH=/etc/docker/registry/config.yaml
+  oc project $TEST_NAMESPACE
+}
+
+function skip_image_tag_resolving(){
+  oc get cm config-controller -n knative-serving -o yaml | \
+  sed -e "s/.*registriesSkippingTagResolving:.*/  registriesSkippingTagResolving: \"ko.local,dev.local,docker-registry.default.svc:5000\"/" | \
+  oc apply -f -
 }
 
 function create_test_namespace(){
   oc new-project $TEST_NAMESPACE
+  oc adm policy add-scc-to-user privileged -z default -n $TEST_NAMESPACE
 }
 
 function run_e2e_tests(){
@@ -106,13 +180,24 @@ function run_e2e_tests(){
     -v -tags=e2e -count=1 -timeout=20m \
     ./test/conformance ./test/e2e \
     --kubeconfig $KUBECONFIG \
+    --dockerrepo docker-registry.default.svc:5000/${OPENSHIFT_BUILD_NAMESPACE}/stable \
     ${options} || fail_test
-  success
 }
 
-function delete_istio(){
+function delete_istio_openshift(){
   echo ">> Bringing down Istio"
   oc delete --ignore-not-found=true -f ${ISTIO_URL}
+}
+
+function delete_serving_openshift() {
+  echo ">> Bringing down Serving"
+  oc delete --ignore-not-found=true -f serving-resolved.yaml
+  oc delete --ignore-not-found=true -f third_party/config/build/release.yaml
+}
+
+function delete_test_resources_openshift() {
+  echo ">> Removing test resources (test/config/)"
+  oc delete --ignore-not-found=true -f tests-resolved.yaml
 }
 
 function delete_test_namespace(){
@@ -122,24 +207,23 @@ function delete_test_namespace(){
 
 function teardown() {
   delete_test_namespace
-  delete_test_resources
-  delete_serving
-  delete_istio
+  delete_test_resources_openshift
+  delete_serving_openshift
+  delete_istio_openshift
 }
 
 enable_admission_webhooks
 
-# Delete images in DOCKER_REPO_OVERRIDE repository and call teardown function
-teardown_test_resources
+teardown
 
 create_test_namespace
 
 install_istio
 
+enable_docker_schema2
+
 install_knative
 
-create_test_resources
-
-publish_test_images
+create_test_resources_openshift
 
 run_e2e_tests
