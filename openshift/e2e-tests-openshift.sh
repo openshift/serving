@@ -9,6 +9,7 @@ export PATH=$BUILD_DIR/bin:$BUILD_DIR/google-cloud-sdk/bin:$PATH
 export K8S_CLUSTER_OVERRIDE=$(oc config current-context | awk -F'/' '{print $2}')
 export API_SERVER=$(oc config view --minify | grep server | awk -F'//' '{print $2}' | awk -F':' '{print $1}')
 export USER=$KUBE_SSH_USER #satisfy e2e_flags.go#initializeFlags()
+export OPENSHIFT_REGISTRY=registry.svc.ci.openshift.org
 
 readonly ISTIO_URL='https://storage.googleapis.com/knative-releases/serving/latest/istio.yaml'
 readonly TEST_NAMESPACE=serving-tests
@@ -113,8 +114,8 @@ function resolve_resources(){
     echo "---" >> $resolved_file_name
     #first prefix all test images with "test-", then replace all image names with proper repository
     sed -e 's/\(.* image: \)\(github.com\)\(.*\/\)\(test\/\)\(.*\)/\1\2 \3\4test-\5/' $yaml | \
-    sed -e 's/\(.* image: \)\(github.com\)\(.*\/\)\(.*\)/\1 docker-registry.default.svc:5000\/'"$OPENSHIFT_BUILD_NAMESPACE"'\/stable:\4/' \
-        -e 's/\(.* queueSidecarImage: \)\(github.com\)\(.*\/\)\(.*\)/\1 docker-registry.default.svc:5000\/'"$OPENSHIFT_BUILD_NAMESPACE"'\/stable:\4/' >> $resolved_file_name
+    sed -e 's/\(.* image: \)\(github.com\)\(.*\/\)\(.*\)/\1 '"$OPENSHIFT_REGISTRY"'\/'"$OPENSHIFT_BUILD_NAMESPACE"'\/stable:\4/' \
+        -e 's/\(.* queueSidecarImage: \)\(github.com\)\(.*\/\)\(.*\)/\1 '"$OPENSHIFT_REGISTRY"'\/'"$OPENSHIFT_BUILD_NAMESPACE"'\/stable:\4/' >> $resolved_file_name
   done
 }
 
@@ -163,7 +164,7 @@ EOF
 
 function skip_image_tag_resolving(){
   oc get cm config-controller -n knative-serving -o yaml | \
-  sed -e "s/.*registriesSkippingTagResolving:.*/  registriesSkippingTagResolving: \"ko.local,dev.local,docker-registry.default.svc:5000\"/" | \
+  sed -e 's/.*registriesSkippingTagResolving:.*/  registriesSkippingTagResolving: \"ko.local,dev.local,'"$OPENSHIFT_REGISTRY"'\"/' | \
   oc apply -f -
 }
 
@@ -180,7 +181,7 @@ function run_e2e_tests(){
     -v -tags=e2e -count=1 -timeout=20m \
     ./test/conformance ./test/e2e \
     --kubeconfig $KUBECONFIG \
-    --dockerrepo docker-registry.default.svc:5000/${OPENSHIFT_BUILD_NAMESPACE}/stable \
+    --dockerrepo ${OPENSHIFT_REGISTRY}/${OPENSHIFT_BUILD_NAMESPACE}/stable \
     ${options} || fail_test
 }
 
