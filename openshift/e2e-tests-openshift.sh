@@ -96,7 +96,9 @@ function create_serving_and_build(){
   oc apply -f third_party/config/build/release.yaml
   
   resolve_resources config/ $SERVING_NAMESPACE serving-resolved.yaml
-  oc apply -f serving-resolved.yaml
+  
+  # Remove nodePort spec as the ports do not fall into the range allowed by OpenShift
+  sed '/nodePort/d' serving-resolved.yaml | oc apply -f -
 
   skip_image_tag_resolving
 }
