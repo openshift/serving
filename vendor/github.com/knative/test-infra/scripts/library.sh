@@ -220,7 +220,7 @@ function acquire_cluster_admin_role() {
 function report_go_test() {
   # Run tests in verbose mode to capture details.
   # go doesn't like repeating -v, so remove if passed.
-  local args=("${@/-v}")
+  local args=("${@/#-v}")
   local go_test="go test -race -v ${args[@]}"
   # Just run regular go tests if not on Prow.
   if (( ! IS_PROW )); then
