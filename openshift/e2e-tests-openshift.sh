@@ -100,7 +100,8 @@ function create_serving_and_build(){
   # Remove nodePort spec as the ports do not fall into the range allowed by OpenShift
   sed '/nodePort/d' serving-resolved.yaml | oc apply -f -
 
-  skip_image_tag_resolving
+  echo ">>> Setting SSL_CERT_FILE for Knative Serving Controller"
+  oc set env -n knative-serving deployment/controller SSL_CERT_FILE=/var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt
 }
 
 function create_test_resources_openshift() {
@@ -162,12 +163,6 @@ EOF
   oc set volume dc/docker-registry --add --type=configmap --configmap-name=registry-config -m /etc/docker/registry/
   oc set env dc/docker-registry REGISTRY_CONFIGURATION_PATH=/etc/docker/registry/config.yaml
   oc project $TEST_NAMESPACE
-}
-
-function skip_image_tag_resolving(){
-  oc get cm config-controller -n knative-serving -o yaml | \
-  sed -e 's/.*registriesSkippingTagResolving:.*/  registriesSkippingTagResolving: \"ko.local,dev.local,'"$OPENSHIFT_REGISTRY"'\"/' | \
-  oc apply -f -
 }
 
 function create_test_namespace(){
