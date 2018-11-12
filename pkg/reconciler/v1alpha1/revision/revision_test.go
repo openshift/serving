@@ -37,7 +37,7 @@ import (
 	"github.com/knative/pkg/configmap"
 	ctrl "github.com/knative/pkg/controller"
 	"github.com/knative/pkg/kmeta"
-	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	kpav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/autoscaler"
@@ -88,7 +88,7 @@ func getTestReadyEndpoints(revName string) *corev1.Endpoints {
 	}
 }
 
-func getTestReadyKPA(rev *v1alpha1.Revision) *kpa.PodAutoscaler {
+func getTestReadyKPA(rev *v1alpha1.Revision) *kpav1alpha1.PodAutoscaler {
 	kpa := resources.MakeKPA(rev)
 	kpa.Status.InitializeConditions()
 	kpa.Status.MarkActive()
@@ -209,7 +209,6 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 			"container-concurrency-target-default":    "10.0",
 			"stable-window":                           "5m",
 			"panic-window":                            "10s",
-			"scale-to-zero-threshold":                 "10m",
 			"tick-interval":                           "2s",
 		},
 	},
@@ -292,13 +291,12 @@ func addResourcesToInformers(t *testing.T,
 	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 
 	haveBuild := rev.Spec.BuildRef != nil
-	inActive := rev.Spec.ServingState != "Active"
 
 	ns := rev.Namespace
 
 	kpaName := resourcenames.KPA(rev)
 	kpa, err := servingClient.AutoscalingV1alpha1().PodAutoscalers(rev.Namespace).Get(kpaName, metav1.GetOptions{})
-	if apierrs.IsNotFound(err) && (haveBuild || inActive) {
+	if apierrs.IsNotFound(err) && haveBuild {
 		// If we're doing a Build this won't exist yet.
 	} else if err != nil {
 		t.Errorf("PodAutoscalers.Get(%v) = %v", kpaName, err)
@@ -318,7 +316,7 @@ func addResourcesToInformers(t *testing.T,
 
 	deploymentName := resourcenames.Deployment(rev)
 	deployment, err := kubeClient.AppsV1().Deployments(ns).Get(deploymentName, metav1.GetOptions{})
-	if apierrs.IsNotFound(err) && (haveBuild || inActive) {
+	if apierrs.IsNotFound(err) && haveBuild {
 		// If we're doing a Build this won't exist yet.
 	} else if err != nil {
 		t.Errorf("Deployments.Get(%v) = %v", deploymentName, err)
@@ -328,7 +326,7 @@ func addResourcesToInformers(t *testing.T,
 
 	serviceName := resourcenames.K8sService(rev)
 	service, err := kubeClient.CoreV1().Services(ns).Get(serviceName, metav1.GetOptions{})
-	if apierrs.IsNotFound(err) && (haveBuild || inActive) {
+	if apierrs.IsNotFound(err) && haveBuild {
 		// If we're doing a Build this won't exist yet.
 	} else if err != nil {
 		t.Errorf("Services.Get(%v) = %v", serviceName, err)
@@ -388,6 +386,7 @@ func TestResolutionFailed(t *testing.T) {
 			Reason:             "ContainerMissing",
 			Message:            errorMessage,
 			LastTransitionTime: got.LastTransitionTime,
+			Severity:           "Error",
 		}
 		if diff := cmp.Diff(want, got); diff != "" {
 			t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
@@ -464,6 +463,7 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 			Status:             corev1.ConditionUnknown,
 			Reason:             "Deploying",
 			LastTransitionTime: got.LastTransitionTime,
+			Severity:           "Error",
 		}
 		if diff := cmp.Diff(want, got); diff != "" {
 			t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)
@@ -490,6 +490,7 @@ func TestMarkRevReadyUponEndpointBecomesReady(t *testing.T) {
 			Type:               ct,
 			Status:             corev1.ConditionTrue,
 			LastTransitionTime: got.LastTransitionTime,
+			Severity:           "Error",
 		}
 		if diff := cmp.Diff(want, got); diff != "" {
 			t.Errorf("Unexpected revision conditions diff (-want +got): %v", diff)

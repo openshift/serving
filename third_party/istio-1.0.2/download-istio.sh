@@ -6,6 +6,9 @@ wget $DOWNLOAD_URL
 tar xzf istio-${ISTIO_VERSION}-linux.tar.gz
 cd istio-${ISTIO_VERSION}
 
+# Copy CRDs template
+cp install/kubernetes/helm/istio/templates/crds.yaml ../istio-crds.yaml
+
 # Create template
 helm template --namespace=istio-system \
   --set sidecarInjectorWebhook.enabled=true \
@@ -30,3 +33,8 @@ rm istio-${ISTIO_VERSION}-linux.tar.gz
 # run one kubectl command to install istio.
 patch istio.yaml namespace.yaml.patch
 patch istio-lean.yaml namespace.yaml.patch
+
+# Add in the prestop sleep to workaround https://github.com/knative/serving/issues/2351.
+#
+# We need to replace this with some better solution like retries.
+patch istio.yaml prestop-sleep.yaml.patch

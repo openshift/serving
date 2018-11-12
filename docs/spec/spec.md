@@ -7,13 +7,13 @@ schemas](#resource-yaml-definitions) that make up the Knative Serving API.
 
 Resource paths in the Knative Serving API have the following standard k8s form:
 
-```
+```http
 /apis/{apiGroup}/{apiVersion}/namespaces/{metadata.namespace}/{kind}/{metadata.name}
 ```
 
 For example:
 
-```
+```http
 /apis/serving.knative.dev/v1alpha1/namespaces/default/routes/my-service
 ```
 
@@ -23,13 +23,13 @@ cluster-wide DNS name. While no particular URL scheme is mandated
 mapping), a common implementation would be to use the kubernetes
 namespace mechanism to produce a URL like the following:
 
-```
+```http
 [$revisionname].$route.$namespace.<common knative cluster suffix>
 ```
 
 For example:
 
-```
+```http
 prod.my-service.default.mydomain.com
 ```
 
@@ -52,7 +52,7 @@ metadata:
   name: my-service
   namespace: default
   labels:
-    knative.dev/service: ...  # name of the Service automatically filled in   
+    knative.dev/service: ...  # name of the Service automatically filled in
 
   # system generated meta
   uid: ...
@@ -78,12 +78,12 @@ status:
   #   along with a cluster-specific prefix (here, mydomain.com).
   domain: my-service.default.mydomain.com
 
-  targetable: # knative/pkg/apis/duck/v1alpha1.Targetable
-    # domainInternal: A DNS name for the default (traffic-split) route which can
+  address: # knative/pkg/apis/duck/v1alpha1.Addressable
+    # hostname: A DNS name for the default (traffic-split) route which can
     # be accessed without leaving the cluster environment.
-    domainInternal: my-service.default.svc.cluster.local
+    hostname: my-service.default.svc.cluster.local
 
-  # DEPRECATED: see targetable.domainInternal (above)
+  # DEPRECATED: see address.hostname (above)
   domainInternal: ...
 
   traffic:
@@ -104,12 +104,10 @@ status:
   observedGeneration: ...  # last generation being reconciled
 ```
 
-
 ### Configuration
 
 For a high-level description of Configurations,
 [see the overview](overview.md#configuration).
-
 
 ```yaml
 apiVersion: serving.knative.dev/v1alpha1
@@ -140,7 +138,7 @@ spec:
       annotations: ...
       labels: ...
     spec: ...
-  
+
   revisionTemplate:  # template for building Revision
     metadata: ...
       labels:
@@ -201,7 +199,6 @@ status:
   observedGeneration: ...  # last generation being reconciled
 ```
 
-
 ### Revision
 
 For a high-level description of Revisions,
@@ -216,8 +213,7 @@ metadata:
   labels:
     knative.dev/configuration: ...  # name of the Configuration automatically filled in 
     knative.dev/service: ...  # name of the Service automatically filled in
-  annotations:
-    knative.dev/configurationGeneration: ...  # generation of configuration that created this Revision
+    knative.dev/configurationGeneration: ... # generation of configuration that created this Revision
   # system generated meta
   uid: ...
   resourceVersion: ...  # used for optimistic concurrency control
@@ -257,10 +253,8 @@ spec:
   # Name of the service account the code should run as.
   serviceAccountName: ...
 
-  # The Revision's level of readiness for receiving traffic.
-  # This may not be specified at creation (defaults to Active),
-  # and is used by the controllers and activator to enable
-  # scaling to/from 0.
+  # Deprecated and not updated anymore
+  # Used to be the Revision's level of readiness for receiving traffic.
   servingState: Active | Reserve | Retired
 
   # Some function or server frameworks or application code may be
@@ -310,16 +304,14 @@ status:
   imageDigest: gcr.io/my-project/...@sha256:60ab5...
 ```
 
-
 ## Service
 
 For a high-level description of Services,
 [see the overview](overview.md#service).
 
-
 ```yaml
 apiVersion: serving.knative.dev/v1alpha1
-kind: Service	
+kind: Service
 metadata:
   name: myservice
   namespace: default
@@ -392,13 +384,13 @@ status:
   #   route. Typically, this will be composed of the name and namespace
   #   along with a cluster-specific prefix (here, mydomain.com).
   domain: myservice.default.mydomain.com
-
-  targetable: # knative/pkg/apis/duck/v1alpha1.Targetable
-    # domainInternal: A DNS name for the default (traffic-split) route which can
+ 
+  address: # knative/pkg/apis/duck/v1alpha1.Addressable
+    # hostname: A DNS name for the default (traffic-split) route which can
     # be accessed without leaving the cluster environment.
-    domainInternal: myservice.default.svc.cluster.local
+    hostname: myservice.default.svc.cluster.local
 
-  # DEPRECATED: see targetable.domainInternal (above)
+  # DEPRECATED: see address.hostname (above)
   domainInternal: ...
 
   # current rollout status list. configurationName references

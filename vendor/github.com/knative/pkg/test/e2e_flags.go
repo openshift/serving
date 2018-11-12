@@ -21,7 +21,6 @@ package test
 
 import (
 	"flag"
-	"fmt"
 	"os"
 	"os/user"
 	"path"
@@ -49,8 +48,6 @@ func initializeFlags() *EnvironmentFlags {
 	var defaultKubeconfig string
 	if usr, err := user.Current(); err == nil {
 		defaultKubeconfig = path.Join(usr.HomeDir, ".kube/config")
-	} else {
-		fmt.Printf("Could not get current user: %v", err)
 	}
 
 	flag.StringVar(&f.Kubeconfig, "kubeconfig", defaultKubeconfig,

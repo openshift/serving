@@ -23,6 +23,13 @@ import (
 
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/logging"
+	"github.com/knative/serving/pkg/apis/autoscaling"
+	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
+	"github.com/knative/serving/pkg/apis/serving"
+	"github.com/knative/serving/pkg/autoscaler"
+	informers "github.com/knative/serving/pkg/client/informers/externalversions/autoscaling/v1alpha1"
+	listers "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"
+	"github.com/knative/serving/pkg/reconciler"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -31,13 +38,6 @@ import (
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
-
-	"github.com/knative/serving/pkg/apis/autoscaling"
-	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
-	"github.com/knative/serving/pkg/autoscaler"
-	informers "github.com/knative/serving/pkg/client/informers/externalversions/autoscaling/v1alpha1"
-	listers "github.com/knative/serving/pkg/client/listers/autoscaling/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler"
 )
 
 const (
@@ -62,7 +62,7 @@ type KPAMetrics interface {
 // KPAScaler knows how to scale the targets of KPAs
 type KPAScaler interface {
 	// Scale attempts to scale the given KPA's target to the desired scale.
-	Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredScale int32) error
+	Scale(ctx context.Context, kpa *kpa.PodAutoscaler, desiredScale int32) (int32, error)
 }
 
 // Reconciler tracks KPAs and right sizes the ScaleTargetRef based on the
@@ -98,7 +98,7 @@ func NewController(
 		kpaMetrics:      kpaMetrics,
 		kpaScaler:       kpaScaler,
 	}
-	impl := controller.NewImpl(c, c.Logger, "Autoscaling")
+	impl := controller.NewImpl(c, c.Logger, "Autoscaling", reconciler.MustNewStatsReporter("Autoscaling", c.Logger))
 
 	c.Logger.Info("Setting up event handlers")
 	kpaInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -157,12 +157,11 @@ func (c *Reconciler) Reconcile(ctx context.Context, key string) error {
 		// This is important because the copy we loaded from the informer's
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
-	} else {
-		// logger.Infof("Updating Status (-old, +new): %v", cmp.Diff(original, kpa))
-		if _, err := c.updateStatus(kpa); err != nil {
-			logger.Warn("Failed to update kpa status", zap.Error(err))
-			return err
-		}
+	} else if _, err := c.updateStatus(kpa); err != nil {
+		logger.Warn("Failed to update kpa status", zap.Error(err))
+		c.Recorder.Eventf(kpa, corev1.EventTypeWarning, "UpdateFailed",
+			"Failed to update status for KPA %q: %v", kpa.Name, err)
+		return err
 	}
 	return err
 }
@@ -187,7 +186,8 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, kpa *kpa.PodAuto
 
 	// Get the appropriate current scale from the metric, and right size
 	// the scaleTargetRef based on it.
-	if err := c.kpaScaler.Scale(ctx, kpa, metric.DesiredScale); err != nil {
+	want, err := c.kpaScaler.Scale(ctx, kpa, metric.DesiredScale)
+	if err != nil {
 		logger.Errorf("Error scaling target: %v", err)
 		return err
 	}
@@ -208,14 +208,28 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, kpa *kpa.PodAuto
 			got += len(es.Addresses)
 		}
 	}
-	want := metric.DesiredScale
+
 	logger.Infof("KPA got=%v, want=%v", got, want)
 
+	var serviceLabel string
+	var configLabel string
+	if kpa.Labels != nil {
+		serviceLabel = kpa.Labels[serving.ServiceLabelKey]
+		configLabel = kpa.Labels[serving.ConfigurationLabelKey]
+	}
+	reporter, err := autoscaler.NewStatsReporter(kpa.Namespace, serviceLabel, configLabel, kpa.Name)
+	if err != nil {
+		return err
+	}
+
+	reporter.Report(autoscaler.ActualPodCountM, float64(got))
+	reporter.Report(autoscaler.RequestedPodCountM, float64(want))
+
 	switch {
-	case want == 0 || want == -1:
+	case want == 0:
 		kpa.Status.MarkInactive("NoTraffic", "The target is not receiving traffic.")
 
-	case got == 0 && want > 0:
+	case got == 0 && want != 0:
 		kpa.Status.MarkActivating(
 			"Queued", "Requests to the target are being buffered as resources are provisioned.")
 
@@ -226,18 +240,19 @@ func (c *Reconciler) reconcile(ctx context.Context, key string, kpa *kpa.PodAuto
 	return nil
 }
 
-func (c *Reconciler) updateStatus(kpa *kpa.PodAutoscaler) (*kpa.PodAutoscaler, error) {
-	newKPA, err := c.kpaLister.PodAutoscalers(kpa.Namespace).Get(kpa.Name)
+func (c *Reconciler) updateStatus(desired *kpa.PodAutoscaler) (*kpa.PodAutoscaler, error) {
+	kpa, err := c.kpaLister.PodAutoscalers(desired.Namespace).Get(desired.Name)
 	if err != nil {
 		return nil, err
 	}
-	// Check if there is anything to update.
-	if !reflect.DeepEqual(newKPA.Status, kpa.Status) {
-		newKPA.Status = kpa.Status
-
-		// TODO: for CRD there's no updatestatus, so use normal update
-		return c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Update(newKPA)
-		//	return prClient.UpdateStatus(newKPA)
+	// If there's nothing to update, just return.
+	if reflect.DeepEqual(kpa.Status, desired.Status) {
+		return kpa, nil
 	}
-	return kpa, nil
+	// Don't modify the informers copy
+	existing := kpa.DeepCopy()
+	existing.Status = desired.Status
+
+	// TODO: for CRD there's no updatestatus, so use normal update
+	return c.ServingClientSet.AutoscalingV1alpha1().PodAutoscalers(kpa.Namespace).Update(existing)
 }

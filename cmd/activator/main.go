@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/knative/serving/cmd/util"
 	"github.com/knative/serving/pkg/autoscaler"
 	"k8s.io/apimachinery/pkg/util/wait"
 
@@ -36,9 +37,8 @@ import (
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	"github.com/knative/serving/pkg/http/h2c"
 	"github.com/knative/serving/pkg/logging"
+	"github.com/knative/serving/pkg/metrics"
 	"github.com/knative/serving/pkg/system"
-	"go.opencensus.io/exporter/prometheus"
-	"go.opencensus.io/stats/view"
 	"go.uber.org/zap"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -48,7 +48,7 @@ import (
 
 const (
 	maxUploadBytes = 32e6 // 32MB - same as app engine
-	logLevelKey    = "activator"
+	component      = "activator"
 
 	maxRetries             = 18 // the sum of all retries would add up to 1 minute
 	minRetryInterval       = 100 * time.Millisecond
@@ -95,9 +95,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error parsing logging configuration: %v", err)
 	}
-	createdLogger, atomicLevel := logging.NewLoggerFromConfig(config, logLevelKey)
-	defer createdLogger.Sync()
+	createdLogger, atomicLevel := logging.NewLoggerFromConfig(config, component)
 	logger = createdLogger.With(zap.String(logkey.ControllerType, "activator"))
+	defer logger.Sync()
+
 	logger.Info("Starting the knative activator")
 
 	clusterConfig, err := rest.InClusterConfig()
@@ -112,14 +113,6 @@ func main() {
 	if err != nil {
 		logger.Fatal("Error building serving clientset", zap.Error(err))
 	}
-
-	logger.Info("Initializing OpenCensus Prometheus exporter.")
-	promExporter, err := prometheus.NewExporter(prometheus.Options{Namespace: "activator"})
-	if err != nil {
-		logger.Fatal("Failed to create the Prometheus exporter", zap.Error(err))
-	}
-	view.RegisterExporter(promExporter)
-	view.SetReportingPeriod(10 * time.Second)
 
 	reporter, err := activator.NewStatsReporter()
 	if err != nil {
@@ -146,7 +139,8 @@ func main() {
 	statSink = websocket.NewDurableSendingConnection(autoscalerEndpoint)
 	go statReporter()
 
-	activatorhandler.NewConcurrencyReporter(autoscaler.ActivatorPodName, activatorhandler.Channels{
+	podName := util.GetRequiredEnvOrFatal("POD_NAME", logger)
+	activatorhandler.NewConcurrencyReporter(podName, activatorhandler.Channels{
 		ReqChan:    reqChan,
 		StatChan:   statChan,
 		ReportChan: time.NewTicker(time.Second).C,
@@ -175,17 +169,12 @@ func main() {
 
 	// Watch the logging config map and dynamically update logging levels.
 	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace)
-	configMapWatcher.Watch(logging.ConfigName, logging.UpdateLevelFromConfigMap(logger, atomicLevel, logLevelKey))
+	configMapWatcher.Watch(logging.ConfigName, logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
+	// Watch the observability config map and dynamically update metrics exporter.
+	configMapWatcher.Watch(metrics.ObservabilityConfigName, metrics.UpdateExporterFromConfigMap(component, logger))
 	if err = configMapWatcher.Start(stopCh); err != nil {
 		logger.Fatalf("failed to start configuration manager: %v", err)
 	}
-
-	// Start the endpoint for Prometheus scraping
-	go func() {
-		mux := http.NewServeMux()
-		mux.Handle("/metrics", promExporter)
-		http.ListenAndServe(":9090", mux)
-	}()
 
 	h2c.ListenAndServe(":8080", ah)
 }

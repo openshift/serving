@@ -48,11 +48,8 @@ variables (we recommend adding them to your `.bashrc`):
 work properly.
 1. `KO_DOCKER_REPO` and `DOCKER_REPO_OVERRIDE`: The docker repository to which
 developer images should be pushed (e.g. `gcr.io/[gcloud-project]`).
-1. `K8S_CLUSTER_OVERRIDE`: The Kubernetes cluster on which development
-environments should be managed.
-1. `K8S_USER_OVERRIDE`: The Kubernetes user that you use to manage your cluster.
-This depends on your cluster setup, please take a look at [cluster setup
-instruction](./docs/creating-a-kubernetes-cluster.md).
+   * **Note**: if you are using docker hub to store your images your `KO_DOCKER_REPO` variable should be `docker.io/<username>`.
+   * **Note**: Currently Docker Hub doesn't let you create subdirs under your username.
 
 `.bashrc` example:
 
@@ -62,7 +59,6 @@ export PATH="${PATH}:${GOPATH}/bin"
 export KO_DOCKER_REPO='gcr.io/my-gcloud-project-name'
 export DOCKER_REPO_OVERRIDE="${KO_DOCKER_REPO}"
 export K8S_CLUSTER_OVERRIDE='my-k8s-cluster-name'
-export K8S_USER_OVERRIDE='my-k8s-user'
 ```
 
 Make sure to configure [authentication](
@@ -117,17 +113,29 @@ Once you've [setup your development environment](#getting-started), stand up
 ### Setup cluster admin
 
 Your `$K8S_USER_OVERRIDE` must be a cluster admin to perform
-the setup needed for Knative:
+the setup needed for Knative.
+
+The value you use depends on [your cluster setup](./docs/creating-a-kubernetes-cluster.md):
 
 ```shell
+# When using Minikube, the K8s user is your local user.
+export K8S_USER_OVERRIDE=$USER
+
+# When using GKE, the K8s user is your GCP user.
+export K8S_USER_OVERRIDE=$(gcloud config get-value core/account)
+
 kubectl create clusterrolebinding cluster-admin-binding \
   --clusterrole=cluster-admin \
-  --user="${K8S_USER_OVERRIDE}"
+  --user="${K8S_USER_OVERRIDE?}"
 ```
 
 ### Deploy Istio
 
 ```shell
+kubectl apply -f ./third_party/istio-1.0.2/istio-crds.yaml
+while [ $(kubectl get crd gateways.networking.istio.io -o jsonpath='{.status.conditions[?(@.type=="Established")].status}') != 'True' ]; do
+  echo "Waiting on Istio CRDs"; sleep 1
+done
 kubectl apply -f ./third_party/istio-1.0.2/istio.yaml
 ```
 
@@ -178,12 +186,12 @@ page to ensure that all services are up and running (and not blocked by a quota 
 Run:
 
 ```shell
-kubectl apply -R -f config/monitoring/100-common \
-    -f config/monitoring/150-elasticsearch \
-    -f third_party/config/monitoring/common \
-    -f third_party/config/monitoring/elasticsearch \
-    -f config/monitoring/200-common \
-    -f config/monitoring/200-common/100-istio.yaml
+kubectl apply -R -f config/monitoring/100-namespace.yaml \
+    -f third_party/config/monitoring/logging/elasticsearch \
+    -f config/monitoring/logging/elasticsearch \
+    -f third_party/config/monitoring/metrics/prometheus \
+    -f config/monitoring/metrics/prometheus \
+    -f config/monitoring/tracing/zipkin
 ```
 
 ## Iterating
@@ -191,8 +199,9 @@ kubectl apply -R -f config/monitoring/100-common \
 As you make changes to the code-base, there are two special cases to be aware of:
 
 * **If you change an input to generated code**, then you must run [`./hack/update-codegen.sh`](./hack/update-codegen.sh). Inputs include:
-    * API type definitions in [pkg/apis/serving/v1alpha1/](./pkg/apis/serving/v1alpha1/.),
-    * Types definitions annotated with `// +k8s:deepcopy-gen=true`.
+
+  * API type definitions in [pkg/apis/serving/v1alpha1/](./pkg/apis/serving/v1alpha1/.),
+  * Types definitions annotated with `// +k8s:deepcopy-gen=true`.
 
 * **If you change a package's deps** (including adding external dep), then you must run
   [`./hack/update-deps.sh`](./hack/update-deps.sh).
@@ -219,10 +228,11 @@ You can delete all of the service components with:
 
 ```shell
 ko delete --ignore-not-found=true \
-  -f config/monitoring/100-common \
+  -f config/monitoring/100-namespace.yaml \
   -f config/ \
   -f ./third_party/config/build/release.yaml \
-  -f ./third_party/istio-1.0.2/istio.yaml
+  -f ./third_party/istio-1.0.2/istio.yaml \
+  -f ./third_party/istio-1.0.2/istio-crds.yaml
 ```
 
 ## Telemetry

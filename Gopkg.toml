@@ -9,7 +9,8 @@ required = [
   "k8s.io/code-generator/cmd/lister-gen",
   "k8s.io/code-generator/cmd/informer-gen",
   "github.com/knative/caching/pkg/apis/caching",
-  "github.com/knative/test-infra",
+  "github.com/knative/test-infra/scripts",
+  "github.com/knative/test-infra/tools/dep-collector",
 ]
 
 [[override]]
@@ -18,13 +19,12 @@ required = [
 
 [[constraint]]
   name = "github.com/knative/build"
-  # HEAD as of 2018-10-08
-  revision = "cc4451408f52b86fec87f6b7e4bc88848d3b1088"
+  version = "v0.2.0"
 
 [[override]]
   name = "github.com/knative/pkg"
-  # HEAD as of 2018-10-09
-  revision = "ba1a828cd571f605684f9a4506e85bc13cb65b8d"
+  # HEAD as of 2018-11-08
+  revision = "4b704fa7948ad9ae8ec90d1cd5b4a34516b252ea"
 
 [[override]]
   name = "go.uber.org/zap"
@@ -78,5 +78,4 @@ required = [
 
 [[prune.project]]
   name = "github.com/knative/test-infra"
-  unused-packages = false
   non-go = false

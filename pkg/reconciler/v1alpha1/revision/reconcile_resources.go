@@ -64,7 +64,7 @@ func (c *Reconciler) reconcileDeployment(ctx context.Context, rev *v1alpha1.Revi
 
 	// Now that we have a Deployment, determine whether there is any relevant
 	// status to surface in the Revision.
-	if hasDeploymentTimedOut(deployment) {
+	if hasDeploymentTimedOut(deployment) && !rev.Status.IsActivationRequired() {
 		rev.Status.MarkProgressDeadlineExceeded(fmt.Sprintf(
 			"Unable to create pods for more than %d seconds.", resources.ProgressDeadlineSeconds))
 		c.Recorder.Eventf(rev, corev1.EventTypeNormal, "ProgressDeadlineExceeded",
@@ -137,7 +137,7 @@ func (c *Reconciler) reconcileService(ctx context.Context, rev *v1alpha1.Revisio
 	if apierrs.IsNotFound(err) {
 		// If it does not exist, then create it.
 		rev.Status.MarkDeploying("Deploying")
-		service, err = c.createService(ctx, rev, resources.MakeK8sService)
+		_, err = c.createService(ctx, rev, resources.MakeK8sService)
 		if err != nil {
 			logger.Errorf("Error creating Service %q: %v", serviceName, err)
 			return err
@@ -152,7 +152,7 @@ func (c *Reconciler) reconcileService(ctx context.Context, rev *v1alpha1.Revisio
 		// should not allow, or if our expectations of how the service should look
 		// changes (e.g. we update our controller with new sidecars).
 		var changed Changed
-		service, changed, err = c.checkAndUpdateService(ctx, rev, resources.MakeK8sService, service)
+		_, changed, err = c.checkAndUpdateService(ctx, rev, resources.MakeK8sService, service)
 		if err != nil {
 			logger.Errorf("Error updating Service %q: %v", serviceName, err)
 			return err
@@ -187,7 +187,7 @@ func (c *Reconciler) reconcileService(ctx context.Context, rev *v1alpha1.Revisio
 		// TODO(mattmoor): How to ensure this only fires once?
 		c.Recorder.Eventf(rev, corev1.EventTypeNormal, "RevisionReady",
 			"Revision becomes ready upon endpoint %q becoming ready", serviceName)
-	} else {
+	} else if !rev.Status.IsActivationRequired() {
 		// If the endpoints is NOT ready, then check whether it is taking unreasonably
 		// long to become ready and if so mark our revision as having timed out waiting
 		// for the Service to become ready.
@@ -231,8 +231,11 @@ func (c *Reconciler) reconcileFluentdConfigMap(ctx context.Context, rev *v1alpha
 		if !equality.Semantic.DeepEqual(configMap.Data, desiredConfigMap.Data) {
 			logger.Infof("Reconciling fluentd configmap diff (-desired, +observed): %v",
 				cmp.Diff(desiredConfigMap.Data, configMap.Data))
-			configMap.Data = desiredConfigMap.Data
-			configMap, err = c.KubeClientSet.CoreV1().ConfigMaps(ns).Update(desiredConfigMap)
+
+			// Don't modify the informers copy
+			existing := configMap.DeepCopy()
+			existing.Data = desiredConfigMap.Data
+			_, err = c.KubeClientSet.CoreV1().ConfigMaps(ns).Update(existing)
 			if err != nil {
 				logger.Error("Error updating fluentd configmap", zap.Error(err))
 				return err

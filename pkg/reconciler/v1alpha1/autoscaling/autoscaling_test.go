@@ -44,6 +44,7 @@ import (
 
 var (
 	gracePeriod = 60 * time.Second
+	idlePeriod  = 9 * time.Minute
 )
 
 func newConfigWatcher() configmap.Watcher {
@@ -59,7 +60,6 @@ func newConfigWatcher() configmap.Watcher {
 				"container-concurrency-target-default":    "10.0",
 				"stable-window":                           "5m",
 				"panic-window":                            "10s",
-				"scale-to-zero-threshold":                 "10m",
 				"scale-to-zero-grace-period":              gracePeriod.String(),
 				"tick-interval":                           "2s",
 			},
@@ -530,7 +530,6 @@ func newTestRevision(namespace string, name string) *v1alpha1.Revision {
 			Namespace: namespace,
 		},
 		Spec: v1alpha1.RevisionSpec{
-			ServingState: "Active",
 			Container: corev1.Container{
 				Image:      "gcr.io/repo/image",
 				Command:    []string{"echo"},

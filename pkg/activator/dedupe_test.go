@@ -22,15 +22,13 @@ import (
 	"sync"
 	"testing"
 	"time"
-
-	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 )
 
 func TestSingleRevision_SingleRequest_Success(t *testing.T) {
 	want := Endpoint{"ip", 8080}
 	f := newFakeActivator(t,
 		map[revisionID]ActivationResult{
-			revisionID{testNamespace, testRevision}: {
+			{testNamespace, testRevision}: {
 				Endpoint: want,
 				Status:   http.StatusOK,
 			},
@@ -57,7 +55,7 @@ func TestSingleRevision_MultipleRequests_Success(t *testing.T) {
 	ep := Endpoint{"ip", 8080}
 	f := newFakeActivator(t,
 		map[revisionID]ActivationResult{
-			revisionID{testNamespace, testRevision}: {
+			{testNamespace, testRevision}: {
 				Endpoint: ep,
 				Status:   http.StatusOK,
 			},
@@ -91,11 +89,11 @@ func TestMultipleRevisions_MultipleRequests_Success(t *testing.T) {
 	ep2 := Endpoint{"ip2", 8080}
 	f := newFakeActivator(t,
 		map[revisionID]ActivationResult{
-			revisionID{testNamespace, "rev1"}: {
+			{testNamespace, "rev1"}: {
 				Endpoint: ep1,
 				Status:   http.StatusOK,
 			},
-			revisionID{testNamespace, "rev2"}: {
+			{testNamespace, "rev2"}: {
 				Endpoint: ep2,
 				Status:   http.StatusOK,
 			},
@@ -134,11 +132,11 @@ func TestMultipleRevisions_MultipleRequests_PartialSuccess(t *testing.T) {
 	error2 := fmt.Errorf("test error")
 	f := newFakeActivator(t,
 		map[revisionID]ActivationResult{
-			revisionID{testNamespace, "rev1"}: {
+			{testNamespace, "rev1"}: {
 				Endpoint: ep1,
 				Status:   http.StatusOK,
 			},
-			revisionID{testNamespace, "rev2"}: {
+			{testNamespace, "rev2"}: {
 				Endpoint: Endpoint{},
 				Status:   status2,
 				Error:    error2,
@@ -170,14 +168,13 @@ func TestMultipleRevisions_MultipleRequests_PartialSuccess(t *testing.T) {
 func TestSingleRevision_MultipleRequests_FailureRecovery(t *testing.T) {
 	_, kna := fakeClients()
 	kna.ServingV1alpha1().Revisions(testNamespace).Create(
-		newRevisionBuilder(defaultRevisionLabels).
-			withServingState(v1alpha1.RevisionServingStateReserve).build())
+		newRevisionBuilder(defaultRevisionLabels).build())
 	failEp := Endpoint{}
 	failStatus := http.StatusServiceUnavailable
 	failErr := fmt.Errorf("test error")
 	f := newFakeActivator(t,
 		map[revisionID]ActivationResult{
-			revisionID{testNamespace, testRevision}: {
+			{testNamespace, testRevision}: {
 				Endpoint: failEp,
 				Status:   failStatus,
 				Error:    failErr,
@@ -228,12 +225,11 @@ func TestSingleRevision_MultipleRequests_FailureRecovery(t *testing.T) {
 func TestShutdown_ReturnError(t *testing.T) {
 	_, kna := fakeClients()
 	kna.ServingV1alpha1().Revisions(testNamespace).Create(
-		newRevisionBuilder(defaultRevisionLabels).
-			withServingState(v1alpha1.RevisionServingStateReserve).build())
+		newRevisionBuilder(defaultRevisionLabels).build())
 	ep := Endpoint{"ip", 8080}
 	f := newFakeActivator(t,
 		map[revisionID]ActivationResult{
-			revisionID{testNamespace, testRevision}: {
+			{testNamespace, testRevision}: {
 				Endpoint: ep,
 				Status:   http.StatusOK,
 			},

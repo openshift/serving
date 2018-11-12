@@ -19,6 +19,7 @@ package autoscaler
 import (
 	"context"
 	"math"
+	"strings"
 	"sync"
 	"time"
 
@@ -67,17 +68,18 @@ type statKey struct {
 // Creates a new totalAggregation
 func newTotalAggregation(window time.Duration) *totalAggregation {
 	return &totalAggregation{
-		window:             window,
-		perPodAggregations: make(map[string]*perPodAggregation),
+		window:              window,
+		perPodAggregations:  make(map[string]*perPodAggregation),
+		activatorsContained: make(map[string]struct{}),
 	}
 }
 
 // Holds an aggregation across all pods
 type totalAggregation struct {
-	window                   time.Duration
-	perPodAggregations       map[string]*perPodAggregation
-	probeCount               int32
-	containsActivatorMetrics bool
+	window              time.Duration
+	perPodAggregations  map[string]*perPodAggregation
+	probeCount          int32
+	activatorsContained map[string]struct{}
 }
 
 // Aggregates a given stat to the correct pod-aggregation
@@ -91,25 +93,27 @@ func (agg *totalAggregation) aggregate(stat Stat) {
 		current.lameduck(stat.Time)
 	} else {
 		current.aggregate(stat.AverageConcurrentRequests)
-		if stat.PodName == ActivatorPodName {
-			agg.containsActivatorMetrics = true
+		// TODO(#2282): This can cause naming collisions.
+		if strings.HasPrefix(stat.PodName, ActivatorPodName) {
+			agg.activatorsContained[stat.PodName] = struct{}{}
 		}
-		agg.probeCount += 1
+		agg.probeCount++
 	}
 }
 
 // The number of pods that are observable via stats
-// Substracts the activator pod if its not the only pod reporting stats
+// Subtracts the activator pod if its not the only pod reporting stats
 func (agg *totalAggregation) observedPods(now time.Time) float64 {
 	podCount := float64(0.0)
 	for _, pod := range agg.perPodAggregations {
 		podCount += pod.usageRatio(now)
 	}
 
-	// Discount the activator in the pod count.
-	if agg.containsActivatorMetrics {
-		discountedPodCount := podCount - 1.0
-		// Report a minimum of 1 pod if the activator is sending metrics.
+	activatorsCount := len(agg.activatorsContained)
+	// Discount the activators in the pod count.
+	if activatorsCount > 0 {
+		discountedPodCount := podCount - float64(activatorsCount)
+		// Report a minimum of 1 pod if the activators are sending metrics.
 		if discountedPodCount < 1.0 {
 			return 1.0
 		}
@@ -126,7 +130,8 @@ func (agg *totalAggregation) observedConcurrencyPerPod(now time.Time) float64 {
 	activatorConcurrency := float64(0)
 	observedPods := agg.observedPods(now)
 	for podName, perPod := range agg.perPodAggregations {
-		if podName == ActivatorPodName {
+		// TODO(#2282): This can cause naming collisions.
+		if strings.HasPrefix(podName, ActivatorPodName) {
 			activatorConcurrency += perPod.calculateAverage(now)
 		} else {
 			accumulatedConcurrency += perPod.calculateAverage(now)
@@ -182,26 +187,22 @@ func (agg *perPodAggregation) usageRatio(now time.Time) float64 {
 // Autoscaler stores current state of an instance of an autoscaler
 type Autoscaler struct {
 	*DynamicConfig
-	containerConcurrency         v1alpha1.RevisionContainerConcurrencyType
-	stats                        map[statKey]Stat
-	statsMutex                   sync.Mutex
-	panicking                    bool
-	panicTime                    *time.Time
-	maxPanicPods                 float64
-	reporter                     StatsReporter
-	lastRequestTime              time.Time
-	scaleToZeroThresholdExceeded bool
+	containerConcurrency v1alpha1.RevisionContainerConcurrencyType
+	stats                map[statKey]Stat
+	statsMutex           sync.Mutex
+	panicking            bool
+	panicTime            *time.Time
+	maxPanicPods         float64
+	reporter             StatsReporter
 }
 
 // New creates a new instance of autoscaler
 func New(dynamicConfig *DynamicConfig, containerConcurrency v1alpha1.RevisionContainerConcurrencyType, reporter StatsReporter) *Autoscaler {
 	return &Autoscaler{
-		DynamicConfig:                dynamicConfig,
-		containerConcurrency:         containerConcurrency,
-		stats:                        make(map[statKey]Stat),
-		reporter:                     reporter,
-		lastRequestTime:              time.Now(),
-		scaleToZeroThresholdExceeded: false,
+		DynamicConfig:        dynamicConfig,
+		containerConcurrency: containerConcurrency,
+		stats:                make(map[statKey]Stat),
+		reporter:             reporter,
 	}
 }
 
@@ -256,11 +257,6 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 			if lastStat[stat.PodName].Time.Before(*stat.Time) {
 				lastStat[stat.PodName] = stat
 			}
-			// Update lastRequestTime if the current stat is newer and
-			// actually contains requests
-			if a.lastRequestTime.Before(*stat.Time) && stat.RequestCount > 0 {
-				a.lastRequestTime = *stat.Time
-			}
 		} else {
 			// Drop metrics after 60 seconds
 			delete(a.stats, key)
@@ -271,12 +267,6 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 	if stableData.observedPods(now) < 1.0 {
 		logger.Debug("No data to scale on.")
 		return 0, false
-	}
-
-	// Scale to zero if the last request is from too long ago
-	if a.lastRequestTime.Add(config.ScaleToZeroIdlePeriod).Before(now) {
-		logger.Debug("Last request is older than scale to zero threshold. Scaling to 0.")
-		return 0, true
 	}
 
 	// Log system totals
@@ -325,6 +315,8 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 		a.panicTime = &now
 	}
 
+	var desiredPodCount int32
+
 	if a.panicking {
 		logger.Debug("Operating in panic mode.")
 		if desiredPanicPodCount > a.maxPanicPods {
@@ -332,10 +324,14 @@ func (a *Autoscaler) Scale(ctx context.Context, now time.Time) (int32, bool) {
 			a.panicTime = &now
 			a.maxPanicPods = desiredPanicPodCount
 		}
-		return int32(math.Max(1.0, math.Ceil(a.maxPanicPods))), true
+		desiredPodCount = int32(math.Ceil(a.maxPanicPods))
+	} else {
+		logger.Debug("Operating in stable mode.")
+		desiredPodCount = int32(math.Ceil(desiredStablePodCount))
 	}
-	logger.Debug("Operating in stable mode.")
-	return int32(math.Max(1.0, math.Ceil(desiredStablePodCount))), true
+
+	a.reporter.Report(DesiredPodCountM, float64(desiredPodCount))
+	return desiredPodCount, true
 }
 
 func (a *Autoscaler) rateLimited(desiredRate float64) float64 {

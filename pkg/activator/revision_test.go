@@ -52,7 +52,7 @@ func init() {
 
 type mockReporter struct{}
 
-func (r *mockReporter) ReportRequest(ns, service, config, rev, servingState string, v float64) error {
+func (r *mockReporter) ReportRequest(ns, service, config, rev string, v float64) error {
 	return nil
 }
 
@@ -68,7 +68,6 @@ func TestActiveEndpoint_Reserve_WaitsForReady(t *testing.T) {
 	k8s, kna := fakeClients()
 	kna.ServingV1alpha1().Revisions(testNamespace).Create(
 		newRevisionBuilder(defaultRevisionLabels).
-			withServingState(v1alpha1.RevisionServingStateReserve).
 			withReady(false).
 			build())
 	k8s.CoreV1().Services(testNamespace).Create(newServiceBuilder().build())
@@ -120,7 +119,6 @@ func TestActiveEndpoint_Reserve_ReadyTimeoutWithError(t *testing.T) {
 	k8s, kna := fakeClients()
 	kna.ServingV1alpha1().Revisions(testNamespace).Create(
 		newRevisionBuilder(defaultRevisionLabels).
-			withServingState(v1alpha1.RevisionServingStateReserve).
 			withReady(false).
 			build())
 	k8s.CoreV1().Services(testNamespace).Create(newServiceBuilder().build())
@@ -188,7 +186,6 @@ func newRevisionBuilder(labels map[string]string) *revisionBuilder {
 				Container: corev1.Container{
 					Image: "gcr.io/repo/image",
 				},
-				ServingState: v1alpha1.RevisionServingStateActive,
 			},
 			Status: v1alpha1.RevisionStatus{
 				Conditions: duckv1alpha1.Conditions{{
@@ -209,17 +206,13 @@ func (b *revisionBuilder) withRevisionName(name string) *revisionBuilder {
 	return b
 }
 
-func (b *revisionBuilder) withServingState(servingState v1alpha1.RevisionServingStateType) *revisionBuilder {
-	b.revision.Spec.ServingState = servingState
-	return b
-}
-
 func (b *revisionBuilder) withReady(ready bool) *revisionBuilder {
 	if ready {
 		b.revision.Status.MarkContainerHealthy()
 		b.revision.Status.MarkResourcesAvailable()
+		b.revision.Status.MarkActive()
 	} else {
-		b.revision.Status.MarkContainerMissing("reasonz")
+		b.revision.Status.MarkInactive("reasonz", "detailz")
 	}
 	return b
 }

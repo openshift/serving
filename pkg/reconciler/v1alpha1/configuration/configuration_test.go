@@ -17,17 +17,25 @@ limitations under the License.
 package configuration
 
 import (
+	"context"
+	"fmt"
 	"testing"
+	"time"
 
 	buildv1alpha1 "github.com/knative/build/pkg/apis/build/v1alpha1"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
+	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
+	"github.com/knative/serving/pkg/gc"
 	"github.com/knative/serving/pkg/reconciler"
+	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/configuration/resources"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	clientgotesting "k8s.io/client-go/testing"
 
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
@@ -63,7 +71,7 @@ func TestReconcile(t *testing.T) {
 			cfg("no-revisions-yet", "foo", 1234),
 		},
 		WantCreates: []metav1.Object{
-			resources.MakeRevision(cfg("no-revisions-yet", "foo", 1234)),
+			resources.MakeRevision(cfg("no-revisions-yet", "foo", 1234), nil),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cfgWithStatus("no-revisions-yet", "foo", 1234,
@@ -71,8 +79,9 @@ func TestReconcile(t *testing.T) {
 					LatestCreatedRevisionName: "no-revisions-yet-01234",
 					ObservedGeneration:        1234,
 					Conditions: duckv1alpha1.Conditions{{
-						Type:   v1alpha1.ConfigurationConditionReady,
-						Status: corev1.ConditionUnknown,
+						Type:     v1alpha1.ConfigurationConditionReady,
+						Status:   corev1.ConditionUnknown,
+						Severity: "Error",
 					}},
 				}),
 		}},
@@ -85,28 +94,34 @@ func TestReconcile(t *testing.T) {
 			setConcurrencyModel(cfg("validation-failure", "foo", 1234), "Bogus"),
 		},
 		WantCreates: []metav1.Object{
-			setRevConcurrencyModel(resources.MakeRevision(cfg("validation-failure", "foo", 1234)), "Bogus"),
+			setRevConcurrencyModel(resources.MakeRevision(cfg("validation-failure", "foo", 1234), nil), "Bogus"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: setConcurrencyModel(cfgWithStatus("validation-failure", "foo", 1234,
 				v1alpha1.ConfigurationStatus{
 					Conditions: duckv1alpha1.Conditions{{
-						Type:    v1alpha1.ConfigurationConditionReady,
-						Status:  corev1.ConditionFalse,
-						Reason:  "RevisionFailed",
-						Message: `Revision creation failed with message: "invalid value \"Bogus\": spec.concurrencyModel".`,
+						Type:     v1alpha1.ConfigurationConditionReady,
+						Status:   corev1.ConditionFalse,
+						Reason:   "RevisionFailed",
+						Message:  `Revision creation failed with message: "invalid value \"Bogus\": spec.concurrencyModel".`,
+						Severity: "Error",
 					}},
 				}), "Bogus"),
 		}},
 		Key: "foo/validation-failure",
 	}, {
-		Name: "create revision matching generation with build",
+		Name: "elide build when a matching one already exists",
 		Objects: []runtime.Object{
 			cfgWithBuild("need-rev-and-build", "foo", 99998, &buildSpec),
+			// An existing build is reused!
+			resources.MakeBuild(cfgWithBuild("something-else", "foo", 12345, &buildSpec)),
 		},
 		WantCreates: []metav1.Object{
-			resources.MakeBuild(cfgWithBuild("need-rev-and-build", "foo", 99998, &buildSpec)),
-			resources.MakeRevision(cfgWithBuild("need-rev-and-build", "foo", 99998, &buildSpec)),
+			resources.MakeRevision(cfgWithBuild("need-rev-and-build", "foo", 99998, &buildSpec), &corev1.ObjectReference{
+				APIVersion: "build.knative.dev/v1alpha1",
+				Kind:       "Build",
+				Name:       "something-else-12345",
+			}),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cfgWithBuildAndStatus("need-rev-and-build", "foo", 99998, &buildSpec,
@@ -114,8 +129,36 @@ func TestReconcile(t *testing.T) {
 					LatestCreatedRevisionName: "need-rev-and-build-99998",
 					ObservedGeneration:        99998,
 					Conditions: duckv1alpha1.Conditions{{
-						Type:   v1alpha1.ConfigurationConditionReady,
-						Status: corev1.ConditionUnknown,
+						Type:     v1alpha1.ConfigurationConditionReady,
+						Status:   corev1.ConditionUnknown,
+						Severity: "Error",
+					}},
+				},
+			),
+		}},
+		Key: "foo/need-rev-and-build",
+	}, {
+		Name: "create revision matching generation with build",
+		Objects: []runtime.Object{
+			cfgWithBuild("need-rev-and-build", "foo", 99998, &buildSpec),
+		},
+		WantCreates: []metav1.Object{
+			resources.MakeBuild(cfgWithBuild("need-rev-and-build", "foo", 99998, &buildSpec)),
+			resources.MakeRevision(cfgWithBuild("need-rev-and-build", "foo", 99998, &buildSpec), &corev1.ObjectReference{
+				APIVersion: "build.knative.dev/v1alpha1",
+				Kind:       "Build",
+				Name:       "need-rev-and-build-99998",
+			}),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: cfgWithBuildAndStatus("need-rev-and-build", "foo", 99998, &buildSpec,
+				v1alpha1.ConfigurationStatus{
+					LatestCreatedRevisionName: "need-rev-and-build-99998",
+					ObservedGeneration:        99998,
+					Conditions: duckv1alpha1.Conditions{{
+						Type:     v1alpha1.ConfigurationConditionReady,
+						Status:   corev1.ConditionUnknown,
+						Severity: "Error",
 					}},
 				},
 			),
@@ -125,7 +168,7 @@ func TestReconcile(t *testing.T) {
 		Name: "reconcile revision matching generation (ready: unknown)",
 		Objects: []runtime.Object{
 			cfg("matching-revision-not-done", "foo", 5432),
-			resources.MakeRevision(cfg("matching-revision-not-done", "foo", 5432)),
+			setRevCreationTimestamp(resources.MakeRevision(cfg("matching-revision-not-done", "foo", 5432), nil), time.Now()),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cfgWithStatus("matching-revision-not-done", "foo", 5432,
@@ -133,8 +176,9 @@ func TestReconcile(t *testing.T) {
 					LatestCreatedRevisionName: "matching-revision-not-done-05432",
 					ObservedGeneration:        5432,
 					Conditions: duckv1alpha1.Conditions{{
-						Type:   v1alpha1.ConfigurationConditionReady,
-						Status: corev1.ConditionUnknown,
+						Type:     v1alpha1.ConfigurationConditionReady,
+						Status:   corev1.ConditionUnknown,
+						Severity: "Error",
 					}},
 				},
 			),
@@ -144,7 +188,7 @@ func TestReconcile(t *testing.T) {
 		Name: "reconcile revision matching generation (ready: true)",
 		Objects: []runtime.Object{
 			cfg("matching-revision-done", "foo", 5555),
-			makeRevReady(t, resources.MakeRevision(cfg("matching-revision-done", "foo", 5555))),
+			setRevCreationTimestamp(makeRevReady(t, resources.MakeRevision(cfg("matching-revision-done", "foo", 5555), nil)), time.Now()),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cfgWithStatus("matching-revision-done", "foo", 5555,
@@ -153,8 +197,9 @@ func TestReconcile(t *testing.T) {
 					LatestReadyRevisionName:   "matching-revision-done-05555",
 					ObservedGeneration:        5555,
 					Conditions: duckv1alpha1.Conditions{{
-						Type:   v1alpha1.ConfigurationConditionReady,
-						Status: corev1.ConditionTrue,
+						Type:     v1alpha1.ConfigurationConditionReady,
+						Status:   corev1.ConditionTrue,
+						Severity: "Error",
 					}},
 				},
 			),
@@ -169,19 +214,20 @@ func TestReconcile(t *testing.T) {
 					LatestReadyRevisionName:   "matching-revision-done-idempotent-05566",
 					ObservedGeneration:        5566,
 					Conditions: duckv1alpha1.Conditions{{
-						Type:   v1alpha1.ConfigurationConditionReady,
-						Status: corev1.ConditionTrue,
+						Type:     v1alpha1.ConfigurationConditionReady,
+						Status:   corev1.ConditionTrue,
+						Severity: "Error",
 					}},
 				},
 			),
-			makeRevReady(t, resources.MakeRevision(cfg("matching-revision-done-idempotent", "foo", 5566))),
+			setRevCreationTimestamp(makeRevReady(t, resources.MakeRevision(cfg("matching-revision-done-idempotent", "foo", 5566), nil)), time.Now()),
 		},
 		Key: "foo/matching-revision-done-idempotent",
 	}, {
 		Name: "reconcile revision matching generation (ready: false)",
 		Objects: []runtime.Object{
 			cfg("matching-revision-failed", "foo", 5555),
-			makeRevFailed(resources.MakeRevision(cfg("matching-revision-failed", "foo", 5555))),
+			setRevCreationTimestamp(makeRevFailed(resources.MakeRevision(cfg("matching-revision-failed", "foo", 5555), nil)), time.Now()),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cfgWithStatus("matching-revision-failed", "foo", 5555,
@@ -189,10 +235,11 @@ func TestReconcile(t *testing.T) {
 					LatestCreatedRevisionName: "matching-revision-failed-05555",
 					ObservedGeneration:        5555,
 					Conditions: duckv1alpha1.Conditions{{
-						Type:    v1alpha1.ConfigurationConditionReady,
-						Status:  corev1.ConditionFalse,
-						Reason:  "RevisionFailed",
-						Message: `Revision "matching-revision-failed-05555" failed with message: "It's the end of the world as we know it".`,
+						Type:     v1alpha1.ConfigurationConditionReady,
+						Status:   corev1.ConditionFalse,
+						Reason:   "RevisionFailed",
+						Message:  `Revision "matching-revision-failed-05555" failed with message: "It's the end of the world as we know it".`,
+						Severity: "Error",
 					}},
 				},
 			),
@@ -202,11 +249,12 @@ func TestReconcile(t *testing.T) {
 		Name: "reconcile revision matching generation (ready: bad)",
 		Objects: []runtime.Object{
 			cfg("bad-condition", "foo", 5555),
-			makeRevStatus(resources.MakeRevision(cfg("bad-condition", "foo", 5555)),
+			makeRevStatus(resources.MakeRevision(cfg("bad-condition", "foo", 5555), nil),
 				v1alpha1.RevisionStatus{
 					Conditions: duckv1alpha1.Conditions{{
-						Type:   v1alpha1.RevisionConditionReady,
-						Status: "Bad",
+						Type:     v1alpha1.RevisionConditionReady,
+						Status:   "Bad",
+						Severity: "Error",
 					}},
 				},
 			),
@@ -218,8 +266,9 @@ func TestReconcile(t *testing.T) {
 					LatestCreatedRevisionName: "bad-condition-05555",
 					ObservedGeneration:        5555,
 					Conditions: duckv1alpha1.Conditions{{
-						Type:   v1alpha1.ConfigurationConditionReady,
-						Status: corev1.ConditionUnknown,
+						Type:     v1alpha1.ConfigurationConditionReady,
+						Status:   corev1.ConditionUnknown,
+						Severity: "Error",
 					}},
 				},
 			),
@@ -243,10 +292,11 @@ func TestReconcile(t *testing.T) {
 			Object: cfgWithBuildAndStatus("create-build-failure", "foo", 99998, &buildSpec,
 				v1alpha1.ConfigurationStatus{
 					Conditions: duckv1alpha1.Conditions{{
-						Type:    v1alpha1.ConfigurationConditionReady,
-						Status:  corev1.ConditionFalse,
-						Reason:  "RevisionFailed",
-						Message: `Revision creation failed with message: "inducing failure for create builds".`,
+						Type:     v1alpha1.ConfigurationConditionReady,
+						Status:   corev1.ConditionFalse,
+						Reason:   "RevisionFailed",
+						Message:  `Revision creation failed with message: "inducing failure for create builds".`,
+						Severity: "Error",
 					}},
 				},
 			),
@@ -263,16 +313,17 @@ func TestReconcile(t *testing.T) {
 			cfg("create-revision-failure", "foo", 99998),
 		},
 		WantCreates: []metav1.Object{
-			resources.MakeRevision(cfg("create-revision-failure", "foo", 99998)),
+			resources.MakeRevision(cfg("create-revision-failure", "foo", 99998), nil),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cfgWithStatus("create-revision-failure", "foo", 99998,
 				v1alpha1.ConfigurationStatus{
 					Conditions: duckv1alpha1.Conditions{{
-						Type:    v1alpha1.ConfigurationConditionReady,
-						Status:  corev1.ConditionFalse,
-						Reason:  "RevisionFailed",
-						Message: `Revision creation failed with message: "inducing failure for create revisions".`,
+						Type:     v1alpha1.ConfigurationConditionReady,
+						Status:   corev1.ConditionFalse,
+						Reason:   "RevisionFailed",
+						Message:  `Revision creation failed with message: "inducing failure for create revisions".`,
+						Severity: "Error",
 					}},
 				},
 			),
@@ -289,7 +340,7 @@ func TestReconcile(t *testing.T) {
 			cfg("update-config-failure", "foo", 1234),
 		},
 		WantCreates: []metav1.Object{
-			resources.MakeRevision(cfg("update-config-failure", "foo", 1234)),
+			resources.MakeRevision(cfg("update-config-failure", "foo", 1234), nil),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cfgWithStatus("update-config-failure", "foo", 1234,
@@ -297,8 +348,9 @@ func TestReconcile(t *testing.T) {
 					LatestCreatedRevisionName: "update-config-failure-01234",
 					ObservedGeneration:        1234,
 					Conditions: duckv1alpha1.Conditions{{
-						Type:   v1alpha1.ConfigurationConditionReady,
-						Status: corev1.ConditionUnknown,
+						Type:     v1alpha1.ConfigurationConditionReady,
+						Status:   corev1.ConditionUnknown,
+						Severity: "Error",
 					}},
 				},
 			),
@@ -312,14 +364,15 @@ func TestReconcile(t *testing.T) {
 					LatestCreatedRevisionName: "revision-recovers-01337",
 					LatestReadyRevisionName:   "revision-recovers-01337",
 					Conditions: duckv1alpha1.Conditions{{
-						Type:    v1alpha1.ConfigurationConditionReady,
-						Status:  corev1.ConditionFalse,
-						Reason:  "RevisionFailed",
-						Message: `Revision "revision-recovers-01337" failed with message: "Weebles wobble, but they don't fall down".`,
+						Type:     v1alpha1.ConfigurationConditionReady,
+						Status:   corev1.ConditionFalse,
+						Reason:   "RevisionFailed",
+						Message:  `Revision "revision-recovers-01337" failed with message: "Weebles wobble, but they don't fall down".`,
+						Severity: "Error",
 					}},
 				},
 			),
-			makeRevReady(t, resources.MakeRevision(cfg("revision-recovers", "foo", 1337))),
+			setRevCreationTimestamp(makeRevReady(t, resources.MakeRevision(cfg("revision-recovers", "foo", 1337), nil)), time.Now()),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: cfgWithStatus("revision-recovers", "foo", 1337,
@@ -328,8 +381,9 @@ func TestReconcile(t *testing.T) {
 					LatestReadyRevisionName:   "revision-recovers-01337",
 					ObservedGeneration:        1337,
 					Conditions: duckv1alpha1.Conditions{{
-						Type:   v1alpha1.ConfigurationConditionReady,
-						Status: corev1.ConditionTrue,
+						Type:     v1alpha1.ConfigurationConditionReady,
+						Status:   corev1.ConditionTrue,
+						Severity: "Error",
 					}},
 				},
 			),
@@ -342,6 +396,129 @@ func TestReconcile(t *testing.T) {
 			Base:                reconciler.NewBase(opt, controllerAgentName),
 			configurationLister: listers.GetConfigurationLister(),
 			revisionLister:      listers.GetRevisionLister(),
+			configStore: &testConfigStore{
+				config: ReconcilerTestConfig(),
+			},
+		}
+	}))
+}
+
+func TestGCReconcile(t *testing.T) {
+	table := TableTest{{
+		Name: "dont gc old revision no pin",
+		Objects: []runtime.Object{
+			cfg("old-revision", "foo", 5556),
+			setRevCreationTimestamp(makeRevReady(t, resources.MakeRevision(cfg("old-revision", "foo", 5554), nil)), time.Now().Add(-10*time.Minute)),
+			setRevCreationTimestamp(makeRevReady(t, resources.MakeRevision(cfg("old-revision", "foo", 5555), nil)), time.Now().Add(-10*time.Minute)),
+			setRevCreationTimestamp(makeRevReady(t, resources.MakeRevision(cfg("old-revision", "foo", 5556), nil)), time.Now().Add(-10*time.Minute)),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: cfgWithStatus("old-revision", "foo", 5556,
+				v1alpha1.ConfigurationStatus{
+					LatestCreatedRevisionName: "old-revision-05556",
+					LatestReadyRevisionName:   "old-revision-05556",
+					ObservedGeneration:        5556,
+					Conditions: duckv1alpha1.Conditions{{
+						Type:     v1alpha1.ConfigurationConditionReady,
+						Status:   corev1.ConditionTrue,
+						Severity: "Error",
+					}},
+				},
+			),
+		}},
+		Key: "foo/old-revision",
+	}, {
+		Name: "dont gc old latest revision no pin",
+		Objects: []runtime.Object{
+			cfg("old-revision", "foo", 5556),
+			setRevCreationTimestamp(makeRevReady(t, resources.MakeRevision(cfg("old-revision", "foo", 5556), nil)), time.Now().Add(-10*time.Minute)),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: cfgWithStatus("old-revision", "foo", 5556,
+				v1alpha1.ConfigurationStatus{
+					LatestCreatedRevisionName: "old-revision-05556",
+					LatestReadyRevisionName:   "old-revision-05556",
+					ObservedGeneration:        5556,
+					Conditions: duckv1alpha1.Conditions{{
+						Type:     v1alpha1.ConfigurationConditionReady,
+						Status:   corev1.ConditionTrue,
+						Severity: "Error",
+					}},
+				},
+			),
+		}},
+		Key: "foo/old-revision",
+	}, {
+		Name: "dont gc revisions minimum generations no pin",
+		Objects: []runtime.Object{
+			cfg("old-revision", "foo", 5556),
+			setRevCreationTimestamp(makeRevReady(t, resources.MakeRevision(cfg("old-revision", "foo", 5555), nil)), time.Now().Add(-10*time.Minute)),
+			setRevCreationTimestamp(makeRevReady(t, resources.MakeRevision(cfg("old-revision", "foo", 5556), nil)), time.Now().Add(-10*time.Minute)),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: cfgWithStatus("old-revision", "foo", 5556,
+				v1alpha1.ConfigurationStatus{
+					LatestCreatedRevisionName: "old-revision-05556",
+					LatestReadyRevisionName:   "old-revision-05556",
+					ObservedGeneration:        5556,
+					Conditions: duckv1alpha1.Conditions{{
+						Type:     v1alpha1.ConfigurationConditionReady,
+						Status:   corev1.ConditionTrue,
+						Severity: "Error",
+					}},
+				},
+			),
+		}},
+		Key: "foo/old-revision",
+	}, {
+		Name: "gc old revision pin",
+		Objects: []runtime.Object{
+			cfg("old-revision", "foo", 5556),
+			setRevLastPinned(setRevCreationTimestamp(
+				makeRevReady(t, resources.MakeRevision(cfg("old-revision", "foo", 5554), nil)),
+				time.Now().Add(-10*time.Minute)), time.Now().Add(-10*time.Minute)),
+			setRevCreationTimestamp(makeRevReady(t, resources.MakeRevision(cfg("old-revision", "foo", 5555), nil)), time.Now().Add(-10*time.Minute)),
+			setRevCreationTimestamp(makeRevReady(t, resources.MakeRevision(cfg("old-revision", "foo", 5556), nil)), time.Now().Add(-10*time.Minute)),
+		},
+		WantUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: cfgWithStatus("old-revision", "foo", 5556,
+				v1alpha1.ConfigurationStatus{
+					LatestCreatedRevisionName: "old-revision-05556",
+					LatestReadyRevisionName:   "old-revision-05556",
+					ObservedGeneration:        5556,
+					Conditions: duckv1alpha1.Conditions{{
+						Type:     v1alpha1.ConfigurationConditionReady,
+						Status:   corev1.ConditionTrue,
+						Severity: "Error",
+					}},
+				},
+			),
+		}},
+		WantDeletes: []clientgotesting.DeleteActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "foo",
+				Verb:      "delete",
+				Resource:  schema.GroupVersionResource{Group: "serving.knative.dev", Version: "v1alpha1", Resource: "revisions"},
+			},
+			Name: "old-revision-05554",
+		}},
+		Key: "foo/old-revision",
+	}}
+
+	table.Test(t, MakeFactory(func(listers *Listers, opt reconciler.Options) controller.Reconciler {
+		return &Reconciler{
+			Base:                reconciler.NewBase(opt, controllerAgentName),
+			configurationLister: listers.GetConfigurationLister(),
+			revisionLister:      listers.GetRevisionLister(),
+			configStore: &testConfigStore{
+				config: &config.Config{
+					RevisionGC: &gc.Config{
+						StaleRevisionCreateDelay:        5 * time.Minute,
+						StaleRevisionTimeout:            5 * time.Minute,
+						StaleRevisionMinimumGenerations: 2,
+					},
+				},
+			},
 		}
 	}))
 }
@@ -389,11 +566,28 @@ func setRevConcurrencyModel(rev *v1alpha1.Revision, ss v1alpha1.RevisionRequestC
 	return rev
 }
 
+func setRevLastPinned(rev *v1alpha1.Revision, t time.Time) *v1alpha1.Revision {
+	rev.SetLastPinned(t)
+	return rev
+}
+
+func setRevCreationTimestamp(rev *v1alpha1.Revision, t time.Time) *v1alpha1.Revision {
+	rev.ObjectMeta.CreationTimestamp = metav1.Time{t}
+	return rev
+}
+
 func makeRevReady(t *testing.T, rev *v1alpha1.Revision) *v1alpha1.Revision {
 	rev.Status.InitializeConditions()
 	rev.Status.MarkContainerHealthy()
 	rev.Status.MarkResourcesAvailable()
 	rev.Status.MarkActive()
+	rev.Status.PropagateBuildStatus(duckv1alpha1.KResourceStatus{
+		Conditions: []duckv1alpha1.Condition{{
+			Type:     duckv1alpha1.ConditionSucceeded,
+			Status:   corev1.ConditionTrue,
+			Severity: "Error",
+		}},
+	})
 	if !rev.Status.IsReady() {
 		t.Fatalf("Wanted ready revision: %v", rev)
 	}
@@ -409,4 +603,151 @@ func makeRevFailed(rev *v1alpha1.Revision) *v1alpha1.Revision {
 func makeRevStatus(rev *v1alpha1.Revision, status v1alpha1.RevisionStatus) *v1alpha1.Revision {
 	rev.Status = status
 	return rev
+}
+
+type testConfigStore struct {
+	config *config.Config
+}
+
+func (t *testConfigStore) ToContext(ctx context.Context) context.Context {
+	return config.ToContext(ctx, t.config)
+}
+
+func (t *testConfigStore) WatchConfigs(w configmap.Watcher) {}
+
+var _ configStore = (*testConfigStore)(nil)
+
+func ReconcilerTestConfig() *config.Config {
+	return &config.Config{
+		RevisionGC: &gc.Config{
+			StaleRevisionCreateDelay: 5 * time.Minute,
+			StaleRevisionTimeout:     5 * time.Minute,
+		},
+	}
+}
+
+func TestIsRevisionStale(t *testing.T) {
+	curTime := time.Now()
+	staleTime := curTime.Add(-10 * time.Minute)
+
+	tests := []struct {
+		name      string
+		rev       *v1alpha1.Revision
+		latestRev string
+		want      bool
+	}{{
+		name: "new no lastPinned",
+		rev: &v1alpha1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:              "myrev",
+				CreationTimestamp: metav1.Time{curTime},
+				Labels: map[string]string{
+					serving.ConfigurationGenerationLabelKey: "1",
+				},
+			},
+		},
+		want: false,
+	}, {
+		name: "old no lastPinned",
+		rev: &v1alpha1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:              "myrev",
+				CreationTimestamp: metav1.Time{staleTime},
+				Labels: map[string]string{
+					serving.ConfigurationGenerationLabelKey: "1",
+				},
+			},
+		},
+		want: false,
+	}, {
+		name: "stale lastPinned",
+		rev: &v1alpha1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:              "myrev",
+				CreationTimestamp: metav1.Time{staleTime},
+				Labels: map[string]string{
+					serving.ConfigurationGenerationLabelKey: "1",
+				},
+				Annotations: map[string]string{
+					"serving.knative.dev/lastPinned": fmt.Sprintf("%d", staleTime.Unix()),
+				},
+			},
+		},
+		want: true,
+	}, {
+		name: "not stale lastPinned",
+		rev: &v1alpha1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:              "myrev",
+				CreationTimestamp: metav1.Time{staleTime},
+				Labels: map[string]string{
+					serving.ConfigurationGenerationLabelKey: "1",
+				},
+				Annotations: map[string]string{
+					"serving.knative.dev/lastPinned": fmt.Sprintf("%d", curTime.Unix()),
+				},
+			},
+		},
+		want: false,
+	}, {
+		name: "stale within miniumGenerations",
+		rev: &v1alpha1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:              "myrev",
+				CreationTimestamp: metav1.Time{staleTime},
+				Labels: map[string]string{
+					serving.ConfigurationGenerationLabelKey: "2",
+				},
+				Annotations: map[string]string{
+					"serving.knative.dev/lastPinned": fmt.Sprintf("%d", staleTime.Unix()),
+				},
+			},
+		},
+		want: false,
+	}, {
+		name: "stale latest ready revision",
+		rev: &v1alpha1.Revision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:              "myrev",
+				CreationTimestamp: metav1.Time{staleTime},
+				Labels: map[string]string{
+					serving.ConfigurationGenerationLabelKey: "1",
+				},
+				Annotations: map[string]string{
+					"serving.knative.dev/lastPinned": fmt.Sprintf("%d", staleTime.Unix()),
+				},
+			},
+		},
+		latestRev: "myrev",
+		want:      false,
+	}}
+
+	cfgStore := testConfigStore{
+		config: &config.Config{
+			RevisionGC: &gc.Config{
+				StaleRevisionCreateDelay:        5 * time.Minute,
+				StaleRevisionTimeout:            5 * time.Minute,
+				StaleRevisionMinimumGenerations: 2,
+			},
+		},
+	}
+	ctx := cfgStore.ToContext(context.TODO())
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			cfg := &v1alpha1.Configuration{
+				Spec: v1alpha1.ConfigurationSpec{
+					Generation: 3,
+				},
+				Status: v1alpha1.ConfigurationStatus{
+					LatestReadyRevisionName: test.latestRev,
+				},
+			}
+
+			got := isRevisionStale(ctx, test.rev, cfg)
+			if got != test.want {
+				t.Errorf("IsRevisionStale want %v got %v", test.want, got)
+			}
+		})
+	}
 }
