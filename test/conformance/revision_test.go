@@ -41,7 +41,7 @@ func getImageDigest(clients *test.Clients, names test.ResourceNames) (string, er
 }
 
 func assertIsDigestForImage(t *testing.T, imageName string, imageDigest string) {
-	imageDigestRegex := fmt.Sprintf("%s/%s@sha256:[0-9a-f]{64}", test.ServingFlags.DockerRepo, imageName)
+	imageDigestRegex := fmt.Sprintf("%s@sha256:[0-9a-f]{64}", test.ServingFlags.DockerRepo)
 	match, err := regexp.MatchString(imageDigestRegex, imageDigest)
 	if err != nil {
 		t.Fatalf("Unable to compare regex %s to digest %s", imageDigestRegex, imageDigest)
