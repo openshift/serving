@@ -11,6 +11,8 @@ export API_SERVER=$(oc config view --minify | grep server | awk -F'//' '{print $
 export INTERNAL_REGISTRY="docker-registry.default.svc:5000"
 export USER=$KUBE_SSH_USER #satisfy e2e_flags.go#initializeFlags()
 export OPENSHIFT_REGISTRY=registry.svc.ci.openshift.org
+export KNATIVE_BUILD_VERSION=v0.2.0
+export KNATIVE_SERVING_VERSION=v0.2.1
 
 readonly ISTIO_URL='https://storage.googleapis.com/knative-releases/serving/latest/istio.yaml'
 readonly TEST_NAMESPACE=serving-tests
@@ -71,24 +73,57 @@ function install_istio(){
   header "Istio Installed successfully"
 }
 
+function install_olm(){
+  git clone https://github.com/operator-framework/operator-lifecycle-manager olm
+  oc create -f olm/deploy/okd/manifests/latest/
+  wait_until_pods_running openshift-operator-lifecycle-manager || return 1
+  header "OLM Installed successfully"
+}
+
 function install_knative(){
   header "Installing Knative"
 
-  # Create knative-serving namespace, needed for imagestreams
-  oc create namespace $SERVING_NAMESPACE
+  git clone https://github.com/openshift-cloud-functions/knative-operators.git knative-operators
+  # knative catalog source
+  oc apply -f knative-operators/knative-operators.catalogsource.yaml
 
-  # Grant the necessary privileges to the service accounts Knative will use:
-  oc adm policy add-scc-to-user anyuid -z build-controller -n knative-build
-  oc adm policy add-scc-to-user anyuid -z controller -n knative-serving
-  oc adm policy add-scc-to-user anyuid -z autoscaler -n knative-serving
-  oc adm policy add-cluster-role-to-user cluster-admin -z build-controller -n knative-build
-  oc adm policy add-cluster-role-to-user cluster-admin -z controller -n knative-serving
+  # for now, we must install the operators in specific namespaces, so...
+  oc create ns knative-build
+  oc create ns knative-serving
 
   # Deploy Knative Serving from the current source repository. This will also install Knative Build.
-  create_serving_and_build
+#  create_serving_and_build
 
-  echo ">> Patching Istio"
-  oc patch hpa -n istio-system knative-ingressgateway --patch '{"spec": {"maxReplicas": 1}}'
+#  echo ">> Patching Istio"
+#  oc patch hpa -n istio-system knative-ingressgateway --patch '{"spec": {"maxReplicas": 1}}'
+
+
+  # install the operators for build, serving
+cat <<EOF | oc apply -f -
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: knative-build-subscription
+  generateName: knative-build-
+  namespace: knative-build
+spec:
+  source: knative-operators
+  name: knative-build
+  startingCSV: knative-build.${KNATIVE_BUILD_VERSION}
+  channel: alpha
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: knative-serving-subscription
+  generateName: knative-serving-
+  namespace: knative-serving
+spec:
+  source: knative-operators
+  name: knative-serving
+  startingCSV: knative-serving.${KNATIVE_SERVING_VERSION}
+  channel: alpha
+EOF
 
   wait_until_pods_running knative-build || return 1
   wait_until_pods_running knative-serving || return 1
