@@ -254,6 +254,8 @@ install_istio
 
 enable_docker_schema2
 
+install_olm
+
 install_knative
 
 create_test_resources_openshift
