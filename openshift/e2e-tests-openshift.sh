@@ -129,8 +129,8 @@ function resolve_resources(){
     echo "---" >> $resolved_file_name
     #first prefix all test images with "test-", then replace all image names with proper repository
     sed -e 's/\(.* image: \)\(github.com\)\(.*\/\)\(test\/\)\(.*\)/\1\2 \3\4test-\5/' $yaml | \
-    sed -e 's/\(.* image: \)\(github.com\)\(.*\/\)\(.*\)/\1 '"$INTERNAL_REGISTRY"'\/'"$SERVING_NAMESPACE"'\/\4/' \
-        -e 's/\(.* queueSidecarImage: \)\(github.com\)\(.*\/\)\(.*\)/\1 '"$INTERNAL_REGISTRY"'\/'"$SERVING_NAMESPACE"'\/\4/' >> $resolved_file_name
+    sed -e 's/\(.* image: \)\(github.com\)\(.*\/\)\(.*\)/\1 '"$INTERNAL_REGISTRY"'\/'"$SERVING_NAMESPACE"'\/knative-serving-\4/' \
+        -e 's/\(.* queueSidecarImage: \)\(github.com\)\(.*\/\)\(.*\)/\1 '"$INTERNAL_REGISTRY"'\/'"$SERVING_NAMESPACE"'\/knative-serving-\4/' >> $resolved_file_name
   done
 
   echo ">> Creating imagestream tags for images referenced in yaml files"
@@ -195,12 +195,12 @@ function tag_test_images() {
 
   for image_dir in ${image_dirs}; do
     name=$(basename ${image_dir})
-    tag_built_image test-${name} ${name}
+    tag_built_image knative-serving-test-${name} ${name}
   done
 
   # TestContainerErrorMsg also needs an invalidhelloworld imagestream
   # to exist but NOT have a `latest` tag
-  oc tag -n ${SERVING_NAMESPACE} ${OPENSHIFT_REGISTRY}/${OPENSHIFT_BUILD_NAMESPACE}/stable:test-helloworld invalidhelloworld:not_latest
+  oc tag -n ${SERVING_NAMESPACE} ${OPENSHIFT_REGISTRY}/${OPENSHIFT_BUILD_NAMESPACE}/stable:knative-serving-test-helloworld invalidhelloworld:not_latest
 }
 
 function tag_built_image() {
