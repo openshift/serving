@@ -158,7 +158,7 @@ function run_e2e_tests(){
     ./test/conformance ./test/e2e \
     --kubeconfig $KUBECONFIG \
     --dockerrepo ${INTERNAL_REGISTRY}/${SERVING_NAMESPACE} \
-    ${options} || fail_test
+    ${options} || return 1
 }
 
 function delete_istio_openshift(){
