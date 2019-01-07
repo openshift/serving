@@ -23,8 +23,8 @@ required = [
 
 [[override]]
   name = "github.com/knative/pkg"
-  # HEAD as of 2018-11-20
-  revision = "a5c260df2a830d8f90f82518d9d7e35c4d74c517"
+  # HEAD as of 2018-12-21
+  revision = "fff36e41c69f31f4f2522c47f808e9bef7156d3c"
 
 [[override]]
   name = "go.uber.org/zap"
@@ -32,7 +32,7 @@ required = [
 
 [[constraint]]
   name = "github.com/knative/caching"
-  revision = "f0d7bb60956f88d4743f5fea66b5607b96d262c9"
+  revision = "06e9787157505a649b07677e77d26202ac91431c"
 
 [[constraint]]
   name = "github.com/google/go-containerregistry"
