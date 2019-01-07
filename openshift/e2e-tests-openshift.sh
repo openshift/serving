@@ -4,14 +4,15 @@ source $(dirname $0)/../test/cluster.sh
 
 set -x
 
-export BUILD_DIR=`pwd`/../build
-export PATH=$BUILD_DIR/bin:$BUILD_DIR/google-cloud-sdk/bin:$PATH
-export K8S_CLUSTER_OVERRIDE=$(oc config current-context | awk -F'/' '{print $2}')
-export API_SERVER=$(oc config view --minify | grep server | awk -F'//' '{print $2}' | awk -F':' '{print $1}')
-export INTERNAL_REGISTRY="docker-registry.default.svc:5000"
-export USER=$KUBE_SSH_USER #satisfy e2e_flags.go#initializeFlags()
-export OPENSHIFT_REGISTRY=registry.svc.ci.openshift.org
-
+readonly BUILD_DIR=`pwd`/../build
+readonly PATH=$BUILD_DIR/bin:$BUILD_DIR/google-cloud-sdk/bin:$PATH
+readonly K8S_CLUSTER_OVERRIDE=$(oc config current-context | awk -F'/' '{print $2}')
+readonly API_SERVER=$(oc config view --minify | grep server | awk -F'//' '{print $2}' | awk -F':' '{print $1}')
+readonly INTERNAL_REGISTRY="docker-registry.default.svc:5000"
+readonly USER=$KUBE_SSH_USER #satisfy e2e_flags.go#initializeFlags()
+readonly OPENSHIFT_REGISTRY="${OPENSHIFT_REGISTRY:-"registry.svc.ci.openshift.org"}"
+readonly SSH_PRIVATE_KEY="${SSH_PRIVATE_KEY:-"~/.ssh/google_compute_engine"}"
+readonly INSECURE="${INSECURE:-"false"}"
 readonly ISTIO_YAML=$(find third_party -mindepth 1 -maxdepth 1 -type d -name "istio-*")/istio.yaml
 readonly ISTIO_CRD_YAML=$(find third_party -mindepth 1 -maxdepth 1 -type d -name "istio-*")/istio-crds.yaml
 readonly TEST_NAMESPACE=serving-tests
@@ -26,7 +27,7 @@ function enable_admission_webhooks(){
   echo "API_SERVER=$API_SERVER"
   echo "KUBE_SSH_USER=$KUBE_SSH_USER"
   chmod 600 ~/.ssh/google_compute_engine
-  echo "$API_SERVER ansible_ssh_private_key_file=~/.ssh/google_compute_engine" > inventory.ini
+  echo "$API_SERVER ansible_ssh_private_key_file=${SSH_PRIVATE_KEY}" > inventory.ini
   ansible-playbook ${REPO_ROOT_DIR}/openshift/admission-webhooks.yaml -i inventory.ini -u $KUBE_SSH_USER
   rm inventory.ini
 }
@@ -103,6 +104,7 @@ function create_serving_and_build(){
   echo ">> Bringing up Build and Serving"
   oc apply -f third_party/config/build/release.yaml
   
+  > serving-resolved.yaml
   resolve_resources config/ $SERVING_NAMESPACE serving-resolved.yaml
   
   # Remove nodePort spec as the ports do not fall into the range allowed by OpenShift
@@ -115,6 +117,8 @@ function create_serving_and_build(){
 function create_test_resources_openshift() {
   echo ">> Creating test resources for OpenShift (test/config/)"
   resolve_resources test/config/ $TEST_NAMESPACE tests-resolved.yaml
+
+  > tests-resolved.yaml
   oc apply -f tests-resolved.yaml
 
   echo ">> Creating imagestream tags for all test images"
@@ -141,6 +145,7 @@ function resolve_resources(){
   for name in $IMAGE_NAMES; do
     tag_built_image ${name} ${name}
   done
+  oc policy add-role-to-group system:image-puller system:serviceaccounts:${SERVING_NAMESPACE} --namespace=${OPENSHIFT_BUILD_NAMESPACE}
 }
 
 function enable_docker_schema2(){
@@ -158,7 +163,7 @@ function run_e2e_tests(){
   (( EMIT_METRICS )) && options="-emitmetrics"
   report_go_test \
     -v -tags=e2e -count=1 -timeout=30m \
-    ./test/conformance ./test/e2e \
+    ./test/e2e ./test/conformance \
     --kubeconfig $KUBECONFIG \
     --dockerrepo ${INTERNAL_REGISTRY}/${SERVING_NAMESPACE} \
     ${options} || return 1
@@ -204,13 +209,13 @@ function tag_test_images() {
 
   # TestContainerErrorMsg also needs an invalidhelloworld imagestream
   # to exist but NOT have a `latest` tag
-  oc tag -n ${SERVING_NAMESPACE} ${OPENSHIFT_REGISTRY}/${OPENSHIFT_BUILD_NAMESPACE}/stable:knative-serving-test-helloworld invalidhelloworld:not_latest
+  oc tag --insecure=${INSECURE} -n ${SERVING_NAMESPACE} ${OPENSHIFT_REGISTRY}/${OPENSHIFT_BUILD_NAMESPACE}/stable:knative-serving-test-helloworld invalidhelloworld:not_latest
 }
 
 function tag_built_image() {
   local remote_name=$1
   local local_name=$2
-  oc tag -n ${SERVING_NAMESPACE} ${OPENSHIFT_REGISTRY}/${OPENSHIFT_BUILD_NAMESPACE}/stable:${remote_name} ${local_name}:latest
+  oc tag --insecure=${INSECURE} -n ${SERVING_NAMESPACE} ${OPENSHIFT_REGISTRY}/${OPENSHIFT_BUILD_NAMESPACE}/stable:${remote_name} ${local_name}:latest
 }
 
 enable_admission_webhooks
