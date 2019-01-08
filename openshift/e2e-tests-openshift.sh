@@ -4,8 +4,6 @@ source $(dirname $0)/../test/cluster.sh
 
 set -x
 
-readonly BUILD_DIR=`pwd`/../build
-readonly PATH=$BUILD_DIR/bin:$BUILD_DIR/google-cloud-sdk/bin:$PATH
 readonly K8S_CLUSTER_OVERRIDE=$(oc config current-context | awk -F'/' '{print $2}')
 readonly API_SERVER=$(oc config view --minify | grep server | awk -F'//' '{print $2}' | awk -F':' '{print $1}')
 readonly INTERNAL_REGISTRY="docker-registry.default.svc:5000"
@@ -116,17 +114,18 @@ function create_serving_and_build(){
 
 function create_test_resources_openshift() {
   echo ">> Creating test resources for OpenShift (test/config/)"
-  resolve_resources test/config/ $TEST_NAMESPACE tests-resolved.yaml
 
   > tests-resolved.yaml
+  resolve_resources test/config/ $TEST_NAMESPACE tests-resolved.yaml
+  
   oc apply -f tests-resolved.yaml
-
-  echo ">> Creating imagestream tags for all test images"
-  tag_test_images test/test_images
 
   echo ">> Ensuring pods in test namespaces can access test images"
   oc policy add-role-to-group system:image-puller system:serviceaccounts:${TEST_NAMESPACE} --namespace=${SERVING_NAMESPACE}
   oc policy add-role-to-group system:image-puller system:serviceaccounts:knative-testing --namespace=${SERVING_NAMESPACE}
+
+  echo ">> Creating imagestream tags for all test images"
+  tag_test_images test/test_images
 }
 
 function resolve_resources(){
@@ -140,12 +139,13 @@ function resolve_resources(){
         -e 's/\(.* queueSidecarImage: \)\(github.com\)\(.*\/\)\(.*\)/\1 '"$INTERNAL_REGISTRY"'\/'"$SERVING_NAMESPACE"'\/knative-serving-\4/' >> $resolved_file_name
   done
 
+  oc policy add-role-to-group system:image-puller system:serviceaccounts:${SERVING_NAMESPACE} --namespace=${OPENSHIFT_BUILD_NAMESPACE}
+
   echo ">> Creating imagestream tags for images referenced in yaml files"
   IMAGE_NAMES=$(cat $resolved_file_name | grep -i "image:" | grep "$INTERNAL_REGISTRY" | awk '{print $2}' | awk -F '/' '{print $3}')
   for name in $IMAGE_NAMES; do
     tag_built_image ${name} ${name}
   done
-  oc policy add-role-to-group system:image-puller system:serviceaccounts:${SERVING_NAMESPACE} --namespace=${OPENSHIFT_BUILD_NAMESPACE}
 }
 
 function enable_docker_schema2(){
