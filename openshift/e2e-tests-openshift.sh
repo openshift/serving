@@ -13,6 +13,7 @@ export USER=$KUBE_SSH_USER #satisfy e2e_flags.go#initializeFlags()
 export OPENSHIFT_REGISTRY=registry.svc.ci.openshift.org
 
 readonly ISTIO_YAML=$(find third_party -mindepth 1 -maxdepth 1 -type d -name "istio-*")/istio.yaml
+readonly ISTIO_CRD_YAML=$(find third_party -mindepth 1 -maxdepth 1 -type d -name "istio-*")/istio-crds.yaml
 readonly TEST_NAMESPACE=serving-tests
 readonly SERVING_NAMESPACE=knative-serving
 
@@ -63,6 +64,7 @@ function install_istio(){
   oc adm policy add-cluster-role-to-user cluster-admin -z istio-galley-service-account -n istio-system
   
   # Deploy the latest Istio release
+  oc apply -f $ISTIO_CRD_YAML
   oc apply -f $ISTIO_YAML
 
   # Ensure the istio-sidecar-injector pod runs as privileged
@@ -165,6 +167,7 @@ function run_e2e_tests(){
 function delete_istio_openshift(){
   echo ">> Bringing down Istio"
   oc delete --ignore-not-found=true -f $ISTIO_YAML
+  oc delete --ignore-not-found=true -f $ISTIO_CRD_YAML
 }
 
 function delete_serving_openshift() {
