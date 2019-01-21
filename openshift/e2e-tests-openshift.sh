@@ -4,12 +4,13 @@ source $(dirname $0)/../test/cluster.sh
 
 set -x
 
+readonly ENABLE_ADMISSION_WEBHOOKS="${ENABLE_ADMISSION_WEBHOOKS:-"true"}"
 readonly K8S_CLUSTER_OVERRIDE=$(oc config current-context | awk -F'/' '{print $2}')
 readonly API_SERVER=$(oc config view --minify | grep server | awk -F'//' '{print $2}' | awk -F':' '{print $1}')
 readonly INTERNAL_REGISTRY="${INTERNAL_REGISTRY:-"docker-registry.default.svc:5000"}"
 readonly USER=$KUBE_SSH_USER #satisfy e2e_flags.go#initializeFlags()
 readonly OPENSHIFT_REGISTRY="${OPENSHIFT_REGISTRY:-"registry.svc.ci.openshift.org"}"
-readonly SSH_PRIVATE_KEY="${SSH_PRIVATE_KEY:-"~/.ssh/google_compute_engine"}"
+readonly SSH_PRIVATE_KEY="${SSH_PRIVATE_KEY:-"$HOME/.ssh/google_compute_engine"}"
 readonly INSECURE="${INSECURE:-"false"}"
 readonly ISTIO_YAML=$(find third_party -mindepth 1 -maxdepth 1 -type d -name "istio-*")/istio.yaml
 readonly ISTIO_CRD_YAML=$(find third_party -mindepth 1 -maxdepth 1 -type d -name "istio-*")/istio-crds.yaml
@@ -24,7 +25,7 @@ function enable_admission_webhooks(){
   disable_strict_host_checking
   echo "API_SERVER=$API_SERVER"
   echo "KUBE_SSH_USER=$KUBE_SSH_USER"
-  chmod 600 ~/.ssh/google_compute_engine
+  chmod 600 $SSH_PRIVATE_KEY
   echo "$API_SERVER ansible_ssh_private_key_file=${SSH_PRIVATE_KEY}" > inventory.ini
   ansible-playbook ${REPO_ROOT_DIR}/openshift/admission-webhooks.yaml -i inventory.ini -u $KUBE_SSH_USER
   rm inventory.ini
@@ -218,7 +219,9 @@ function tag_built_image() {
   oc tag --insecure=${INSECURE} -n ${SERVING_NAMESPACE} ${OPENSHIFT_REGISTRY}/${OPENSHIFT_BUILD_NAMESPACE}/stable:${remote_name} ${local_name}:latest
 }
 
-enable_admission_webhooks
+if [[ $ENABLE_ADMISSION_WEBHOOKS == "true" ]]; then
+  enable_admission_webhooks
+fi
 
 create_test_namespace
 
