@@ -25,6 +25,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -139,7 +140,7 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 	cachingClient = fakecachingclientset.NewSimpleClientset()
 	dynamicClient = fakedynamic.NewSimpleDynamicClient(runtime.NewScheme())
 
-	configMapWatcher = &configmap.ManualWatcher{Namespace: system.Namespace}
+	configMapWatcher = &configmap.ManualWatcher{Namespace: system.Namespace()}
 
 	opt := rclr.Options{
 		KubeClientSet:    kubeClient,
@@ -176,12 +177,12 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 	var cms []*corev1.ConfigMap
 	cms = append(cms, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
+			Namespace: system.Namespace(),
 			Name:      config.NetworkConfigName,
 		},
 	}, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
+			Namespace: system.Namespace(),
 			Name:      logging.ConfigName,
 		},
 		Data: map[string]string{
@@ -190,7 +191,7 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 		},
 	}, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
+			Namespace: system.Namespace(),
 			Name:      config.ObservabilityConfigName,
 		},
 		Data: map[string]string{
@@ -200,7 +201,7 @@ func newTestControllerWithConfig(t *testing.T, controllerConfig *config.Controll
 		},
 	}, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
+			Namespace: system.Namespace(),
 			Name:      autoscaler.ConfigName,
 		},
 		Data: map[string]string{
@@ -384,7 +385,7 @@ func TestResolutionFailed(t *testing.T) {
 			Type:               ct,
 			Status:             corev1.ConditionFalse,
 			Reason:             "ContainerMissing",
-			Message:            errorMessage,
+			Message:            v1alpha1.RevisionContainerMissingMessage(rev.Spec.Container.Image, errorMessage),
 			LastTransitionTime: got.LastTransitionTime,
 			Severity:           "Error",
 		}
@@ -400,7 +401,7 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 	kubeClient, servingClient, cachingClient, _, controller, kubeInformer, servingInformer, cachingInformer, watcher, _ := newTestControllerWithConfig(t, controllerConfig, &corev1.ConfigMap{
 
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
+			Namespace: system.Namespace(),
 			Name:      config.ObservabilityConfigName,
 		},
 		Data: map[string]string{
@@ -419,7 +420,7 @@ func TestUpdateRevWithWithUpdatedLoggingURL(t *testing.T) {
 	// Update controllers logging URL
 	watcher.OnChange(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.Namespace,
+			Namespace: system.Namespace(),
 			Name:      config.ObservabilityConfigName,
 		},
 		Data: map[string]string{
@@ -516,14 +517,14 @@ func TestNoQueueSidecarImageUpdateFail(t *testing.T) {
 	watcher.OnChange(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "config-controller",
-			Namespace: system.Namespace,
+			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{},
 	})
 	createRevision(t, kubeClient, kubeInformer, servingClient, servingInformer, cachingClient, cachingInformer, controller, rev)
 
 	// Look for the revision deployment.
-	_, err := kubeClient.AppsV1().Deployments(system.Namespace).Get(rev.Name, metav1.GetOptions{})
+	_, err := kubeClient.AppsV1().Deployments(system.Namespace()).Get(rev.Name, metav1.GetOptions{})
 	if !apierrs.IsNotFound(err) {
 		t.Errorf("Expected revision deployment %s to not exist.", rev.Name)
 	}
@@ -579,7 +580,7 @@ func getPodAnnotationsForConfig(t *testing.T, configMapValue string, configAnnot
 	watcher.OnChange(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      config.NetworkConfigName,
-			Namespace: system.Namespace,
+			Namespace: system.Namespace(),
 		},
 		Data: map[string]string{
 			config.IstioOutboundIPRangesKey: configMapValue,
@@ -604,4 +605,179 @@ func getPodAnnotationsForConfig(t *testing.T, configMapValue string, configAnnot
 		t.Fatalf("Couldn't get serving deployment: %v", err)
 	}
 	return deployment.Spec.Template.ObjectMeta.Annotations
+}
+
+func TestGlobalResyncOnConfigMapUpdate(t *testing.T) {
+
+	// Test that changes to the ConfigMap result in the desired changes on an existing
+	// deployment and revision.
+	tests := []struct {
+		name              string
+		expected          string
+		configMapToUpdate corev1.ConfigMap
+		wasUpdated        func(string, *v1alpha1.Revision, *appsv1.Deployment) (string, bool)
+	}{{
+		name:     "Update Istio Outbound IP Ranges", // Should update metadata on Deployment
+		expected: "10.0.0.1/24",
+		configMapToUpdate: corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      config.NetworkConfigName,
+				Namespace: system.Namespace(),
+			},
+			Data: map[string]string{
+				"istio.sidecar.includeOutboundIPRanges": "10.0.0.1/24",
+			},
+		},
+		wasUpdated: func(expected string, revision *v1alpha1.Revision, deployment *appsv1.Deployment) (string, bool) {
+			annotations := deployment.Spec.Template.ObjectMeta.Annotations
+			got := annotations[resources.IstioOutboundIPRangeAnnotation]
+			return got, (got == expected)
+		},
+	}, {
+		name:     "Disable Fluentd", // Should remove fluentd from Deployment
+		expected: "",
+		configMapToUpdate: corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      config.ObservabilityConfigName,
+			},
+			Data: map[string]string{
+				"logging.enable-var-log-collection": "false",
+			},
+		},
+		wasUpdated: func(expected string, revision *v1alpha1.Revision, deployment *appsv1.Deployment) (string, bool) {
+			for _, c := range deployment.Spec.Template.Spec.Containers {
+				if c.Name == resources.FluentdContainerName {
+					return c.Image, false
+				}
+			}
+			return "", true
+		},
+	}, {
+		name:     "Update LoggingURL", // Should update LogURL on revision
+		expected: "http://log-here.test.com?filter=",
+		configMapToUpdate: corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      config.ObservabilityConfigName,
+			},
+			Data: map[string]string{
+				"logging.enable-var-log-collection":     "true",
+				"logging.fluentd-sidecar-image":         testFluentdImage,
+				"logging.fluentd-sidecar-output-config": testFluentdSidecarOutputConfig,
+				"logging.revision-url-template":         "http://log-here.test.com?filter=${REVISION_UID}",
+			},
+		},
+		wasUpdated: func(expected string, revision *v1alpha1.Revision, deployment *appsv1.Deployment) (string, bool) {
+			got := revision.Status.LogURL
+			return got, strings.HasPrefix(got, expected)
+		},
+	}, {
+		name:     "Update Fluentd Image", // Should Fluentd to Deployment
+		expected: "newFluentdImage",
+		configMapToUpdate: corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      config.ObservabilityConfigName,
+			},
+			Data: map[string]string{
+				"logging.enable-var-log-collection":     "true",
+				"logging.fluentd-sidecar-image":         "newFluentdImage",
+				"logging.fluentd-sidecar-output-config": testFluentdSidecarOutputConfig,
+			},
+		},
+		wasUpdated: func(expected string, revision *v1alpha1.Revision, deployment *appsv1.Deployment) (string, bool) {
+			var got string
+			for _, c := range deployment.Spec.Template.Spec.Containers {
+				if c.Name == resources.FluentdContainerName {
+					got = c.Image
+					if got == expected {
+						return got, true
+					}
+				}
+			}
+			return got, false
+		},
+	}, {
+		name:     "Update QueueProxy Image", // Should update queueSidecarImage
+		expected: "myAwesomeQueueImage",
+		configMapToUpdate: corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: system.Namespace(),
+				Name:      config.ControllerConfigName,
+			},
+			Data: map[string]string{
+				"queueSidecarImage": "myAwesomeQueueImage",
+			},
+		},
+		wasUpdated: func(expected string, revision *v1alpha1.Revision, deployment *appsv1.Deployment) (string, bool) {
+			var got string
+			for _, c := range deployment.Spec.Template.Spec.Containers {
+				if c.Name == resources.QueueContainerName {
+					got = c.Image
+					if got == expected {
+						return got, true
+					}
+				}
+			}
+			return got, false
+		},
+	}}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			controllerConfig := getTestControllerConfig()
+			kubeClient, servingClient, _, _, controller, kubeInformer, servingInformer, cachingInformer, watcher, _ := newTestControllerWithConfig(t, controllerConfig)
+
+			stopCh := make(chan struct{})
+			defer close(stopCh)
+
+			rev := getTestRevision()
+			revClient := servingClient.ServingV1alpha1().Revisions(rev.Namespace)
+			deploymentsClient := kubeClient.Apps().Deployments(rev.Namespace)
+			h := NewHooks()
+
+			h.OnUpdate(&servingClient.Fake, "revisions", func(obj runtime.Object) HookResult {
+				updatedRev := obj.(*v1alpha1.Revision)
+				t.Logf("Revision updated: %v", updatedRev.Name)
+				updatedDeployment, err := deploymentsClient.Get(resourcenames.Deployment(updatedRev), metav1.GetOptions{})
+				if err != nil {
+					t.Error(err)
+				}
+
+				got, wasUpdated := test.wasUpdated(test.expected, updatedRev, updatedDeployment)
+
+				if !wasUpdated {
+					t.Logf("No update occurred. expected: %s got: %s", test.expected, got)
+					return HookIncomplete
+				}
+
+				//Look for expected change
+				return HookComplete
+			})
+
+			servingInformer.Start(stopCh)
+			kubeInformer.Start(stopCh)
+			cachingInformer.Start(stopCh)
+
+			servingInformer.WaitForCacheSync(stopCh)
+			kubeInformer.WaitForCacheSync(stopCh)
+			cachingInformer.WaitForCacheSync(stopCh)
+
+			if err := watcher.Start(stopCh); err != nil {
+				t.Fatalf("Failed to start configuration manager: %v", err)
+			}
+
+			go controller.Run(1, stopCh)
+
+			revClient.Create(rev)
+
+			watcher.OnChange(&test.configMapToUpdate)
+
+			if err := h.WaitForHooks(time.Second); err != nil {
+				t.Errorf("%s Global Resync Failed: %v", test.name, err)
+			}
+		})
+	}
 }

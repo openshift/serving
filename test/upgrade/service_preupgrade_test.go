@@ -23,6 +23,7 @@ import (
 
 	"github.com/knative/pkg/test/logging"
 	serviceresourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
+	_ "github.com/knative/serving/pkg/system/testing"
 	"github.com/knative/serving/test"
 	"github.com/knative/serving/test/e2e"
 )
@@ -35,9 +36,10 @@ func TestRunLatestServicePreUpgrade(t *testing.T) {
 
 	var names test.ResourceNames
 	names.Service = serviceName
+	names.Image = image1
 
 	logger.Info("Creating a new Service")
-	svc, err := test.CreateLatestService(logger, clients, names, test.ImagePath(image1))
+	svc, err := test.CreateLatestService(logger, clients, names, &test.Options{})
 	if err != nil {
 		t.Fatalf("Failed to create Service: %v", err)
 	}

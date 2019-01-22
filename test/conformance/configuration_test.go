@@ -19,12 +19,13 @@ limitations under the License.
 package conformance
 
 import (
+	"reflect"
+	"testing"
+
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
-	"reflect"
-	"testing"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestUpdateConfigurationMetadata(t *testing.T) {
@@ -32,22 +33,24 @@ func TestUpdateConfigurationMetadata(t *testing.T) {
 
 	logger := logging.GetContextLogger("TestUpdateConfigurationMetadata")
 
-	var names test.ResourceNames
-	names.Service = test.AppendRandomString("pizzaplanet-service", logger)
+	names := test.ResourceNames{
+		Service: test.AppendRandomString("test-update-configuration-meta-", logger),
+		Image:   pizzaPlanet1,
+	}
 	names.Config = names.Service
 
 	defer tearDown(clients, names)
 	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
 
 	logger.Infof("Creating new configuration %s", names.Config)
-	err := test.CreateConfiguration(logger, clients, names, test.ImagePath(pizzaPlanet1), &test.Options{})
-	if err != nil {
+	if _, err := test.CreateConfiguration(logger, clients, names, &test.Options{}); err != nil {
 		t.Fatalf("Failed to create configuration %s", names.Config)
 	}
 
 	var cfg *v1alpha1.Configuration
 
 	logger.Info("The Configuration will be updated with the name of the Revision once it is created")
+	var err error
 	names.Revision, err = waitForConfigurationLatestCreatedRevision(clients, names)
 	if err != nil {
 		t.Fatalf("Configuration %s was not updated with the new revision: %v", names.Config, err)
@@ -78,7 +81,7 @@ func TestUpdateConfigurationMetadata(t *testing.T) {
 	}
 
 	err = test.CheckRevisionState(clients.ServingClient, names.Revision, func(r *v1alpha1.Revision) (bool, error) {
-		return checkMapKeysNotPresent(cfg.Labels, r.Labels), nil
+		return checkNoKeysPresent(cfg.Labels, r.Labels, t), nil
 	})
 	if err != nil {
 		t.Errorf("The labels for Revision %s of Configuration %s should not have been updated: %v", names.Revision, names.Config, err)
@@ -106,7 +109,7 @@ func TestUpdateConfigurationMetadata(t *testing.T) {
 	}
 
 	err = test.CheckRevisionState(clients.ServingClient, names.Revision, func(r *v1alpha1.Revision) (bool, error) {
-		return checkMapKeysNotPresent(cfg.Annotations, r.Annotations), nil
+		return checkNoKeysPresent(cfg.Annotations, r.Annotations, t), nil
 	})
 	if err != nil {
 		t.Errorf("The annotations for Revision %s of Configuration %s should not have been updated: %v", names.Revision, names.Config, err)
@@ -135,21 +138,26 @@ func waitForConfigurationLatestCreatedRevision(clients *test.Clients, names test
 
 func waitForConfigurationLabelsUpdate(clients *test.Clients, names test.ResourceNames, labels map[string]string) error {
 	return test.WaitForConfigurationState(clients.ServingClient, names.Config, func(c *v1alpha1.Configuration) (bool, error) {
-		return reflect.DeepEqual(c.Labels, labels) && c.Spec.Generation == c.Status.ObservedGeneration, nil
+		return reflect.DeepEqual(c.Labels, labels) && c.Generation == c.Status.ObservedGeneration, nil
 	}, "ConfigurationMetadataUpdatedWithLabels")
 }
 
 func waitForConfigurationAnnotationsUpdate(clients *test.Clients, names test.ResourceNames, annotations map[string]string) error {
 	return test.WaitForConfigurationState(clients.ServingClient, names.Config, func(c *v1alpha1.Configuration) (bool, error) {
-		return reflect.DeepEqual(c.Annotations, annotations) && c.Spec.Generation == c.Status.ObservedGeneration, nil
+		return reflect.DeepEqual(c.Annotations, annotations) && c.Generation == c.Status.ObservedGeneration, nil
 	}, "ConfigurationMetadataUpdatedWithAnnotations")
 }
 
-func checkMapKeysNotPresent(expected map[string]string, actual map[string]string) bool {
+// checkNoKeysPresent returns true if _no_ keys from `expected`, are present in `actual`.
+// checkNoKeysPresent will log the offending keys to t.Log.
+func checkNoKeysPresent(expected map[string]string, actual map[string]string, t *testing.T) bool {
+	t.Helper()
+	present := []string{}
 	for k := range expected {
 		if _, ok := actual[k]; ok {
-			return false
+			present = append(present, k)
 		}
 	}
-	return true
+	t.Logf("Unexpected keys: %v", present)
+	return len(present) == 0
 }

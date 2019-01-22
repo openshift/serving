@@ -30,9 +30,9 @@ type RevisionTarget struct {
 	Active bool
 }
 
-// TrafficConfig encapsulates details of our traffic so that we don't need to make API calls, or use details of the
+// Config encapsulates details of our traffic so that we don't need to make API calls, or use details of the
 // route beyond its ObjectMeta to make routing changes.
-type TrafficConfig struct {
+type Config struct {
 	// Group of traffic splits.  Un-named targets are grouped together
 	// under the key "", and named target are under the respective
 	// name.  This is used to configure network configuration to
@@ -41,9 +41,9 @@ type TrafficConfig struct {
 
 	// A list traffic targets, flattened to the Revision level.  This
 	// is used to populate the Route.Status.TrafficTarget field.
-	RevisionTargets []RevisionTarget
+	revisionTargets []RevisionTarget
 
-	// The referred Configurations and Revisions.
+	// The referred `Configuration`s and `Revision`s.
 	Configurations map[string]*v1alpha1.Configuration
 	Revisions      map[string]*v1alpha1.Revision
 }
@@ -54,7 +54,7 @@ type TrafficConfig struct {
 //
 // In the case that some target is missing, an error of type TargetError will be returned.
 func BuildTrafficConfiguration(configLister listers.ConfigurationLister, revLister listers.RevisionLister,
-	u *v1alpha1.Route) (*TrafficConfig, error) {
+	u *v1alpha1.Route) (*Config, error) {
 	builder := newBuilder(configLister, revLister, u.Namespace)
 	for _, tt := range u.Spec.Traffic {
 		if err := builder.addTrafficTarget(&tt); err != nil {
@@ -66,15 +66,15 @@ func BuildTrafficConfiguration(configLister listers.ConfigurationLister, revList
 }
 
 // GetRevisionTrafficTargets return a list of TrafficTarget flattened to the RevisionName, and having ConfigurationName cleared out.
-func (t *TrafficConfig) GetRevisionTrafficTargets() []v1alpha1.TrafficTarget {
-	results := []v1alpha1.TrafficTarget{}
-	for _, tt := range t.RevisionTargets {
-		results = append(results, v1alpha1.TrafficTarget{RevisionName: tt.RevisionName, Name: tt.Name, Percent: tt.Percent})
+func (t *Config) GetRevisionTrafficTargets() []v1alpha1.TrafficTarget {
+	results := make([]v1alpha1.TrafficTarget, len(t.revisionTargets))
+	for i, tt := range t.revisionTargets {
+		results[i] = v1alpha1.TrafficTarget{RevisionName: tt.RevisionName, Name: tt.Name, Percent: tt.Percent}
 	}
 	return results
 }
 
-type trafficConfigBuilder struct {
+type configBuilder struct {
 	configLister listers.ConfigurationLister
 	revLister    listers.RevisionLister
 	namespace    string
@@ -94,8 +94,8 @@ type trafficConfigBuilder struct {
 	deferredTargetErr TargetError
 }
 
-func newBuilder(configLister listers.ConfigurationLister, revLister listers.RevisionLister, namespace string) *trafficConfigBuilder {
-	return &trafficConfigBuilder{
+func newBuilder(configLister listers.ConfigurationLister, revLister listers.RevisionLister, namespace string) *configBuilder {
+	return &configBuilder{
 		configLister: configLister,
 		revLister:    revLister,
 		namespace:    namespace,
@@ -106,7 +106,7 @@ func newBuilder(configLister listers.ConfigurationLister, revLister listers.Revi
 	}
 }
 
-func (t *trafficConfigBuilder) getConfiguration(name string) (*v1alpha1.Configuration, error) {
+func (t *configBuilder) getConfiguration(name string) (*v1alpha1.Configuration, error) {
 	if _, ok := t.configurations[name]; !ok {
 		config, err := t.configLister.Configurations(t.namespace).Get(name)
 		if errors.IsNotFound(err) {
@@ -119,7 +119,7 @@ func (t *trafficConfigBuilder) getConfiguration(name string) (*v1alpha1.Configur
 	return t.configurations[name], nil
 }
 
-func (t *trafficConfigBuilder) getRevision(name string) (*v1alpha1.Revision, error) {
+func (t *configBuilder) getRevision(name string) (*v1alpha1.Revision, error) {
 	if _, ok := t.revisions[name]; !ok {
 		rev, err := t.revLister.Revisions(t.namespace).Get(name)
 		if errors.IsNotFound(err) {
@@ -134,13 +134,13 @@ func (t *trafficConfigBuilder) getRevision(name string) (*v1alpha1.Revision, err
 
 // deferTargetError will record a TargetError.  A TargetError with
 // IsFailure()=true will always overwrite a previous TargetError.
-func (t *trafficConfigBuilder) deferTargetError(err TargetError) {
+func (t *configBuilder) deferTargetError(err TargetError) {
 	if t.deferredTargetErr == nil || err.IsFailure() {
 		t.deferredTargetErr = err
 	}
 }
 
-func (t *trafficConfigBuilder) addTrafficTarget(tt *v1alpha1.TrafficTarget) error {
+func (t *configBuilder) addTrafficTarget(tt *v1alpha1.TrafficTarget) error {
 	var err error
 	if tt.RevisionName != "" {
 		err = t.addRevisionTarget(tt)
@@ -158,7 +158,7 @@ func (t *trafficConfigBuilder) addTrafficTarget(tt *v1alpha1.TrafficTarget) erro
 
 // addConfigurationTarget flattens a traffic target to the Revision level, by looking up for the LatestReadyRevisionName
 // on the referred Configuration.  It adds both to the lists of directly referred targets.
-func (t *trafficConfigBuilder) addConfigurationTarget(tt *v1alpha1.TrafficTarget) error {
+func (t *configBuilder) addConfigurationTarget(tt *v1alpha1.TrafficTarget) error {
 	config, err := t.getConfiguration(tt.ConfigurationName)
 	if err != nil {
 		return err
@@ -179,7 +179,7 @@ func (t *trafficConfigBuilder) addConfigurationTarget(tt *v1alpha1.TrafficTarget
 	return nil
 }
 
-func (t *trafficConfigBuilder) addRevisionTarget(tt *v1alpha1.TrafficTarget) error {
+func (t *configBuilder) addRevisionTarget(tt *v1alpha1.TrafficTarget) error {
 	rev, err := t.getRevision(tt.RevisionName)
 	if err != nil {
 		return err
@@ -202,7 +202,7 @@ func (t *trafficConfigBuilder) addRevisionTarget(tt *v1alpha1.TrafficTarget) err
 	return nil
 }
 
-func (t *trafficConfigBuilder) addFlattenedTarget(target RevisionTarget) {
+func (t *configBuilder) addFlattenedTarget(target RevisionTarget) {
 	name := target.TrafficTarget.Name
 	t.revisionTargets = append(t.revisionTargets, target)
 	t.targets[""] = append(t.targets[""], target)
@@ -225,9 +225,9 @@ func consolidate(targets []RevisionTarget) []RevisionTarget {
 			byName[name] = cur
 		}
 	}
-	consolidated := []RevisionTarget{}
-	for _, name := range names {
-		consolidated = append(consolidated, byName[name])
+	consolidated := make([]RevisionTarget, len(names))
+	for i, name := range names {
+		consolidated[i] = byName[name]
 	}
 	if len(consolidated) == 1 {
 		consolidated[0].TrafficTarget.Percent = 100
@@ -243,14 +243,14 @@ func consolidateAll(targets map[string][]RevisionTarget) map[string][]RevisionTa
 	return consolidated
 }
 
-func (t *trafficConfigBuilder) build() (*TrafficConfig, error) {
+func (t *configBuilder) build() (*Config, error) {
 	if t.deferredTargetErr != nil {
 		t.targets = nil
 		t.revisionTargets = nil
 	}
-	return &TrafficConfig{
+	return &Config{
 		Targets:         consolidateAll(t.targets),
-		RevisionTargets: t.revisionTargets,
+		revisionTargets: t.revisionTargets,
 		Configurations:  t.configurations,
 		Revisions:       t.revisions,
 	}, t.deferredTargetErr

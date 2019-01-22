@@ -20,11 +20,14 @@ import (
 	"flag"
 	"log"
 
+	"k8s.io/client-go/tools/clientcmd"
+
 	"go.uber.org/zap"
 
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/logging/logkey"
 	"github.com/knative/pkg/signals"
+	"github.com/knative/pkg/version"
 	"github.com/knative/pkg/webhook"
 	kpa "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	net "github.com/knative/serving/pkg/apis/networking/v1alpha1"
@@ -33,11 +36,15 @@ import (
 	"github.com/knative/serving/pkg/system"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 )
 
 const (
 	component = "webhook"
+)
+
+var (
+	masterURL  = flag.String("master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
+	kubeconfig = flag.String("kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 )
 
 func main() {
@@ -59,9 +66,9 @@ func main() {
 	// set up signals so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()
 
-	clusterConfig, err := rest.InClusterConfig()
+	clusterConfig, err := clientcmd.BuildConfigFromFlags(*masterURL, *kubeconfig)
 	if err != nil {
-		logger.Fatal("Failed to get in cluster config", zap.Error(err))
+		logger.Fatal("Failed to get cluster config", zap.Error(err))
 	}
 
 	kubeClient, err := kubernetes.NewForConfig(clusterConfig)
@@ -69,8 +76,12 @@ func main() {
 		logger.Fatal("Failed to get the client set", zap.Error(err))
 	}
 
+	if err := version.CheckMinimumVersion(kubeClient.Discovery()); err != nil {
+		logger.Fatalf("Version check failed: %v", err)
+	}
+
 	// Watch the logging config map and dynamically update logging levels.
-	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace)
+	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace())
 	configMapWatcher.Watch(logging.ConfigName, logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
 	if err = configMapWatcher.Start(stopCh); err != nil {
 		logger.Fatalf("failed to start configuration manager: %v", err)
@@ -79,7 +90,7 @@ func main() {
 	options := webhook.ControllerOptions{
 		ServiceName:    "webhook",
 		DeploymentName: "webhook",
-		Namespace:      system.Namespace,
+		Namespace:      system.Namespace(),
 		Port:           443,
 		SecretName:     "webhook-certs",
 		WebhookName:    "webhook.serving.knative.dev",

@@ -27,6 +27,7 @@ import (
 	clientset "github.com/knative/serving/pkg/client/clientset/versioned"
 	revisionresources "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources"
 	revisionresourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/revision/resources/names"
+	"github.com/knative/serving/pkg/utils"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -40,19 +41,17 @@ type revisionActivator struct {
 	kubeClient  kubernetes.Interface
 	knaClient   clientset.Interface
 	logger      *zap.SugaredLogger
-	reporter    StatsReporter
 }
 
 // NewRevisionActivator creates an Activator that changes revision
 // serving status to active if necessary, then returns the endpoint
 // once the revision is ready to serve traffic.
-func NewRevisionActivator(kubeClient kubernetes.Interface, servingClient clientset.Interface, logger *zap.SugaredLogger, reporter StatsReporter) Activator {
+func NewRevisionActivator(kubeClient kubernetes.Interface, servingClient clientset.Interface, logger *zap.SugaredLogger) Activator {
 	return &revisionActivator{
 		readyTimout: 60 * time.Second,
 		kubeClient:  kubeClient,
 		knaClient:   servingClient,
 		logger:      logger,
-		reporter:    reporter,
 	}
 }
 
@@ -121,7 +120,7 @@ func (r *revisionActivator) getRevisionEndpoint(revision *v1alpha1.Revision) (en
 		return end, errors.Wrapf(err, "Unable to get service %s for revision", serviceName)
 	}
 
-	fqdn := fmt.Sprintf("%s.%s.svc.cluster.local", serviceName, revision.Namespace)
+	fqdn := fmt.Sprintf("%s.%s.svc.%s", serviceName, revision.Namespace, utils.GetClusterDomainName())
 
 	// Search for the correct port in all the service ports.
 	port := int32(-1)

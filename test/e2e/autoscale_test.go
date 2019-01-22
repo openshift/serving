@@ -28,9 +28,11 @@ import (
 
 	pkgTest "github.com/knative/pkg/test"
 	"github.com/knative/pkg/test/logging"
+	_ "github.com/knative/serving/pkg/system/testing"
 	"github.com/knative/serving/test"
+	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -152,10 +154,8 @@ func setup(t *testing.T) *testContext {
 		t.Fatalf("Unable to parse stable-window as duration: %v", err)
 	}
 
-	imagePath := test.ImagePath("autoscale")
-
 	logger.Infof("Creating a new Route and Configuration")
-	names, err := CreateRouteAndConfig(clients, logger, imagePath, &test.Options{
+	names, err := CreateRouteAndConfig(clients, logger, "autoscale", &test.Options{
 		ContainerConcurrency: 10,
 	})
 	if err != nil {
@@ -217,11 +217,12 @@ func assertScaleUp(ctx *testContext) {
 		ctx.t.Fatalf("Error during initial scale up: %v", err)
 	}
 	ctx.logger.Info("Waiting for scale up")
-	err = test.WaitForDeploymentState(
+	err = pkgTest.WaitForDeploymentState(
 		ctx.clients.KubeClient,
 		ctx.deploymentName,
 		isDeploymentScaledUp(),
 		"DeploymentIsScaledUp",
+		test.ServingNamespace,
 		2*time.Minute)
 	if err != nil {
 		ctx.t.Fatalf("Unable to observe the Deployment named %s scaling up. %s", ctx.deploymentName, err)
@@ -232,11 +233,12 @@ func assertScaleDown(ctx *testContext) {
 	ctx.logger.Infof("The autoscaler successfully scales down when devoid of traffic.")
 
 	ctx.logger.Infof("Waiting for scale to zero")
-	err := test.WaitForDeploymentState(
+	err := pkgTest.WaitForDeploymentState(
 		ctx.clients.KubeClient,
 		ctx.deploymentName,
 		isDeploymentScaledToZero(),
 		"DeploymentScaledToZero",
+		test.ServingNamespace,
 		scaleToZeroGrace+stableWindow+2*time.Minute)
 	if err != nil {
 		ctx.t.Fatalf("Unable to observe the Deployment named %s scaling down. %s", ctx.deploymentName, err)
@@ -245,19 +247,20 @@ func assertScaleDown(ctx *testContext) {
 	// Account for the case where scaling up uses all available pods.
 	ctx.logger.Infof("Wait for all pods to terminate.")
 
-	err = test.WaitForPodListState(
+	err = pkgTest.WaitForPodListState(
 		ctx.clients.KubeClient,
 		func(p *v1.PodList) (bool, error) {
 			for _, pod := range p.Items {
-				if !strings.Contains(pod.Status.Reason, "Evicted") {
+				if strings.Contains(pod.Name, ctx.deploymentName) &&
+					!strings.Contains(pod.Status.Reason, "Evicted") {
 					return false, nil
 				}
 			}
 			return true, nil
 		},
-		"WaitForAvailablePods")
+		"WaitForAvailablePods", test.ServingNamespace)
 	if err != nil {
-		ctx.t.Fatalf("Waiting for Pod.List to have no non-Evicted pods: %v", err)
+		ctx.t.Fatalf("Waiting for Pod.List to have no non-Evicted pods of %q: %v", ctx.deploymentName, err)
 	}
 
 	time.Sleep(10 * time.Second)
@@ -278,4 +281,80 @@ func TestAutoscaleUpDownUp(t *testing.T) {
 	assertScaleUp(ctx)
 	assertScaleDown(ctx)
 	assertScaleUp(ctx)
+}
+
+func assertNumberOfPodsEvery(interval time.Duration, ctx *testContext, errChan chan error, stopChan chan struct{}, numReplicasMin int32, numReplicasMax int32) {
+	timer := time.Tick(interval)
+
+	go func() {
+		for {
+			select {
+			case <-stopChan:
+				return
+			case <-timer:
+				if err := assertNumberOfPods(ctx, numReplicasMin, numReplicasMax); err != nil {
+					errChan <- err
+				}
+			}
+		}
+	}()
+}
+
+func assertNumberOfPods(ctx *testContext, numReplicasMin int32, numReplicasMax int32) error {
+	deployment, err := ctx.clients.KubeClient.Kube.Apps().Deployments("serving-tests").Get(ctx.deploymentName, metav1.GetOptions{})
+	if err != nil {
+		return errors.Wrapf(err, "Failed to get deployment %q", deployment)
+	}
+	gotReplicas := deployment.Status.Replicas
+	ctx.logger.Infof("Assert wanted replicas %d of deployment %s is between %d and %d replicas ", gotReplicas, ctx.deploymentName, numReplicasMin, numReplicasMax)
+	if gotReplicas < numReplicasMin || gotReplicas > numReplicasMax {
+		return errors.Errorf("Unable to observe the Deployment named %s has scaled to %d-%d pods, observed %d Replicas.", ctx.deploymentName, numReplicasMin, numReplicasMax, gotReplicas)
+	}
+	return nil
+}
+
+func assertAutoscaleUpToNumPods(ctx *testContext, numPods int32) {
+	// Relaxing the pod count requirement a little bit to avoid being too flaky.
+	minPods := numPods - 1
+	maxPods := numPods + 1
+
+	// Allow some error to accumulate without locking
+	errChan := make(chan error, 100)
+	stopChan := make(chan struct{})
+	defer close(stopChan)
+
+	assertNumberOfPodsEvery(2*time.Second, ctx, errChan, stopChan, minPods, maxPods)
+
+	if err := generateTraffic(ctx, int(numPods*10), 30*time.Second); err != nil {
+		ctx.t.Fatalf("Error during scale up: %v", err)
+	}
+
+	if err := assertNumberOfPods(ctx, minPods, maxPods); err != nil {
+		errChan <- err
+	}
+
+	select {
+	case err := <-errChan:
+		ctx.t.Error(err.Error())
+	default:
+		// Success!
+	}
+}
+
+func TestAutoscaleUpCountPods(t *testing.T) {
+	ctx := setup(t)
+	defer tearDown(ctx)
+
+	ctx.logger.Infof("The autoscaler spins up additional replicas when traffic increases.")
+	// note: without the warm-up / gradual increase of load the test is retrieving a 503 (overload) from the envoy
+
+	// increase workload for 2 replicas for 30s
+	// assert the number of wanted replicas is between 1-3 during the 30s
+	// assert the number of wanted replicas is 1-3 after 30s
+	assertAutoscaleUpToNumPods(ctx, 2)
+	// scale to 3 replicas, assert 2-4 during scale up, assert 2-4 after scaleup
+	assertAutoscaleUpToNumPods(ctx, 3)
+	// scale to 4 replicas, assert 3-5 during scale up, assert 3-5 after scaleup
+	assertAutoscaleUpToNumPods(ctx, 4)
+
 }

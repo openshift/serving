@@ -16,7 +16,6 @@ limitations under the License.
 package traffic
 
 import (
-	"fmt"
 	"os"
 	"testing"
 
@@ -75,6 +74,8 @@ var (
 
 	configLister listers.ConfigurationLister
 	revLister    listers.RevisionLister
+
+	cmpOpts = []cmp.Option{cmp.AllowUnexported(Config{})}
 )
 
 func setUp() {
@@ -122,7 +123,7 @@ func TestBuildTrafficConfiguration_Vanilla(t *testing.T) {
 		ConfigurationName: goodConfig.Name,
 		Percent:           100,
 	}}
-	expected := &TrafficConfig{
+	expected := &Config{
 		Targets: map[string][]RevisionTarget{
 			"": {{
 				TrafficTarget: v1alpha1.TrafficTarget{
@@ -133,7 +134,7 @@ func TestBuildTrafficConfiguration_Vanilla(t *testing.T) {
 				Active: true,
 			}},
 		},
-		RevisionTargets: []RevisionTarget{{
+		revisionTargets: []RevisionTarget{{
 			TrafficTarget: v1alpha1.TrafficTarget{
 				ConfigurationName: goodConfig.Name,
 				RevisionName:      goodNewRev.Name,
@@ -146,8 +147,42 @@ func TestBuildTrafficConfiguration_Vanilla(t *testing.T) {
 	}
 	if tc, err := BuildTrafficConfiguration(configLister, revLister, getTestRouteWithTrafficTargets(tts)); err != nil {
 		t.Errorf("Unexpected error %v", err)
-	} else if diff := cmp.Diff(expected, tc); diff != "" {
-		t.Errorf("Unexpected traffic diff (-want +got): %v", diff)
+	} else if got, want := expected, tc; !cmp.Equal(got, want, cmpOpts...) {
+		t.Errorf("Unexpected traffic diff (-want +got): %v", cmp.Diff(got, want, cmpOpts...))
+	}
+}
+
+func TestBuildTrafficConfiguration_NoNameRevision(t *testing.T) {
+	tts := []v1alpha1.TrafficTarget{{
+		RevisionName: goodNewRev.Name,
+		Percent:      100,
+	}}
+	expected := &Config{
+		Targets: map[string][]RevisionTarget{
+			"": {{
+				TrafficTarget: v1alpha1.TrafficTarget{
+					RevisionName:      goodNewRev.Name,
+					ConfigurationName: goodConfig.Name,
+					Percent:           100,
+				},
+				Active: true,
+			}},
+		},
+		revisionTargets: []RevisionTarget{{
+			TrafficTarget: v1alpha1.TrafficTarget{
+				ConfigurationName: goodConfig.Name,
+				RevisionName:      goodNewRev.Name,
+				Percent:           100,
+			},
+			Active: true,
+		}},
+		Configurations: map[string]*v1alpha1.Configuration{goodConfig.Name: goodConfig},
+		Revisions:      map[string]*v1alpha1.Revision{goodNewRev.Name: goodNewRev},
+	}
+	if tc, err := BuildTrafficConfiguration(configLister, revLister, getTestRouteWithTrafficTargets(tts)); err != nil {
+		t.Errorf("Unexpected error %v", err)
+	} else if got, want := expected, tc; !cmp.Equal(got, want, cmpOpts...) {
+		t.Errorf("Unexpected traffic diff (-want +got): %v", cmp.Diff(got, want, cmpOpts...))
 	}
 }
 
@@ -157,7 +192,7 @@ func TestBuildTrafficConfiguration_VanillaScaledToZero(t *testing.T) {
 		ConfigurationName: inactiveConfig.Name,
 		Percent:           100,
 	}}
-	expected := &TrafficConfig{
+	expected := &Config{
 		Targets: map[string][]RevisionTarget{
 			"": {{
 				TrafficTarget: v1alpha1.TrafficTarget{
@@ -168,7 +203,7 @@ func TestBuildTrafficConfiguration_VanillaScaledToZero(t *testing.T) {
 				Active: false,
 			}},
 		},
-		RevisionTargets: []RevisionTarget{{
+		revisionTargets: []RevisionTarget{{
 			TrafficTarget: v1alpha1.TrafficTarget{
 				ConfigurationName: inactiveConfig.Name,
 				RevisionName:      inactiveRev.Name,
@@ -180,9 +215,9 @@ func TestBuildTrafficConfiguration_VanillaScaledToZero(t *testing.T) {
 		Revisions:      map[string]*v1alpha1.Revision{inactiveRev.Name: inactiveRev},
 	}
 	if tc, err := BuildTrafficConfiguration(configLister, revLister, getTestRouteWithTrafficTargets(tts)); err != nil {
-		t.Errorf("Unexpected error: %v", err)
-	} else if diff := cmp.Diff(expected, tc); diff != "" {
-		t.Errorf("Unexpected traffic diff (-want +got): %v", diff)
+		t.Errorf("Unexpected error %v", err)
+	} else if got, want := expected, tc; !cmp.Equal(got, want, cmpOpts...) {
+		t.Errorf("Unexpected traffic diff (-want +got): %v", cmp.Diff(got, want, cmpOpts...))
 	}
 }
 
@@ -195,7 +230,7 @@ func TestBuildTrafficConfiguration_TwoConfigs(t *testing.T) {
 		ConfigurationName: goodConfig.Name,
 		Percent:           10,
 	}}
-	expected := &TrafficConfig{
+	expected := &Config{
 		Targets: map[string][]RevisionTarget{
 			"": {{
 				TrafficTarget: v1alpha1.TrafficTarget{
@@ -212,7 +247,7 @@ func TestBuildTrafficConfiguration_TwoConfigs(t *testing.T) {
 				Active: true,
 			}},
 		},
-		RevisionTargets: []RevisionTarget{{
+		revisionTargets: []RevisionTarget{{
 			TrafficTarget: v1alpha1.TrafficTarget{
 				ConfigurationName: niceConfig.Name,
 				RevisionName:      niceNewRev.Name,
@@ -231,9 +266,10 @@ func TestBuildTrafficConfiguration_TwoConfigs(t *testing.T) {
 	}
 	if tc, err := BuildTrafficConfiguration(configLister, revLister, getTestRouteWithTrafficTargets(tts)); err != nil {
 		t.Errorf("Unexpected error %v", err)
-	} else if diff := cmp.Diff(expected, tc); diff != "" {
-		t.Errorf("Unexpected traffic diff (-want +got): %v", diff)
+	} else if got, want := expected, tc; !cmp.Equal(got, want, cmpOpts...) {
+		t.Errorf("Unexpected traffic diff (-want +got): %v", cmp.Diff(got, want, cmpOpts...))
 	}
+
 }
 
 // Splitting traffic between a fixed revision and the latest revision (canary).
@@ -245,7 +281,7 @@ func TestBuildTrafficConfiguration_Canary(t *testing.T) {
 		ConfigurationName: goodConfig.Name,
 		Percent:           10,
 	}}
-	expected := &TrafficConfig{
+	expected := &Config{
 		Targets: map[string][]RevisionTarget{
 			"": {{
 				TrafficTarget: v1alpha1.TrafficTarget{
@@ -263,7 +299,7 @@ func TestBuildTrafficConfiguration_Canary(t *testing.T) {
 				Active: true,
 			}},
 		},
-		RevisionTargets: []RevisionTarget{{
+		revisionTargets: []RevisionTarget{{
 			TrafficTarget: v1alpha1.TrafficTarget{
 				ConfigurationName: goodConfig.Name,
 				RevisionName:      goodOldRev.Name,
@@ -283,9 +319,10 @@ func TestBuildTrafficConfiguration_Canary(t *testing.T) {
 	}
 	if tc, err := BuildTrafficConfiguration(configLister, revLister, getTestRouteWithTrafficTargets(tts)); err != nil {
 		t.Errorf("Unexpected error %v", err)
-	} else if diff := cmp.Diff(expected, tc); diff != "" {
-		t.Errorf("Unexpected traffic diff (-want +got): %v", diff)
+	} else if got, want := expected, tc; !cmp.Equal(got, want, cmpOpts...) {
+		t.Errorf("Unexpected traffic diff (-want +got): %v", cmp.Diff(got, want, cmpOpts...))
 	}
+
 }
 
 // Splitting traffic between latest revision and a fixed revision which is also latest.
@@ -303,7 +340,7 @@ func TestBuildTrafficConfiguration_Consolidated(t *testing.T) {
 		ConfigurationName: goodConfig.Name,
 		Percent:           1,
 	}}
-	expected := &TrafficConfig{
+	expected := &Config{
 		Targets: map[string][]RevisionTarget{
 			"": {{
 				TrafficTarget: v1alpha1.TrafficTarget{
@@ -350,7 +387,7 @@ func TestBuildTrafficConfiguration_Consolidated(t *testing.T) {
 				Active: true,
 			}},
 		},
-		RevisionTargets: []RevisionTarget{{
+		revisionTargets: []RevisionTarget{{
 			TrafficTarget: v1alpha1.TrafficTarget{
 				Name:              "one",
 				ConfigurationName: goodConfig.Name,
@@ -380,8 +417,8 @@ func TestBuildTrafficConfiguration_Consolidated(t *testing.T) {
 	}
 	if tc, err := BuildTrafficConfiguration(configLister, revLister, getTestRouteWithTrafficTargets(tts)); err != nil {
 		t.Errorf("Unexpected error %v", err)
-	} else if diff := cmp.Diff(expected, tc); diff != "" {
-		t.Errorf("Unexpected traffic diff (-want +got): %v", diff)
+	} else if got, want := expected, tc; !cmp.Equal(got, want, cmpOpts...) {
+		t.Errorf("Unexpected traffic diff (-want +got): %v", cmp.Diff(got, want, cmpOpts...))
 	}
 }
 
@@ -394,7 +431,7 @@ func TestBuildTrafficConfiguration_TwoFixedRevisions(t *testing.T) {
 		RevisionName: goodNewRev.Name,
 		Percent:      10,
 	}}
-	expected := &TrafficConfig{
+	expected := &Config{
 		Targets: map[string][]RevisionTarget{
 			"": {{
 				TrafficTarget: v1alpha1.TrafficTarget{
@@ -412,7 +449,7 @@ func TestBuildTrafficConfiguration_TwoFixedRevisions(t *testing.T) {
 				Active: true,
 			}},
 		},
-		RevisionTargets: []RevisionTarget{{
+		revisionTargets: []RevisionTarget{{
 			TrafficTarget: v1alpha1.TrafficTarget{
 				ConfigurationName: goodConfig.Name,
 				RevisionName:      goodOldRev.Name,
@@ -432,8 +469,8 @@ func TestBuildTrafficConfiguration_TwoFixedRevisions(t *testing.T) {
 	}
 	if tc, err := BuildTrafficConfiguration(configLister, revLister, getTestRouteWithTrafficTargets(tts)); err != nil {
 		t.Errorf("Unexpected error %v", err)
-	} else if diff := cmp.Diff(expected, tc); diff != "" {
-		t.Errorf("Unexpected traffic diff (-want +got): %v", diff)
+	} else if got, want := expected, tc; !cmp.Equal(got, want, cmpOpts...) {
+		t.Errorf("Unexpected traffic diff (-want +got): %v", cmp.Diff(got, want, cmpOpts...))
 	}
 }
 
@@ -446,7 +483,7 @@ func TestBuildTrafficConfiguration_TwoFixedRevisionsFromTwoConfigurations(t *tes
 		RevisionName: niceNewRev.Name,
 		Percent:      60,
 	}}
-	expected := &TrafficConfig{
+	expected := &Config{
 		Targets: map[string][]RevisionTarget{
 			"": {{
 				TrafficTarget: v1alpha1.TrafficTarget{
@@ -464,7 +501,7 @@ func TestBuildTrafficConfiguration_TwoFixedRevisionsFromTwoConfigurations(t *tes
 				Active: true,
 			}},
 		},
-		RevisionTargets: []RevisionTarget{{
+		revisionTargets: []RevisionTarget{{
 			TrafficTarget: v1alpha1.TrafficTarget{
 				ConfigurationName: goodConfig.Name,
 				RevisionName:      goodNewRev.Name,
@@ -484,8 +521,8 @@ func TestBuildTrafficConfiguration_TwoFixedRevisionsFromTwoConfigurations(t *tes
 	}
 	if tc, err := BuildTrafficConfiguration(configLister, revLister, getTestRouteWithTrafficTargets(tts)); err != nil {
 		t.Errorf("Unexpected error %v", err)
-	} else if diff := cmp.Diff(expected, tc); diff != "" {
-		t.Errorf("Unexpected traffic diff (-want +got): %v", diff)
+	} else if got, want := expected, tc; !cmp.Equal(got, want, cmpOpts...) {
+		t.Errorf("Unexpected traffic diff (-want +got): %v", cmp.Diff(got, want, cmpOpts...))
 	}
 }
 
@@ -501,7 +538,7 @@ func TestBuildTrafficConfiguration_Preliminary(t *testing.T) {
 		Name:              "alpha",
 		ConfigurationName: niceConfig.Name,
 	}}
-	expected := &TrafficConfig{
+	expected := &Config{
 		Targets: map[string][]RevisionTarget{
 			"": {{
 				TrafficTarget: v1alpha1.TrafficTarget{
@@ -541,7 +578,7 @@ func TestBuildTrafficConfiguration_Preliminary(t *testing.T) {
 				Active: true,
 			}},
 		},
-		RevisionTargets: []RevisionTarget{{
+		revisionTargets: []RevisionTarget{{
 			TrafficTarget: v1alpha1.TrafficTarget{
 				ConfigurationName: goodConfig.Name,
 				RevisionName:      goodOldRev.Name,
@@ -566,9 +603,10 @@ func TestBuildTrafficConfiguration_Preliminary(t *testing.T) {
 	}
 	if tc, err := BuildTrafficConfiguration(configLister, revLister, getTestRouteWithTrafficTargets(tts)); err != nil {
 		t.Errorf("Unexpected error %v", err)
-	} else if diff := cmp.Diff(expected, tc); diff != "" {
-		t.Errorf("Unexpected traffic diff (-want +got): %v", diff)
+	} else if got, want := expected, tc; !cmp.Equal(got, want, cmpOpts...) {
+		t.Errorf("Unexpected traffic diff (-want +got): %v", cmp.Diff(got, want, cmpOpts...))
 	}
+
 }
 
 func TestBuildTrafficConfiguration_MissingConfig(t *testing.T) {
@@ -582,20 +620,19 @@ func TestBuildTrafficConfiguration_MissingConfig(t *testing.T) {
 		Name:              "alpha",
 		ConfigurationName: missingConfig.Name,
 	}}
-	expected := &TrafficConfig{
+	expected := &Config{
 		Targets:        map[string][]RevisionTarget{},
 		Configurations: map[string]*v1alpha1.Configuration{goodConfig.Name: goodConfig},
 		Revisions:      map[string]*v1alpha1.Revision{goodOldRev.Name: goodOldRev, goodNewRev.Name: goodNewRev},
 	}
 	expectedErr := errMissingConfiguration(missingConfig.Name)
 	r := getTestRouteWithTrafficTargets(tts)
-	tc, err := BuildTrafficConfiguration(configLister, revLister, r)
-	if expectedErr.Error() != err.Error() {
+	if tc, err := BuildTrafficConfiguration(configLister, revLister, r); expectedErr.Error() != err.Error() {
 		t.Errorf("Expected %v, saw %v", expectedErr, err)
+	} else if got, want := expected, tc; !cmp.Equal(got, want, cmpOpts...) {
+		t.Errorf("Unexpected traffic diff (-want +got): %v", cmp.Diff(got, want, cmpOpts...))
 	}
-	if diff := cmp.Diff(expected, tc); diff != "" {
-		t.Errorf("Unexpected traffic diff (-want +got): %v", diff)
-	}
+
 }
 
 func TestBuildTrafficConfiguration_NotRoutableRevision(t *testing.T) {
@@ -603,19 +640,17 @@ func TestBuildTrafficConfiguration_NotRoutableRevision(t *testing.T) {
 		RevisionName: unreadyRev.Name,
 		Percent:      100,
 	}}
-	expected := &TrafficConfig{
+	expected := &Config{
 		Targets:        map[string][]RevisionTarget{},
 		Configurations: map[string]*v1alpha1.Configuration{},
 		Revisions:      map[string]*v1alpha1.Revision{unreadyRev.Name: unreadyRev},
 	}
 	expectedErr := errUnreadyRevision(unreadyRev)
 	r := getTestRouteWithTrafficTargets(tts)
-	tc, err := BuildTrafficConfiguration(configLister, revLister, r)
-	if expectedErr.Error() != err.Error() {
+	if tc, err := BuildTrafficConfiguration(configLister, revLister, r); expectedErr.Error() != err.Error() {
 		t.Errorf("Expected error %v, saw %v", expectedErr, err)
-	}
-	if diff := cmp.Diff(expected, tc); diff != "" {
-		t.Errorf("Unexpected traffic diff (-want +got): %v", diff)
+	} else if got, want := expected, tc; !cmp.Equal(got, want, cmpOpts...) {
+		t.Errorf("Unexpected traffic diff (-want +got): %v", cmp.Diff(got, want, cmpOpts...))
 	}
 }
 
@@ -624,19 +659,17 @@ func TestBuildTrafficConfiguration_NotRoutableConfiguration(t *testing.T) {
 		ConfigurationName: unreadyConfig.Name,
 		Percent:           100,
 	}}
-	expected := &TrafficConfig{
+	expected := &Config{
 		Targets:        map[string][]RevisionTarget{},
 		Configurations: map[string]*v1alpha1.Configuration{unreadyConfig.Name: unreadyConfig},
 		Revisions:      map[string]*v1alpha1.Revision{},
 	}
 	expectedErr := errUnreadyConfiguration(unreadyConfig)
 	r := getTestRouteWithTrafficTargets(tts)
-	tc, err := BuildTrafficConfiguration(configLister, revLister, r)
-	if expectedErr.Error() != err.Error() {
+	if tc, err := BuildTrafficConfiguration(configLister, revLister, r); expectedErr.Error() != err.Error() {
 		t.Errorf("Expected error %v, saw %v", expectedErr, err)
-	}
-	if diff := cmp.Diff(expected, tc); diff != "" {
-		t.Errorf("Unexpected traffic diff (-want +got): %v", diff)
+	} else if got, want := expected, tc; !cmp.Equal(got, want, cmpOpts...) {
+		t.Errorf("Unexpected traffic diff (-want +got): %v", cmp.Diff(got, want, cmpOpts...))
 	}
 }
 
@@ -645,19 +678,17 @@ func TestBuildTrafficConfiguration_EmptyConfiguration(t *testing.T) {
 		ConfigurationName: emptyConfig.Name,
 		Percent:           100,
 	}}
-	expected := &TrafficConfig{
+	expected := &Config{
 		Targets:        map[string][]RevisionTarget{},
 		Configurations: map[string]*v1alpha1.Configuration{emptyConfig.Name: emptyConfig},
 		Revisions:      map[string]*v1alpha1.Revision{},
 	}
 	expectedErr := errUnreadyConfiguration(emptyConfig)
 	r := getTestRouteWithTrafficTargets(tts)
-	tc, err := BuildTrafficConfiguration(configLister, revLister, r)
-	if expectedErr.Error() != err.Error() {
+	if tc, err := BuildTrafficConfiguration(configLister, revLister, r); expectedErr.Error() != err.Error() {
 		t.Errorf("Expected error %v, saw %v", expectedErr, err)
-	}
-	if diff := cmp.Diff(expected, tc); diff != "" {
-		t.Errorf("Unexpected traffic diff (-want +got): %v", diff)
+	} else if got, want := expected, tc; !cmp.Equal(got, want, cmpOpts...) {
+		t.Errorf("Unexpected traffic diff (-want +got): %v", cmp.Diff(got, want, cmpOpts...))
 	}
 }
 
@@ -669,7 +700,7 @@ func TestBuildTrafficConfiguration_EmptyAndFailedConfigurations(t *testing.T) {
 		ConfigurationName: failedConfig.Name,
 		Percent:           50,
 	}}
-	expected := &TrafficConfig{
+	expected := &Config{
 		Targets: map[string][]RevisionTarget{},
 		Configurations: map[string]*v1alpha1.Configuration{
 			emptyConfig.Name:  emptyConfig,
@@ -679,12 +710,10 @@ func TestBuildTrafficConfiguration_EmptyAndFailedConfigurations(t *testing.T) {
 	}
 	expectedErr := errUnreadyConfiguration(failedConfig)
 	r := getTestRouteWithTrafficTargets(tts)
-	tc, err := BuildTrafficConfiguration(configLister, revLister, r)
-	if expectedErr.Error() != err.Error() {
+	if tc, err := BuildTrafficConfiguration(configLister, revLister, r); expectedErr.Error() != err.Error() {
 		t.Errorf("Expected error %v, saw %v", expectedErr, err)
-	}
-	if diff := cmp.Diff(expected, tc); diff != "" {
-		t.Errorf("Unexpected traffic diff (-want +got): %v", diff)
+	} else if got, want := expected, tc; !cmp.Equal(got, want, cmpOpts...) {
+		t.Errorf("Unexpected traffic diff (-want +got): %v", cmp.Diff(got, want, cmpOpts...))
 	}
 }
 
@@ -696,7 +725,7 @@ func TestBuildTrafficConfiguration_FailedAndEmptyConfigurations(t *testing.T) {
 		ConfigurationName: emptyConfig.Name,
 		Percent:           50,
 	}}
-	expected := &TrafficConfig{
+	expected := &Config{
 		Targets: map[string][]RevisionTarget{},
 		Configurations: map[string]*v1alpha1.Configuration{
 			emptyConfig.Name:  emptyConfig,
@@ -706,12 +735,10 @@ func TestBuildTrafficConfiguration_FailedAndEmptyConfigurations(t *testing.T) {
 	}
 	expectedErr := errUnreadyConfiguration(failedConfig)
 	r := getTestRouteWithTrafficTargets(tts)
-	tc, err := BuildTrafficConfiguration(configLister, revLister, r)
-	if expectedErr.Error() != err.Error() {
+	if tc, err := BuildTrafficConfiguration(configLister, revLister, r); expectedErr.Error() != err.Error() {
 		t.Errorf("Expected error %v, saw %v", expectedErr, err)
-	}
-	if diff := cmp.Diff(expected, tc); diff != "" {
-		t.Errorf("Unexpected traffic diff (-want +got): %v", diff)
+	} else if got, want := expected, tc; !cmp.Equal(got, want, cmpOpts...) {
+		t.Errorf("Unexpected traffic diff (-want +got): %v", cmp.Diff(got, want, cmpOpts...))
 	}
 }
 
@@ -723,19 +750,17 @@ func TestBuildTrafficConfiguration_MissingRevision(t *testing.T) {
 		RevisionName: goodNewRev.Name,
 		Percent:      50,
 	}}
-	expected := &TrafficConfig{
+	expected := &Config{
 		Targets:        map[string][]RevisionTarget{},
 		Configurations: map[string]*v1alpha1.Configuration{goodConfig.Name: goodConfig},
 		Revisions:      map[string]*v1alpha1.Revision{goodNewRev.Name: goodNewRev},
 	}
 	expectedErr := errMissingRevision(missingRev.Name)
 	r := getTestRouteWithTrafficTargets(tts)
-	tc, err := BuildTrafficConfiguration(configLister, revLister, r)
-	if expectedErr.Error() != err.Error() {
+	if tc, err := BuildTrafficConfiguration(configLister, revLister, r); expectedErr.Error() != err.Error() {
 		t.Errorf("Expected %s, saw %s", expectedErr.Error(), err.Error())
-	}
-	if diff := cmp.Diff(expected, tc); diff != "" {
-		t.Errorf("Unexpected traffic diff (-want +got): %v", diff)
+	} else if got, want := expected, tc; !cmp.Equal(got, want, cmpOpts...) {
+		t.Errorf("Unexpected traffic diff (-want +got): %v", cmp.Diff(got, want, cmpOpts...))
 	}
 }
 
@@ -762,9 +787,8 @@ func TestRoundTripping(t *testing.T) {
 	}}
 	if tc, err := BuildTrafficConfiguration(configLister, revLister, getTestRouteWithTrafficTargets(tts)); err != nil {
 		t.Errorf("Unexpected error %v", err)
-	} else if diff := cmp.Diff(expected, tc.GetRevisionTrafficTargets()); diff != "" {
-		fmt.Printf("%+v\n", tc.GetRevisionTrafficTargets())
-		t.Errorf("Unexpected traffic diff (-want +got): %v", diff)
+	} else if got, want := expected, tc.GetRevisionTrafficTargets(); !cmp.Equal(got, want) {
+		t.Errorf("Unexpected traffic diff (-want +got): %v", cmp.Diff(got, want))
 	}
 }
 
@@ -775,8 +799,8 @@ func getTestConfig(name string) *v1alpha1.Configuration {
 			Namespace: testNamespace,
 		},
 		Spec: v1alpha1.ConfigurationSpec{
-			// This is a workaround for generation initialization
-			Generation: 1,
+			// This is a workaround for generation initialization.
+			DeprecatedGeneration: 1,
 			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
 					Container: corev1.Container{
@@ -885,6 +909,5 @@ func getTestReadyConfig(name string) (*v1alpha1.Configuration, *v1alpha1.Revisio
 
 func TestMain(m *testing.M) {
 	setUp()
-	code := m.Run()
-	os.Exit(code)
+	os.Exit(m.Run())
 }
