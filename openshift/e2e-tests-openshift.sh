@@ -108,9 +108,8 @@ function create_serving_and_build(){
   
   # Remove nodePort spec as the ports do not fall into the range allowed by OpenShift
   sed '/nodePort/d' serving-resolved.yaml | oc apply -f -
-
-  echo ">>> Setting SSL_CERT_FILE for Knative Serving Controller"
-  oc set env -n knative-serving deployment/controller SSL_CERT_FILE=/var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt
+  oc -n ${SERVING_NAMESPACE} get cm config-controller -oyaml | \
+  sed "s/\(^ *registriesSkippingTagResolving.*$\)/\1,docker-registry.default.svc:5000,image-registry.openshift-image-registry.svc:5000/" | oc apply -f -
 }
 
 function create_test_resources_openshift() {
