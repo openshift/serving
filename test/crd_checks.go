@@ -28,6 +28,7 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
+	apiv1beta1 "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	k8styped "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -47,13 +48,20 @@ func WaitForRouteState(client *ServingClients, name string, inState func(r *v1al
 	_, span := trace.StartSpan(context.Background(), metricName)
 	defer span.End()
 
-	return wait.PollImmediate(interval, timeout, func() (bool, error) {
-		r, err := client.Routes.Get(name, metav1.GetOptions{})
+	var lastState *v1alpha1.Route
+	waitErr := wait.PollImmediate(interval, timeout, func() (bool, error) {
+		var err error
+		lastState, err = client.Routes.Get(name, metav1.GetOptions{})
 		if err != nil {
 			return true, err
 		}
-		return inState(r)
+		return inState(lastState)
 	})
+
+	if waitErr != nil {
+		return errors.Wrapf(waitErr, "route %q is not in desired state: %+v", name, lastState)
+	}
+	return nil
 }
 
 // CheckRouteState verifies the status of the Route called name from client
@@ -81,13 +89,20 @@ func WaitForConfigurationState(client *ServingClients, name string, inState func
 	_, span := trace.StartSpan(context.Background(), metricName)
 	defer span.End()
 
-	return wait.PollImmediate(interval, timeout, func() (bool, error) {
-		c, err := client.Configs.Get(name, metav1.GetOptions{})
+	var lastState *v1alpha1.Configuration
+	waitErr := wait.PollImmediate(interval, timeout, func() (bool, error) {
+		var err error
+		lastState, err = client.Configs.Get(name, metav1.GetOptions{})
 		if err != nil {
 			return true, err
 		}
-		return inState(c)
+		return inState(lastState)
 	})
+
+	if waitErr != nil {
+		return errors.Wrapf(waitErr, "configuration %q is not in desired state: %+v", name, lastState)
+	}
+	return nil
 }
 
 // CheckConfigurationState verifies the status of the Configuration called name from client
@@ -115,22 +130,18 @@ func WaitForRevisionState(client *ServingClients, name string, inState func(r *v
 	_, span := trace.StartSpan(context.Background(), metricName)
 	defer span.End()
 
+	var lastState *v1alpha1.Revision
 	waitErr := wait.PollImmediate(interval, timeout, func() (bool, error) {
-		r, err := client.Revisions.Get(name, metav1.GetOptions{})
+		var err error
+		lastState, err = client.Revisions.Get(name, metav1.GetOptions{})
 		if err != nil {
 			return true, err
 		}
-		return inState(r)
+		return inState(lastState)
 	})
-	// Attempt to add revision Status to error message.
+
 	if waitErr != nil {
-		r, err := client.Revisions.Get(name, metav1.GetOptions{})
-		if err != nil {
-			// Cant' look for Revision, don't append Status to error message.
-			return waitErr
-		}
-		// Wrap error with information about Status.
-		return errors.Wrapf(waitErr, "Status=%#v", r.Status)
+		return errors.Wrapf(waitErr, "revision %q is not in desired state: %+v", name, lastState)
 	}
 	return nil
 }
@@ -160,13 +171,20 @@ func WaitForServiceState(client *ServingClients, name string, inState func(s *v1
 	_, span := trace.StartSpan(context.Background(), metricName)
 	defer span.End()
 
-	return wait.PollImmediate(interval, timeout, func() (bool, error) {
-		s, err := client.Services.Get(name, metav1.GetOptions{})
+	var lastState *v1alpha1.Service
+	waitErr := wait.PollImmediate(interval, timeout, func() (bool, error) {
+		var err error
+		lastState, err = client.Services.Get(name, metav1.GetOptions{})
 		if err != nil {
 			return true, err
 		}
-		return inState(s)
+		return inState(lastState)
 	})
+
+	if waitErr != nil {
+		return errors.Wrapf(waitErr, "service %q is not in desired state: %+v", name, lastState)
+	}
+	return nil
 }
 
 // CheckServiceState verifies the status of the Service called name from client
@@ -188,4 +206,11 @@ func CheckServiceState(client *ServingClients, name string, inState func(s *v1al
 // GetConfigMap gets the knative serving config map.
 func GetConfigMap(client *pkgTest.KubeClient) k8styped.ConfigMapInterface {
 	return client.Kube.CoreV1().ConfigMaps("knative-serving")
+}
+
+// Returns a func that evaluates if a deployment has scaled to 0 pods
+func DeploymentScaledToZeroFunc() func(d *apiv1beta1.Deployment) (bool, error) {
+	return func(d *apiv1beta1.Deployment) (bool, error) {
+		return d.Status.ReadyReplicas == 0, nil
+	}
 }

@@ -28,6 +28,8 @@ import (
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/traffic"
+	"github.com/knative/serving/pkg/system"
+	_ "github.com/knative/serving/pkg/system/testing"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -57,7 +59,7 @@ func TestMakeClusterIngress_CorrectMetadata(t *testing.T) {
 			*kmeta.NewControllerRef(r),
 		},
 	}
-	meta := MakeClusterIngress(r, &traffic.TrafficConfig{Targets: targets}).ObjectMeta
+	meta := MakeClusterIngress(r, &traffic.Config{Targets: targets}).ObjectMeta
 	if diff := cmp.Diff(expected, meta); diff != "" {
 		t.Errorf("Unexpected metadata (-want +got): %v", diff)
 	}
@@ -368,7 +370,7 @@ func TestMakeClusterIngressRule_InactiveTarget(t *testing.T) {
 			Paths: []netv1alpha1.HTTPClusterIngressPath{{
 				Splits: []netv1alpha1.ClusterIngressBackendSplit{{
 					ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
-						ServiceNamespace: "knative-serving",
+						ServiceNamespace: system.Namespace(),
 						ServiceName:      "activator-service",
 						ServicePort:      intstr.FromInt(80),
 					},
@@ -420,7 +422,7 @@ func TestMakeClusterIngressRule_TwoInactiveTargets(t *testing.T) {
 			Paths: []netv1alpha1.HTTPClusterIngressPath{{
 				Splits: []netv1alpha1.ClusterIngressBackendSplit{{
 					ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
-						ServiceNamespace: "knative-serving",
+						ServiceNamespace: system.Namespace(),
 						ServiceName:      "activator-service",
 						ServicePort:      intstr.FromInt(80),
 					},

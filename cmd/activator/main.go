@@ -24,6 +24,8 @@ import (
 	"net/http"
 	"time"
 
+	"k8s.io/client-go/tools/clientcmd"
+
 	"github.com/knative/serving/cmd/util"
 	"github.com/knative/serving/pkg/autoscaler"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -32,6 +34,7 @@ import (
 
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/signals"
+	"github.com/knative/pkg/version"
 	"github.com/knative/pkg/websocket"
 	"github.com/knative/serving/pkg/activator"
 	activatorhandler "github.com/knative/serving/pkg/activator/handler"
@@ -43,7 +46,6 @@ import (
 	"github.com/knative/serving/pkg/system"
 	"go.uber.org/zap"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 )
 
 const (
@@ -64,6 +66,9 @@ const (
 )
 
 var (
+	masterURL  = flag.String("master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
+	kubeconfig = flag.String("kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
+
 	logger *zap.SugaredLogger
 
 	statSink *websocket.ManagedConnection
@@ -76,12 +81,12 @@ func statReporter(stopCh <-chan struct{}) {
 		select {
 		case sm := <-statChan:
 			if statSink == nil {
-				logger.Error("Stat sink not connected.")
+				logger.Error("Stat sink not connected")
 				continue
 			}
 			err := statSink.Send(sm)
 			if err != nil {
-				logger.Error("Error while sending stat", zap.Error(err))
+				logger.Errorw("Error while sending stat", zap.Error(err))
 			}
 		case <-stopCh:
 			return
@@ -105,22 +110,26 @@ func main() {
 
 	logger.Info("Starting the knative activator")
 
-	clusterConfig, err := rest.InClusterConfig()
+	clusterConfig, err := clientcmd.BuildConfigFromFlags(*masterURL, *kubeconfig)
 	if err != nil {
-		logger.Fatal("Error getting in cluster configuration", zap.Error(err))
+		logger.Fatalw("Error getting cluster configuration", zap.Error(err))
 	}
 	kubeClient, err := kubernetes.NewForConfig(clusterConfig)
 	if err != nil {
-		logger.Fatal("Error building new kubernetes client", zap.Error(err))
+		logger.Fatalw("Error building new kubernetes client", zap.Error(err))
 	}
 	servingClient, err := clientset.NewForConfig(clusterConfig)
 	if err != nil {
-		logger.Fatal("Error building serving clientset", zap.Error(err))
+		logger.Fatalw("Error building serving clientset", zap.Error(err))
+	}
+
+	if err := version.CheckMinimumVersion(kubeClient.Discovery()); err != nil {
+		logger.Fatalf("Version check failed: %v", err)
 	}
 
 	reporter, err := activator.NewStatsReporter()
 	if err != nil {
-		logger.Fatal("Failed to create stats reporter", zap.Error(err))
+		logger.Fatalw("Failed to create stats reporter", zap.Error(err))
 	}
 
 	a := activator.NewRevisionActivator(kubeClient, servingClient, logger)
@@ -141,7 +150,7 @@ func main() {
 	stopCh := signals.SetupSignalHandler()
 
 	// Open a websocket connection to the autoscaler
-	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.cluster.local:%s", "autoscaler", system.Namespace, "8080")
+	autoscalerEndpoint := fmt.Sprintf("ws://%s.%s.svc.cluster.local:%s", "autoscaler", system.Namespace(), "8080")
 	logger.Infof("Connecting to autoscaler at %s", autoscalerEndpoint)
 	statSink = websocket.NewDurableSendingConnection(autoscalerEndpoint)
 	go statReporter(stopCh)
@@ -168,18 +177,18 @@ func main() {
 	}
 
 	// Watch the logging config map and dynamically update logging levels.
-	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace)
+	configMapWatcher := configmap.NewInformedWatcher(kubeClient, system.Namespace())
 	configMapWatcher.Watch(logging.ConfigName, logging.UpdateLevelFromConfigMap(logger, atomicLevel, component))
 	// Watch the observability config map and dynamically update metrics exporter.
 	configMapWatcher.Watch(metrics.ObservabilityConfigName, metrics.UpdateExporterFromConfigMap(component, logger))
 	if err = configMapWatcher.Start(stopCh); err != nil {
-		logger.Fatalf("failed to start configuration manager: %v", err)
+		logger.Fatalw("Failed to start configuration manager", zap.Error(err))
 	}
 
 	srv := h2c.NewServer(":8080", ah)
 	go func() {
 		if err := srv.ListenAndServe(); err != nil {
-			logger.Errorf("Error running HTTP server: %v", err)
+			logger.Errorw("Error running HTTP server", zap.Error(err))
 		}
 	}()
 

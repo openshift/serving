@@ -18,7 +18,7 @@ const (
 	ResourceTypeKnativeRevision = "knative_revision"
 
 	// LabelProject is the label for project (e.g. GCP GAIA ID, AWS project name)
-	LabelProject = "project"
+	LabelProject = "project_id"
 
 	// LabelLocation is the label for location (e.g. GCE zone, AWS region) where the service is deployed
 	LabelLocation = "location"
@@ -32,6 +32,9 @@ const (
 	// LabelServiceName is the label for the deployed service name
 	LabelServiceName = "service_name"
 
+	// LabelRouteName is the label for immutable name of the route that receives the request
+	LabelRouteName = "route_name"
+
 	// LabelConfigurationName is the label for the configuration which created the monitored revision
 	LabelConfigurationName = "configuration_name"
 
@@ -44,19 +47,26 @@ const (
 )
 
 var (
-	// KnativeRevisionLabels stores the set of resource labels for resource type knative_revision
+	// KnativeRevisionLabels stores the set of resource labels for resource type knative_revision.
+	// LabelRouteName is added as extra label since it is optional, not in this map.
 	KnativeRevisionLabels = map[string]struct{}{
-		LabelProject:           {},
-		LabelLocation:          {},
-		LabelClusterName:       {},
-		LabelNamespaceName:     {},
-		LabelServiceName:       {},
-		LabelConfigurationName: {},
-		LabelRevisionName:      {},
+		LabelProject:           struct{}{},
+		LabelLocation:          struct{}{},
+		LabelClusterName:       struct{}{},
+		LabelNamespaceName:     struct{}{},
+		LabelServiceName:       struct{}{},
+		LabelConfigurationName: struct{}{},
+		LabelRevisionName:      struct{}{},
 	}
 
 	// ResourceTypeToLabelsMap maps resource type to the set of resource labels
 	ResourceTypeToLabelsMap = map[string]map[string]struct{}{
 		ResourceTypeKnativeRevision: KnativeRevisionLabels,
+	}
+
+	// KnativeRevisionMetricsPrefixes stores a set of metrics prefixes that belong to resource type knative_revision
+	KnativeRevisionMetricsPrefixes = map[string]struct{}{
+		"knative.dev/serving/autoscaler": struct{}{},
+		"knative.dev/serving/activator":  struct{}{},
 	}
 )
