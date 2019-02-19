@@ -4,12 +4,13 @@ source $(dirname $0)/../test/cluster.sh
 
 set -x
 
+readonly ENABLE_ADMISSION_WEBHOOKS="${ENABLE_ADMISSION_WEBHOOKS:-"true"}"
 readonly K8S_CLUSTER_OVERRIDE=$(oc config current-context | awk -F'/' '{print $2}')
 readonly API_SERVER=$(oc config view --minify | grep server | awk -F'//' '{print $2}' | awk -F':' '{print $1}')
-readonly INTERNAL_REGISTRY="docker-registry.default.svc:5000"
+readonly INTERNAL_REGISTRY="${INTERNAL_REGISTRY:-"docker-registry.default.svc:5000"}"
 readonly USER=$KUBE_SSH_USER #satisfy e2e_flags.go#initializeFlags()
 readonly OPENSHIFT_REGISTRY="${OPENSHIFT_REGISTRY:-"registry.svc.ci.openshift.org"}"
-readonly SSH_PRIVATE_KEY="${SSH_PRIVATE_KEY:-"~/.ssh/google_compute_engine"}"
+readonly SSH_PRIVATE_KEY="${SSH_PRIVATE_KEY:-"$HOME/.ssh/google_compute_engine"}"
 readonly INSECURE="${INSECURE:-"false"}"
 readonly ISTIO_YAML=$(find third_party -mindepth 1 -maxdepth 1 -type d -name "istio-*")/istio.yaml
 readonly ISTIO_CRD_YAML=$(find third_party -mindepth 1 -maxdepth 1 -type d -name "istio-*")/istio-crds.yaml
@@ -24,7 +25,7 @@ function enable_admission_webhooks(){
   disable_strict_host_checking
   echo "API_SERVER=$API_SERVER"
   echo "KUBE_SSH_USER=$KUBE_SSH_USER"
-  chmod 600 ~/.ssh/google_compute_engine
+  chmod 600 $SSH_PRIVATE_KEY
   echo "$API_SERVER ansible_ssh_private_key_file=${SSH_PRIVATE_KEY}" > inventory.ini
   ansible-playbook ${REPO_ROOT_DIR}/openshift/admission-webhooks.yaml -i inventory.ini -u $KUBE_SSH_USER
   rm inventory.ini
@@ -107,9 +108,8 @@ function create_serving_and_build(){
   
   # Remove nodePort spec as the ports do not fall into the range allowed by OpenShift
   sed '/nodePort/d' serving-resolved.yaml | oc apply -f -
-
-  echo ">>> Setting SSL_CERT_FILE for Knative Serving Controller"
-  oc set env -n knative-serving deployment/controller SSL_CERT_FILE=/var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt
+  oc -n ${SERVING_NAMESPACE} get cm config-controller -oyaml | \
+  sed "s/\(^ *registriesSkippingTagResolving.*$\)/\1,docker-registry.default.svc:5000,image-registry.openshift-image-registry.svc:5000/" | oc apply -f -
 }
 
 function create_test_resources_openshift() {
@@ -131,7 +131,7 @@ function create_test_resources_openshift() {
 function resolve_resources(){
   local dir=$1
   local resolved_file_name=$3
-  for yaml in $(find $dir -name "*.yaml" -mindepth 1 -maxdepth 1); do
+  for yaml in $(find $dir -name "*.yaml"); do
     echo "---" >> $resolved_file_name
     #first prefix all test images with "test-", then replace all image names with proper repository
     sed -e 's/\(.* image: \)\(github.com\)\(.*\/\)\(test\/\)\(.*\)/\1\2 \3\4test-\5/' $yaml | \
@@ -161,17 +161,9 @@ function run_e2e_tests(){
   header "Running tests"
   options=""
   (( EMIT_METRICS )) && options="-emitmetrics"
-
   report_go_test \
-    -v -tags=e2e -count=1 -timeout=35m -short \
-    ./test/e2e \
-    --kubeconfig $KUBECONFIG \
-    --dockerrepo ${INTERNAL_REGISTRY}/${SERVING_NAMESPACE} \
-    ${options} || return 1
-
-  report_go_test \
-    -v -tags=e2e -count=1 -timeout=35m \
-    ./test/conformance \
+    -v -tags=e2e -count=1 -timeout=20m \
+    ./test/conformance ./test/e2e \
     --kubeconfig $KUBECONFIG \
     --dockerrepo ${INTERNAL_REGISTRY}/${SERVING_NAMESPACE} \
     ${options} || return 1
@@ -226,7 +218,9 @@ function tag_built_image() {
   oc tag --insecure=${INSECURE} -n ${SERVING_NAMESPACE} ${OPENSHIFT_REGISTRY}/${OPENSHIFT_BUILD_NAMESPACE}/stable:${remote_name} ${local_name}:latest
 }
 
-enable_admission_webhooks
+if [[ $ENABLE_ADMISSION_WEBHOOKS == "true" ]]; then
+  enable_admission_webhooks
+fi
 
 create_test_namespace
 
