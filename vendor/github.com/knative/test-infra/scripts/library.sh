@@ -147,6 +147,7 @@ function wait_until_pods_running() {
 function wait_until_service_has_external_ip() {
   echo -n "Waiting until service $2 in namespace $1 has an external IP"
   for i in {1..150}; do  # timeout after 15 minutes
+    kubectl get svc -n $1 $2 -oyaml
     local ip=$(kubectl get svc -n $1 $2 -o jsonpath="{.status.loadBalancer.ingress[0].ip}")
     if [[ -n "${ip}" ]]; then
       echo -e "\nService $2.$1 has IP $ip"
