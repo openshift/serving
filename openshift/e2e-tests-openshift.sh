@@ -171,8 +171,6 @@ function run_e2e_tests(){
   report_go_test \
     -v -tags=e2e -count=1 -timeout=35m \
     ./test/conformance \
-    -v -tags=e2e -count=1 -timeout=20m \
-    ./test/conformance ./test/e2e \
     --kubeconfig $KUBECONFIG \
     --dockerrepo ${INTERNAL_REGISTRY}/${SERVING_NAMESPACE} \
     ${options} || return 1
