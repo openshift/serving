@@ -131,7 +131,7 @@ function create_test_resources_openshift() {
 function resolve_resources(){
   local dir=$1
   local resolved_file_name=$3
-  for yaml in $(find $dir -name "*.yaml"); do
+  for yaml in $(find $dir -name "*.yaml" -mindepth 1 -maxdepth 1); do
     echo "---" >> $resolved_file_name
     #first prefix all test images with "test-", then replace all image names with proper repository
     sed -e 's/\(.* image: \)\(github.com\)\(.*\/\)\(test\/\)\(.*\)/\1\2 \3\4test-\5/' $yaml | \
@@ -162,6 +162,15 @@ function run_e2e_tests(){
   options=""
   (( EMIT_METRICS )) && options="-emitmetrics"
   report_go_test \
+    -v -tags=e2e -count=1 -timeout=35m -short \
+    ./test/e2e \
+    --kubeconfig $KUBECONFIG \
+    --dockerrepo ${INTERNAL_REGISTRY}/${SERVING_NAMESPACE} \
+    ${options} || return 1
+
+  report_go_test \
+    -v -tags=e2e -count=1 -timeout=35m \
+    ./test/conformance \
     -v -tags=e2e -count=1 -timeout=20m \
     ./test/conformance ./test/e2e \
     --kubeconfig $KUBECONFIG \
