@@ -46,6 +46,23 @@ Host *
 EOF
 }
 
+# Waits until the given hostname resolves via DNS
+# Parameters: $1 - hostname
+function wait_until_hostname_resolves() {
+  echo -n "Waiting until hostname $1 resolves via DNS"
+  for i in {1..150}; do  # timeout after 15 minutes
+    local output="$(host -t a $1 | grep 'has address')"
+    if [[ -n "${output}" ]]; then
+      echo -e "\n${output}"
+      return 0
+    fi
+    echo -n "."
+    sleep 6
+  done
+  echo -e "\n\nERROR: timeout waiting for hostname $1 to resolve via DNS"
+  return 1
+}
+
 function install_istio(){
   header "Installing Istio"
   # Grant the necessary privileges to the service accounts Istio will use:
@@ -96,6 +113,9 @@ function install_knative(){
   wait_until_pods_running knative-build || return 1
   wait_until_pods_running knative-serving || return 1
   wait_until_service_has_external_ip istio-system knative-ingressgateway || fail_test "Ingress has no external IP"
+
+  wait_until_hostname_resolves $(kubectl get svc -n istio-system knative-ingressgateway -o jsonpath="{.status.loadBalancer.ingress[0].hostname}")
+  
   header "Knative Installed successfully"
 }
 
