@@ -95,7 +95,7 @@ function install_knative(){
 
   wait_until_pods_running knative-build || return 1
   wait_until_pods_running knative-serving || return 1
-  wait_until_service_has_external_ip istio-system istio-ingressgateway || fail_test "Ingress has no external IP"
+  wait_until_service_has_external_ip istio-system knative-ingressgateway || fail_test "Ingress has no external IP"
   header "Knative Installed successfully"
 }
 
