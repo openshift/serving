@@ -156,7 +156,7 @@ metadata:
 spec:
   istio:
     authentication: false
-    community: true
+    community: false
 EOF
 
   # Wait until at least the istio installer job is running
