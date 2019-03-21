@@ -39,10 +39,6 @@ const (
 	testNamePrefix = "Test"
 )
 
-// Default for user containers in e2e tests. This value is lower than the general
-// Knative's default so as to run more effectively in CI with limited resources.
-const defaultRequestCPU = "100m"
-
 // ResourceNames holds names of various resources.
 type ResourceNames struct {
 	Config        string
