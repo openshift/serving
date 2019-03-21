@@ -20,13 +20,15 @@ package test
 
 import (
 	"fmt"
+	"testing"
 
 	"github.com/knative/pkg/apis/duck"
-	"github.com/knative/pkg/test/logging"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	serviceresourcenames "github.com/knative/serving/pkg/reconciler/v1alpha1/service/resources/names"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+
+	rtesting "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
 )
 
 // TODO(dangerd): Move function to duck.CreateBytePatch
@@ -48,7 +50,7 @@ func validateCreatedServiceStatus(clients *Clients, names *ResourceNames) error 
 			return false, fmt.Errorf("lastCreatedRevision is not present in Service status: %v", s)
 		}
 		names.Revision = s.Status.LatestCreatedRevisionName
-		if s.Status.DomainInternal == "" {
+		if s.Status.DeprecatedDomainInternal == "" {
 			return false, fmt.Errorf("domainInternal is not present in Service status: %v", s)
 		}
 		if s.Status.LatestReadyRevisionName == "" {
@@ -64,7 +66,8 @@ func validateCreatedServiceStatus(clients *Clients, names *ResourceNames) error 
 	})
 }
 
-func getResourceObjects(clients *Clients, names ResourceNames) (*ResourceObjects, error) {
+// GetResourceObjects obtains the services resources from the k8s API server.
+func GetResourceObjects(clients *Clients, names ResourceNames) (*ResourceObjects, error) {
 	routeObject, err := clients.ServingClient.Routes.Get(names.Route, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
@@ -93,16 +96,21 @@ func getResourceObjects(clients *Clients, names ResourceNames) (*ResourceObjects
 	}, nil
 }
 
-// CreateRunLatestServiceReady creates a new RunLatest Service in state 'Ready'. This function expects Service and Image name passed in through 'names'.
-// Names is updated with the Route and Configuration created by the Service and ResourceObjects is returned with the Service, Route, and Configuration objects.
-// Returns error if the service does not come up correctly.
-func CreateRunLatestServiceReady(logger *logging.BaseLogger, clients *Clients, names *ResourceNames, options *Options) (*ResourceObjects, error) {
+// CreateReleaseServiceWithLatest creates a `Release` service using `@latest`
+// as the only revision.
+// This function expects `Service` and `Image` name passed in through `names`.
+// Names is updated with the `Route` and `Configuration` created by the Service
+// and `ResourceObjects` is returned with the `Service`, `Route`, and `Configuration` objects.
+// Returns an error if the service does not come up correctly.
+func CreateReleaseServiceWithLatest(
+	t *testing.T, clients *Clients,
+	names *ResourceNames, options *Options) (*ResourceObjects, error) {
 	if names.Service == "" || names.Image == "" {
-		return nil, fmt.Errorf("expected non-empty Service and Image name; got Service=%v, Image=%v", names.Service, names.Image)
+		return nil, fmt.Errorf("expected non-empty Service and Image name; got Service = %s, Image = %s", names.Service, names.Image)
 	}
 
-	logger.Info("Creating a new Service as RunLatest.")
-	svc, err := CreateLatestService(logger, clients, *names, options)
+	t.Log("Creating a new Service as Release with @latest.")
+	svc, err := CreateReleaseService(t, clients, *names, options)
 	if err != nil {
 		return nil, err
 	}
@@ -111,41 +119,78 @@ func CreateRunLatestServiceReady(logger *logging.BaseLogger, clients *Clients, n
 	names.Route = serviceresourcenames.Route(svc)
 	names.Config = serviceresourcenames.Configuration(svc)
 
-	logger.Info("Waiting for Service to transition to Ready.")
+	t.Log("Waiting for Service to transition to Ready.")
 	if err := WaitForServiceState(clients.ServingClient, names.Service, IsServiceReady, "ServiceIsReady"); err != nil {
 		return nil, err
 	}
 
-	logger.Info("Checking to ensure Service Status is populated for Ready service.")
+	t.Log("Checking to ensure Service Status is populated for Ready service.")
 	err = validateCreatedServiceStatus(clients, names)
 	if err != nil {
 		return nil, err
 	}
 
-	logger.Info("Getting latest objects Created by Service.")
-	return getResourceObjects(clients, *names)
+	t.Log("Getting latest objects Created by Service.")
+	return GetResourceObjects(clients, *names)
+}
+
+// CreateRunLatestServiceReady creates a new RunLatest Service in state 'Ready'. This function expects Service and Image name passed in through 'names'.
+// Names is updated with the Route and Configuration created by the Service and ResourceObjects is returned with the Service, Route, and Configuration objects.
+// Returns error if the service does not come up correctly.
+func CreateRunLatestServiceReady(t *testing.T, clients *Clients, names *ResourceNames, options *Options, fopt ...rtesting.ServiceOption) (*ResourceObjects, error) {
+	if names.Service == "" || names.Image == "" {
+		return nil, fmt.Errorf("expected non-empty Service and Image name; got Service=%v, Image=%v", names.Service, names.Image)
+	}
+
+	t.Logf("Creating a new Service %s as RunLatest.", names.Service)
+	svc, err := CreateLatestService(t, clients, *names, options, fopt...)
+	if err != nil {
+		return nil, err
+	}
+
+	// Populate Route and Configuration Objects with name
+	names.Route = serviceresourcenames.Route(svc)
+	names.Config = serviceresourcenames.Configuration(svc)
+
+	t.Log("Waiting for Service to transition to Ready.")
+	if err := WaitForServiceState(clients.ServingClient, names.Service, IsServiceReady, "ServiceIsReady"); err != nil {
+		return nil, err
+	}
+
+	t.Log("Checking to ensure Service Status is populated for Ready service.")
+	err = validateCreatedServiceStatus(clients, names)
+	if err != nil {
+		return nil, err
+	}
+
+	t.Log("Getting latest objects Created by Service.")
+	resources, err := GetResourceObjects(clients, *names)
+	if err == nil {
+		t.Logf("Successfully created Service %s.", names.Domain)
+	}
+	return resources, err
+}
+
+// CreateReleaseService creates a service in namespace with the name names.Service and names.Image,
+// configured with `@latest` revision.
+func CreateReleaseService(t *testing.T, clients *Clients, names ResourceNames, options *Options, fopt ...rtesting.ServiceOption) (*v1alpha1.Service, error) {
+	service := ReleaseLatestService(ServingNamespace, names, options, fopt...)
+	LogResourceObject(t, ResourceObjects{Service: service})
+	return clients.ServingClient.Services.Create(service)
 }
 
 // CreateLatestService creates a service in namespace with the name names.Service and names.Image
-func CreateLatestService(logger *logging.BaseLogger, clients *Clients, names ResourceNames, options *Options) (*v1alpha1.Service, error) {
-	service := LatestService(ServingNamespace, names, ImagePath(names.Image), options)
-	LogResourceObject(logger, ResourceObjects{Service: service})
+func CreateLatestService(t *testing.T, clients *Clients, names ResourceNames, options *Options, fopt ...rtesting.ServiceOption) (*v1alpha1.Service, error) {
+	service := LatestService(ServingNamespace, names, options, fopt...)
+	LogResourceObject(t, ResourceObjects{Service: service})
 	svc, err := clients.ServingClient.Services.Create(service)
 	return svc, err
 }
 
-// CreateLatestServiceWithResources creates a service in namespace with the name names.Service
-// that uses the image specified by imagePath
-func CreateLatestServiceWithResources(logger *logging.BaseLogger, clients *Clients, names ResourceNames, imagePath string) (*v1alpha1.Service, error) {
-	service := LatestServiceWithResources(ServingNamespace, names, imagePath)
-	LogResourceObject(logger, ResourceObjects{Service: service})
-	return clients.ServingClient.Services.Create(service)
-}
-
 // PatchReleaseService patches an existing service in namespace with the name names.Service
-func PatchReleaseService(logger *logging.BaseLogger, clients *Clients, svc *v1alpha1.Service, revisions []string, rolloutPercent int) (*v1alpha1.Service, error) {
+func PatchReleaseService(t *testing.T, clients *Clients, svc *v1alpha1.Service, revisions []string, rolloutPercent int) (*v1alpha1.Service, error) {
 	newSvc := ReleaseService(svc, revisions, rolloutPercent)
-	LogResourceObject(logger, ResourceObjects{Service: newSvc})
+	LogResourceObject(t, ResourceObjects{Service: newSvc})
 	patchBytes, err := createPatch(svc, newSvc)
 	if err != nil {
 		return nil, err
@@ -154,9 +199,9 @@ func PatchReleaseService(logger *logging.BaseLogger, clients *Clients, svc *v1al
 }
 
 // PatchManualService patches an existing service in namespace with the name names.Service
-func PatchManualService(logger *logging.BaseLogger, clients *Clients, svc *v1alpha1.Service) (*v1alpha1.Service, error) {
+func PatchManualService(t *testing.T, clients *Clients, svc *v1alpha1.Service) (*v1alpha1.Service, error) {
 	newSvc := ManualService(svc)
-	LogResourceObject(logger, ResourceObjects{Service: newSvc})
+	LogResourceObject(t, ResourceObjects{Service: newSvc})
 	patchBytes, err := createPatch(svc, newSvc)
 	if err != nil {
 		return nil, err
@@ -165,18 +210,18 @@ func PatchManualService(logger *logging.BaseLogger, clients *Clients, svc *v1alp
 }
 
 // PatchServiceImage patches the existing service passed in with a new imagePath. Returns the latest service object
-func PatchServiceImage(logger *logging.BaseLogger, clients *Clients, svc *v1alpha1.Service, imagePath string) (*v1alpha1.Service, error) {
+func PatchServiceImage(t *testing.T, clients *Clients, svc *v1alpha1.Service, imagePath string) (*v1alpha1.Service, error) {
 	newSvc := svc.DeepCopy()
 	if svc.Spec.RunLatest != nil {
 		newSvc.Spec.RunLatest.Configuration.RevisionTemplate.Spec.Container.Image = imagePath
 	} else if svc.Spec.Release != nil {
 		newSvc.Spec.Release.Configuration.RevisionTemplate.Spec.Container.Image = imagePath
-	} else if svc.Spec.Pinned != nil {
-		newSvc.Spec.Pinned.Configuration.RevisionTemplate.Spec.Container.Image = imagePath
+	} else if svc.Spec.DeprecatedPinned != nil {
+		newSvc.Spec.DeprecatedPinned.Configuration.RevisionTemplate.Spec.Container.Image = imagePath
 	} else {
 		return nil, fmt.Errorf("UpdateImageService(%v): unable to determine service type", svc)
 	}
-	LogResourceObject(logger, ResourceObjects{Service: newSvc})
+	LogResourceObject(t, ResourceObjects{Service: newSvc})
 	patchBytes, err := createPatch(svc, newSvc)
 	if err != nil {
 		return nil, err
@@ -185,8 +230,8 @@ func PatchServiceImage(logger *logging.BaseLogger, clients *Clients, svc *v1alph
 }
 
 // PatchService creates and applies a patch from the diff between curSvc and desiredSvc. Returns the latest service object.
-func PatchService(logger *logging.BaseLogger, clients *Clients, curSvc *v1alpha1.Service, desiredSvc *v1alpha1.Service) (*v1alpha1.Service, error) {
-	LogResourceObject(logger, ResourceObjects{Service: desiredSvc})
+func PatchService(t *testing.T, clients *Clients, curSvc *v1alpha1.Service, desiredSvc *v1alpha1.Service) (*v1alpha1.Service, error) {
+	LogResourceObject(t, ResourceObjects{Service: desiredSvc})
 	patchBytes, err := createPatch(curSvc, desiredSvc)
 	if err != nil {
 		return nil, err
@@ -195,18 +240,18 @@ func PatchService(logger *logging.BaseLogger, clients *Clients, curSvc *v1alpha1
 }
 
 // PatchServiceRevisionTemplateMetadata patches an existing service by adding metadata to the service's RevisionTemplateSpec.
-func PatchServiceRevisionTemplateMetadata(logger *logging.BaseLogger, clients *Clients, svc *v1alpha1.Service, metadata metav1.ObjectMeta) (*v1alpha1.Service, error) {
+func PatchServiceRevisionTemplateMetadata(t *testing.T, clients *Clients, svc *v1alpha1.Service, metadata metav1.ObjectMeta) (*v1alpha1.Service, error) {
 	newSvc := svc.DeepCopy()
 	if svc.Spec.RunLatest != nil {
 		newSvc.Spec.RunLatest.Configuration.RevisionTemplate.ObjectMeta = metadata
 	} else if svc.Spec.Release != nil {
 		newSvc.Spec.Release.Configuration.RevisionTemplate.ObjectMeta = metadata
-	} else if svc.Spec.Pinned != nil {
-		newSvc.Spec.Pinned.Configuration.RevisionTemplate.ObjectMeta = metadata
+	} else if svc.Spec.DeprecatedPinned != nil {
+		newSvc.Spec.DeprecatedPinned.Configuration.RevisionTemplate.ObjectMeta = metadata
 	} else {
 		return nil, fmt.Errorf("UpdateServiceRevisionTemplateMetadata(%v): unable to determine service type", svc)
 	}
-	LogResourceObject(logger, ResourceObjects{Service: newSvc})
+	LogResourceObject(t, ResourceObjects{Service: newSvc})
 	patchBytes, err := createPatch(svc, newSvc)
 	if err != nil {
 		return nil, err

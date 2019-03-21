@@ -30,14 +30,10 @@ import (
 )
 
 func TestRevisionDuckTypes(t *testing.T) {
-	var emptyGen duckv1alpha1.Generation
 	tests := []struct {
 		name string
 		t    duck.Implementable
 	}{{
-		name: "generation",
-		t:    &emptyGen,
-	}, {
 		name: "conditions",
 		t:    &duckv1alpha1.Conditions{},
 	}}
@@ -117,65 +113,6 @@ func TestIsActivationRequired(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			if e, a := tc.isActivationRequired, tc.status.IsActivationRequired(); e != a {
 				t.Errorf("%q expected: %v got: %v", tc.name, e, a)
-			}
-		})
-	}
-}
-
-func TestIsRoutable(t *testing.T) {
-	cases := []struct {
-		name       string
-		status     RevisionStatus
-		isRoutable bool
-	}{{
-		name:       "empty status should not be routable",
-		status:     RevisionStatus{},
-		isRoutable: false,
-	}, {
-		name: "Ready status should be routable",
-		status: RevisionStatus{
-			Conditions: duckv1alpha1.Conditions{{
-				Type:   RevisionConditionReady,
-				Status: corev1.ConditionTrue,
-			}},
-		},
-		isRoutable: true,
-	}, {
-		name: "Inactive status should be routable",
-		status: RevisionStatus{
-			Conditions: duckv1alpha1.Conditions{{
-				Type:   RevisionConditionActive,
-				Status: corev1.ConditionFalse,
-			}, {
-				Type:   RevisionConditionReady,
-				Status: corev1.ConditionFalse,
-			}},
-		},
-		isRoutable: true,
-	}, {
-		name: "NotReady status without reason should not be routable",
-		status: RevisionStatus{
-			Conditions: duckv1alpha1.Conditions{{
-				Type:   RevisionConditionReady,
-				Status: corev1.ConditionFalse,
-			}},
-		},
-		isRoutable: false,
-	}, {
-		name: "Ready/Unknown status without reason should not be routable",
-		status: RevisionStatus{
-			Conditions: duckv1alpha1.Conditions{{
-				Type:   RevisionConditionReady,
-				Status: corev1.ConditionUnknown,
-			}},
-		},
-		isRoutable: false,
-	}}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			if got, want := tc.isRoutable, tc.status.IsRoutable(); got != want {
-				t.Errorf("%s: IsRoutable() = %v want: %v", tc.name, got, want)
 			}
 		})
 	}
@@ -544,6 +481,24 @@ func TestTypicalFlowWithSuspendResume(t *testing.T) {
 	checkConditionSucceededRevision(r.Status, RevisionConditionReady, t)
 }
 
+func TestRevisionNotOwnedStuff(t *testing.T) {
+	r := &Revision{}
+	r.Status.InitializeConditions()
+	checkConditionOngoingRevision(r.Status, RevisionConditionBuildSucceeded, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionResourcesAvailable, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionContainerHealthy, t)
+	checkConditionOngoingRevision(r.Status, RevisionConditionReady, t)
+
+	want := "NotOwned"
+	r.Status.MarkResourceNotOwned("Resource", "mark")
+	if got := checkConditionFailedRevision(r.Status, RevisionConditionResourcesAvailable, t); got == nil || got.Reason != want {
+		t.Errorf("MarkResourceNotOwned = %v, want %v", got, want)
+	}
+	if got := checkConditionFailedRevision(r.Status, RevisionConditionReady, t); got == nil || got.Reason != want {
+		t.Errorf("MarkResourceNotOwned = %v, want %v", got, want)
+	}
+}
+
 func checkConditionSucceededRevision(rs RevisionStatus, rct duckv1alpha1.ConditionType, t *testing.T) *duckv1alpha1.Condition {
 	t.Helper()
 	return checkConditionRevision(rs, rct, corev1.ConditionTrue, t)
@@ -590,7 +545,7 @@ func TestRevisionBuildRefFromName(t *testing.T) {
 			Name:      "foo",
 		},
 		Spec: RevisionSpec{
-			BuildName: "bar-build",
+			DeprecatedBuildName: "bar-build",
 		},
 	}
 	got := *r.BuildRef()
@@ -618,8 +573,8 @@ func TestRevisionBuildRef(t *testing.T) {
 			Name:      "foo",
 		},
 		Spec: RevisionSpec{
-			BuildName: "bar",
-			BuildRef:  &buildRef,
+			DeprecatedBuildName: "bar",
+			BuildRef:            &buildRef,
 		},
 	}
 	got := *r.BuildRef()
@@ -641,6 +596,57 @@ func TestRevisionBuildRefNil(t *testing.T) {
 	var want *corev1.ObjectReference
 	if got != want {
 		t.Errorf("got: %#v, want: %#v", got, want)
+	}
+}
+
+func TestRevisionGetProtocol(t *testing.T) {
+	containerWithPortName := func(name string) corev1.Container {
+		return corev1.Container{Ports: []corev1.ContainerPort{{Name: name}}}
+	}
+
+	tests := []struct {
+		name      string
+		container corev1.Container
+		protocol  RevisionProtocolType
+	}{
+		{
+			name:      "undefined",
+			container: corev1.Container{},
+			protocol:  RevisionProtocolHTTP1,
+		},
+		{
+			name:      "http1",
+			container: containerWithPortName("http1"),
+			protocol:  RevisionProtocolHTTP1,
+		},
+		{
+			name:      "h2c",
+			container: containerWithPortName("h2c"),
+			protocol:  RevisionProtocolH2C,
+		},
+		{
+			name:      "unknown",
+			container: containerWithPortName("whatever"),
+			protocol:  RevisionProtocolHTTP1,
+		},
+		{
+			name:      "empty",
+			container: containerWithPortName(""),
+			protocol:  RevisionProtocolHTTP1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &Revision{Spec: RevisionSpec{Container: tt.container}}
+
+			got := r.GetProtocol()
+			want := tt.protocol
+
+			if got != want {
+				t.Errorf("got: %#v, want: %#v", got, want)
+			}
+		})
 	}
 }
 

@@ -50,6 +50,9 @@ metadata:
   namespace: default
   labels:
     knative.dev/service: ...  # name of the Service automatically filled in
+  annotations:
+    serving.knative.dev/creator: ...       # the user identity who created the service, system generated.
+    serving.knative.dev/lastModifier: ...  # the user identity who last modified the service, system generated.
 
   # system generated meta
   uid: ...
@@ -138,8 +141,6 @@ spec:
 
   revisionTemplate:  # template for building Revision
     metadata: ...
-      labels:
-        knative.dev/type: "function"  # One of "function" or "app"
     spec:  # knative.RevisionTemplateSpec. Copied to a new revision
 
       # +optional. DEPRECATED, use buildRef
@@ -154,6 +155,14 @@ spec:
 
       # is a core.v1.Container; some fields not allowed, such as resources, ports
       container: ... # See the Container section below
+
+      # is a heavily restricted []core.v1.Volume; only the secret and configMap
+      # types are allowed.
+      volumes:
+      - name: foo
+        secret: ...
+      - name: bar
+        configMap: ...
 
       # +optional concurrency strategy.  Defaults to Multi.
       # Deprecated in favor of ContainerConcurrency.
@@ -217,6 +226,14 @@ spec:
 
   container: ... # See the Container section below
 
+  # is a heavily restricted []core.v1.Volume; only the secret and configMap
+  # types are allowed.
+  volumes:
+  - name: foo
+    secret: ...
+  - name: bar
+    configMap: ...
+
   # Name of the service account the code should run as.
   serviceAccountName: ...
 
@@ -236,7 +253,6 @@ spec:
   # Deprecated in favor of containerConcurrency
   concurrencyModel: Single | Multi
 
-  # NYI: https://github.com/knative/serving/issues/457
   # Many higher-level systems impose a per-request response deadline.
   timeoutSeconds: ...
 
@@ -282,8 +298,6 @@ kind: Service
 metadata:
   name: myservice
   namespace: default
-  labels:
-    knative.dev/type: "function"  # convention, one of "function" or "app"
   # system generated meta
   uid: ...
   resourceVersion: ...  # used for optimistic concurrency control
@@ -303,8 +317,9 @@ spec:  # One of "runLatest", "release", "pinned" (DEPRECATED), or "manual"
       revisionTemplate:
         spec: # serving.knative.dev/v1alpha1.RevisionSpec
           container: ... # See the Container section below
+          volumes: ... # Optional
           containerConcurrency: ... # Optional
-          timeoutSeconds: ...
+          timeoutSeconds: ... # Optional
           serviceAccountName: ...  # Name of the service account the code should run as
 
   # Example, only one of "runLatest", "release", "pinned" (DEPRECATED), or "manual" can be set in practice.
@@ -316,14 +331,16 @@ spec:  # One of "runLatest", "release", "pinned" (DEPRECATED), or "manual"
       revisionTemplate:
         spec: # serving.knative.dev/v1alpha1.RevisionSpec
           container: ... # See the Container section below
+          volumes: ... # Optional
           containerConcurrency: ... # Optional
-          timeoutSeconds: ...
+          timeoutSeconds: ... # Optional
           serviceAccountName: ...  # Name of the service account the code should run as
 
   # Example, only one of "runLatest", "release", "pinned" (DEPRECATED), or "manual" can be set in practice.
   release:
     # Ordered list of 1 or 2 revisions. First revision is traffic target
     # "current" and second revision is traffic target "candidate".
+    # It is possible to specify `"@latest"` string as a shortcut to the lastest available revision.
     revisions: ["myservice-00013", "myservice-00015"]
     rolloutPercent: 50 # Percent [0-99] of traffic to route to "candidate" revision
     configuration:  # serving.knative.dev/v1alpha1.ConfigurationSpec
@@ -332,8 +349,9 @@ spec:  # One of "runLatest", "release", "pinned" (DEPRECATED), or "manual"
       revisionTemplate:
         spec: # serving.knative.dev/v1alpha1.RevisionSpec
           container: ... # See the Container section below
+          volumes: ... # Optional
           containerConcurrency: ... # Optional
-          timeoutSeconds: ...
+          timeoutSeconds: ... # Optional
           serviceAccountName: ...  # Name of the service account the code should run as
 
   # Example, only one of "runLatest", "release", "pinned" (DEPRECATED), or "manual" can be set in practice.
@@ -390,7 +408,7 @@ status:
 
 This is a
 [core.v1.Container](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.10/#container-v1-core).
-Some fields are not allowed, such as name and volumeMounts.
+Some fields are not allowed, such as name and lifecycle.
 
 This type is not used on its own but is found composed inside
 [Service](#service), [Configuration](#configuration), and [Revision](#revision).
@@ -424,6 +442,15 @@ container: # v1.Container
     - containerPort: ...
       name: ... # Optional, one of "http1", "h2c"
       protocol: ... # Optional, one of "", "tcp"
+
+  # This specifies where the volumes present in the RevisionSpec will be mounted into
+  # the container.  Each of the volumes in the RevisionSpec must be mounted here
+  # or it is an error.
+  volumeMounts:
+    - name: ... # This must match a name from Volumes
+      mountPath: ... # Where to mount the named Volume.
+      readOnly: ... # Must be True, will default to True, so it may be omitted.
+      # All other fields are disallowed.
 
   livenessProbe: ... # Optional
   readinessProbe: ... # Optional

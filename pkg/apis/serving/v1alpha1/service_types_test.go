@@ -21,19 +21,16 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/knative/pkg/apis/duck"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
+	authv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 func TestServiceDuckTypes(t *testing.T) {
-	var emptyGen duckv1alpha1.Generation
 	tests := []struct {
 		name string
 		t    duck.Implementable
 	}{{
-		name: "generation",
-		t:    &emptyGen,
-	}, {
 		name: "conditions",
 		t:    &duckv1alpha1.Conditions{},
 	}, {
@@ -161,19 +158,19 @@ func TestServiceHappyPath(t *testing.T) {
 	checkConditionOngoingService(svc.Status, ServiceConditionRoutesReady, t)
 
 	// Nothing from Configuration is nothing to us.
-	svc.Status.PropagateConfigurationStatus(ConfigurationStatus{})
+	svc.Status.PropagateConfigurationStatus(&ConfigurationStatus{})
 	checkConditionOngoingService(svc.Status, ServiceConditionReady, t)
 	checkConditionOngoingService(svc.Status, ServiceConditionConfigurationsReady, t)
 	checkConditionOngoingService(svc.Status, ServiceConditionRoutesReady, t)
 
 	// Nothing from Route is nothing to us.
-	svc.Status.PropagateRouteStatus(RouteStatus{})
+	svc.Status.PropagateRouteStatus(&RouteStatus{})
 	checkConditionOngoingService(svc.Status, ServiceConditionReady, t)
 	checkConditionOngoingService(svc.Status, ServiceConditionConfigurationsReady, t)
 	checkConditionOngoingService(svc.Status, ServiceConditionRoutesReady, t)
 
 	// Done from Configuration moves our ConfigurationsReady condition
-	svc.Status.PropagateConfigurationStatus(ConfigurationStatus{
+	svc.Status.PropagateConfigurationStatus(&ConfigurationStatus{
 		Conditions: duckv1alpha1.Conditions{{
 			Type:   ConfigurationConditionReady,
 			Status: corev1.ConditionTrue,
@@ -184,7 +181,7 @@ func TestServiceHappyPath(t *testing.T) {
 	checkConditionOngoingService(svc.Status, ServiceConditionRoutesReady, t)
 
 	// Done from Route moves our RoutesReady condition, which triggers us to be Ready.
-	svc.Status.PropagateRouteStatus(RouteStatus{
+	svc.Status.PropagateRouteStatus(&RouteStatus{
 		Conditions: duckv1alpha1.Conditions{{
 			Type:   RouteConditionReady,
 			Status: corev1.ConditionTrue,
@@ -195,7 +192,7 @@ func TestServiceHappyPath(t *testing.T) {
 	checkConditionSucceededService(svc.Status, ServiceConditionRoutesReady, t)
 
 	// Check idempotency
-	svc.Status.PropagateRouteStatus(RouteStatus{
+	svc.Status.PropagateRouteStatus(&RouteStatus{
 		Conditions: duckv1alpha1.Conditions{{
 			Type:   RouteConditionReady,
 			Status: corev1.ConditionTrue,
@@ -206,6 +203,25 @@ func TestServiceHappyPath(t *testing.T) {
 	checkConditionSucceededService(svc.Status, ServiceConditionRoutesReady, t)
 }
 
+func TestMarkRouteNotYetReady(t *testing.T) {
+	svc := &Service{}
+	svc.Status.InitializeConditions()
+	checkConditionOngoingService(svc.Status, ServiceConditionReady, t)
+	checkConditionOngoingService(svc.Status, ServiceConditionConfigurationsReady, t)
+	checkConditionOngoingService(svc.Status, ServiceConditionRoutesReady, t)
+	svc.Status.MarkRouteNotYetReady()
+	dt := checkConditionOngoingService(svc.Status, ServiceConditionReady, t)
+	if dt == nil {
+		t.Fatal("ServiceConditionReady was nil")
+	}
+	if got, want := dt.Reason, trafficNotMigratedReason; got != want {
+		t.Errorf("Condition Reason: got: %s, want: %s", got, want)
+	}
+	if got, want := dt.Message, trafficNotMigratedMessage; got != want {
+		t.Errorf("Condition Message: got: %s, want: %s", got, want)
+	}
+}
+
 func TestFailureRecovery(t *testing.T) {
 	svc := &Service{}
 	svc.Status.InitializeConditions()
@@ -214,7 +230,7 @@ func TestFailureRecovery(t *testing.T) {
 	checkConditionOngoingService(svc.Status, ServiceConditionRoutesReady, t)
 
 	// Config failure causes us to become unready immediately (route still ok).
-	svc.Status.PropagateConfigurationStatus(ConfigurationStatus{
+	svc.Status.PropagateConfigurationStatus(&ConfigurationStatus{
 		Conditions: duckv1alpha1.Conditions{{
 			Type:   ConfigurationConditionReady,
 			Status: corev1.ConditionFalse,
@@ -225,7 +241,7 @@ func TestFailureRecovery(t *testing.T) {
 	checkConditionOngoingService(svc.Status, ServiceConditionRoutesReady, t)
 
 	// Route failure causes route to become failed (config and service still failed).
-	svc.Status.PropagateRouteStatus(RouteStatus{
+	svc.Status.PropagateRouteStatus(&RouteStatus{
 		Conditions: duckv1alpha1.Conditions{{
 			Type:   RouteConditionReady,
 			Status: corev1.ConditionFalse,
@@ -236,7 +252,7 @@ func TestFailureRecovery(t *testing.T) {
 	checkConditionFailedService(svc.Status, ServiceConditionRoutesReady, t)
 
 	// Fix Configuration moves our ConfigurationsReady condition (route and service still failed).
-	svc.Status.PropagateConfigurationStatus(ConfigurationStatus{
+	svc.Status.PropagateConfigurationStatus(&ConfigurationStatus{
 		Conditions: duckv1alpha1.Conditions{{
 			Type:   ConfigurationConditionReady,
 			Status: corev1.ConditionTrue,
@@ -247,7 +263,7 @@ func TestFailureRecovery(t *testing.T) {
 	checkConditionFailedService(svc.Status, ServiceConditionRoutesReady, t)
 
 	// Fix route, should make everything ready.
-	svc.Status.PropagateRouteStatus(RouteStatus{
+	svc.Status.PropagateRouteStatus(&RouteStatus{
 		Conditions: duckv1alpha1.Conditions{{
 			Type:   RouteConditionReady,
 			Status: corev1.ConditionTrue,
@@ -266,7 +282,7 @@ func TestConfigurationFailurePropagation(t *testing.T) {
 	checkConditionOngoingService(svc.Status, ServiceConditionRoutesReady, t)
 
 	// Failure causes us to become unready immediately
-	svc.Status.PropagateConfigurationStatus(ConfigurationStatus{
+	svc.Status.PropagateConfigurationStatus(&ConfigurationStatus{
 		Conditions: duckv1alpha1.Conditions{{
 			Type:   ConfigurationConditionReady,
 			Status: corev1.ConditionFalse,
@@ -285,7 +301,7 @@ func TestConfigurationFailureRecovery(t *testing.T) {
 	checkConditionOngoingService(svc.Status, ServiceConditionRoutesReady, t)
 
 	// Done from Route moves our RoutesReady condition
-	svc.Status.PropagateRouteStatus(RouteStatus{
+	svc.Status.PropagateRouteStatus(&RouteStatus{
 		Conditions: duckv1alpha1.Conditions{{
 			Type:   RouteConditionReady,
 			Status: corev1.ConditionTrue,
@@ -296,7 +312,7 @@ func TestConfigurationFailureRecovery(t *testing.T) {
 	checkConditionSucceededService(svc.Status, ServiceConditionRoutesReady, t)
 
 	// Failure causes us to become unready immediately (route still ok).
-	svc.Status.PropagateConfigurationStatus(ConfigurationStatus{
+	svc.Status.PropagateConfigurationStatus(&ConfigurationStatus{
 		Conditions: duckv1alpha1.Conditions{{
 			Type:   ConfigurationConditionReady,
 			Status: corev1.ConditionFalse,
@@ -307,7 +323,7 @@ func TestConfigurationFailureRecovery(t *testing.T) {
 	checkConditionSucceededService(svc.Status, ServiceConditionRoutesReady, t)
 
 	// Fixed the glitch.
-	svc.Status.PropagateConfigurationStatus(ConfigurationStatus{
+	svc.Status.PropagateConfigurationStatus(&ConfigurationStatus{
 		Conditions: duckv1alpha1.Conditions{{
 			Type:   ConfigurationConditionReady,
 			Status: corev1.ConditionTrue,
@@ -326,13 +342,13 @@ func TestConfigurationUnknownPropagation(t *testing.T) {
 	checkConditionOngoingService(svc.Status, ServiceConditionRoutesReady, t)
 
 	// Configuration and Route become ready, making us ready.
-	svc.Status.PropagateConfigurationStatus(ConfigurationStatus{
+	svc.Status.PropagateConfigurationStatus(&ConfigurationStatus{
 		Conditions: duckv1alpha1.Conditions{{
 			Type:   ConfigurationConditionReady,
 			Status: corev1.ConditionTrue,
 		}},
 	})
-	svc.Status.PropagateRouteStatus(RouteStatus{
+	svc.Status.PropagateRouteStatus(&RouteStatus{
 		Conditions: duckv1alpha1.Conditions{{
 			Type:   RouteConditionReady,
 			Status: corev1.ConditionTrue,
@@ -343,7 +359,7 @@ func TestConfigurationUnknownPropagation(t *testing.T) {
 	checkConditionSucceededService(svc.Status, ServiceConditionRoutesReady, t)
 
 	// Configuration flipping back to Unknown causes us to become ongoing immediately
-	svc.Status.PropagateConfigurationStatus(ConfigurationStatus{
+	svc.Status.PropagateConfigurationStatus(&ConfigurationStatus{
 		Conditions: duckv1alpha1.Conditions{{
 			Type:   ConfigurationConditionReady,
 			Status: corev1.ConditionUnknown,
@@ -369,13 +385,13 @@ func TestSetManualStatus(t *testing.T) {
 	checkConditionOngoingService(svc.Status, ServiceConditionRoutesReady, t)
 
 	// Going back from manual will result in propagation to reoccur, and should make us ready
-	svc.Status.PropagateConfigurationStatus(ConfigurationStatus{
+	svc.Status.PropagateConfigurationStatus(&ConfigurationStatus{
 		Conditions: duckv1alpha1.Conditions{{
 			Type:   ConfigurationConditionReady,
 			Status: corev1.ConditionTrue,
 		}},
 	})
-	svc.Status.PropagateRouteStatus(RouteStatus{
+	svc.Status.PropagateRouteStatus(&RouteStatus{
 		Conditions: duckv1alpha1.Conditions{{
 			Type:   RouteConditionReady,
 			Status: corev1.ConditionTrue,
@@ -395,7 +411,7 @@ func TestSetManualStatus(t *testing.T) {
 
 func TestConfigurationStatusPropagation(t *testing.T) {
 	svc := &Service{}
-	svc.Status.PropagateConfigurationStatus(ConfigurationStatus{
+	svc.Status.PropagateConfigurationStatus(&ConfigurationStatus{
 		LatestReadyRevisionName:   "foo",
 		LatestCreatedRevisionName: "bar",
 	})
@@ -418,7 +434,7 @@ func TestRouteFailurePropagation(t *testing.T) {
 	checkConditionOngoingService(svc.Status, ServiceConditionRoutesReady, t)
 
 	// Failure causes us to become unready immediately
-	svc.Status.PropagateRouteStatus(RouteStatus{
+	svc.Status.PropagateRouteStatus(&RouteStatus{
 		Conditions: duckv1alpha1.Conditions{{
 			Type:   RouteConditionReady,
 			Status: corev1.ConditionFalse,
@@ -437,7 +453,7 @@ func TestRouteFailureRecovery(t *testing.T) {
 	checkConditionOngoingService(svc.Status, ServiceConditionRoutesReady, t)
 
 	// Done from Configuration moves our ConfigurationsReady condition
-	svc.Status.PropagateConfigurationStatus(ConfigurationStatus{
+	svc.Status.PropagateConfigurationStatus(&ConfigurationStatus{
 		Conditions: duckv1alpha1.Conditions{{
 			Type:   ConfigurationConditionReady,
 			Status: corev1.ConditionTrue,
@@ -448,7 +464,7 @@ func TestRouteFailureRecovery(t *testing.T) {
 	checkConditionOngoingService(svc.Status, ServiceConditionRoutesReady, t)
 
 	// Failure causes us to become unready immediately (config still ok).
-	svc.Status.PropagateRouteStatus(RouteStatus{
+	svc.Status.PropagateRouteStatus(&RouteStatus{
 		Conditions: duckv1alpha1.Conditions{{
 			Type:   RouteConditionReady,
 			Status: corev1.ConditionFalse,
@@ -459,7 +475,7 @@ func TestRouteFailureRecovery(t *testing.T) {
 	checkConditionFailedService(svc.Status, ServiceConditionRoutesReady, t)
 
 	// Fixed the glitch.
-	svc.Status.PropagateRouteStatus(RouteStatus{
+	svc.Status.PropagateRouteStatus(&RouteStatus{
 		Conditions: duckv1alpha1.Conditions{{
 			Type:   RouteConditionReady,
 			Status: corev1.ConditionTrue,
@@ -478,13 +494,13 @@ func TestRouteUnknownPropagation(t *testing.T) {
 	checkConditionOngoingService(svc.Status, ServiceConditionRoutesReady, t)
 
 	// Configuration and Route become ready, making us ready.
-	svc.Status.PropagateConfigurationStatus(ConfigurationStatus{
+	svc.Status.PropagateConfigurationStatus(&ConfigurationStatus{
 		Conditions: duckv1alpha1.Conditions{{
 			Type:   ConfigurationConditionReady,
 			Status: corev1.ConditionTrue,
 		}},
 	})
-	svc.Status.PropagateRouteStatus(RouteStatus{
+	svc.Status.PropagateRouteStatus(&RouteStatus{
 		Conditions: duckv1alpha1.Conditions{{
 			Type:   RouteConditionReady,
 			Status: corev1.ConditionTrue,
@@ -494,8 +510,8 @@ func TestRouteUnknownPropagation(t *testing.T) {
 	checkConditionSucceededService(svc.Status, ServiceConditionConfigurationsReady, t)
 	checkConditionSucceededService(svc.Status, ServiceConditionRoutesReady, t)
 
-	// Route flipping back to Unknown causes us to become ongoing immediately
-	svc.Status.PropagateRouteStatus(RouteStatus{
+	// Route flipping back to Unknown causes us to become ongoing immediately.
+	svc.Status.PropagateRouteStatus(&RouteStatus{
 		Conditions: duckv1alpha1.Conditions{{
 			Type:   RouteConditionReady,
 			Status: corev1.ConditionUnknown,
@@ -507,9 +523,34 @@ func TestRouteUnknownPropagation(t *testing.T) {
 	checkConditionSucceededService(svc.Status, ServiceConditionConfigurationsReady, t)
 }
 
+func TestServiceNotOwnedStuff(t *testing.T) {
+	svc := &Service{}
+	svc.Status.InitializeConditions()
+	checkConditionOngoingService(svc.Status, ServiceConditionReady, t)
+	checkConditionOngoingService(svc.Status, ServiceConditionConfigurationsReady, t)
+	checkConditionOngoingService(svc.Status, ServiceConditionRoutesReady, t)
+
+	want := "NotOwned"
+	svc.Status.MarkRouteNotOwned("mark")
+	if got := checkConditionFailedService(svc.Status, ServiceConditionRoutesReady, t); got == nil || got.Reason != want {
+		t.Errorf("MarkResourceNotOwned = %v, want %v", got, want)
+	}
+	if got := checkConditionFailedService(svc.Status, ServiceConditionReady, t); got == nil || got.Reason != want {
+		t.Errorf("MarkResourceNotOwned = %v, want %v", got, want)
+	}
+
+	svc.Status.MarkConfigurationNotOwned("jon")
+	if got := checkConditionFailedService(svc.Status, ServiceConditionConfigurationsReady, t); got == nil || got.Reason != want {
+		t.Errorf("MarkResourceNotOwned = %v, want %v", got, want)
+	}
+	if got := checkConditionFailedService(svc.Status, ServiceConditionReady, t); got == nil || got.Reason != want {
+		t.Errorf("MarkResourceNotOwned = %v, want %v", got, want)
+	}
+}
+
 func TestRouteStatusPropagation(t *testing.T) {
 	svc := &Service{}
-	svc.Status.PropagateRouteStatus(RouteStatus{
+	svc.Status.PropagateRouteStatus(&RouteStatus{
 		Domain: "example.com",
 		Traffic: []TrafficTarget{{
 			Percent:      100,
@@ -573,4 +614,77 @@ func TestServiceGetGroupVersionKind(t *testing.T) {
 	if got := s.GetGroupVersionKind(); got != want {
 		t.Errorf("got: %v, want: %v", got, want)
 	}
+}
+
+func TestAnnotateUserInfo(t *testing.T) {
+	const (
+		u1 = "oveja@knative.dev"
+		u2 = "cabra@knative.dev"
+		u3 = "vaca@knative.dev"
+	)
+	withUserAnns := func(u1, u2 string, s *Service) *Service {
+		a := s.GetAnnotations()
+		if a == nil {
+			a = map[string]string{}
+			defer s.SetAnnotations(a)
+		}
+		a[CreatorAnnotation] = u1
+		a[UpdaterAnnotation] = u2
+		return s
+	}
+	tests := []struct {
+		name     string
+		user     string
+		this     *Service
+		prev     *Service
+		wantAnns map[string]string
+	}{{
+		"create-new", u1, &Service{}, nil,
+		map[string]string{
+			CreatorAnnotation: u1,
+			UpdaterAnnotation: u1,
+		},
+	}, {
+		// Old objects don't have the annotation, and unless there's a change in
+		// data they won't get it.
+		"update-no-diff-old-object", u1, &Service{}, &Service{},
+		map[string]string{},
+	}, {
+		"update-no-diff-new-object", u2,
+		withUserAnns(u1, u1, &Service{}),
+		withUserAnns(u1, u1, &Service{}),
+		map[string]string{
+			CreatorAnnotation: u1,
+			UpdaterAnnotation: u1,
+		},
+	}, {
+		"update-diff-old-object", u2,
+		&Service{Spec: ServiceSpec{Release: &ReleaseType{}}},
+		&Service{Spec: ServiceSpec{RunLatest: &RunLatestType{}}},
+		map[string]string{
+			UpdaterAnnotation: u2,
+		},
+	}, {
+		"update-diff-new-object", u3,
+		withUserAnns(u1, u2, &Service{Spec: ServiceSpec{Release: &ReleaseType{}}}),
+		withUserAnns(u1, u2, &Service{Spec: ServiceSpec{RunLatest: &RunLatestType{}}}),
+		map[string]string{
+			CreatorAnnotation: u1,
+			UpdaterAnnotation: u3,
+		},
+	}}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			test.this.AnnotateUserInfo(test.prev, &authv1.UserInfo{
+				Username: test.user,
+			})
+			if got, want := test.this.GetAnnotations(), test.wantAnns; !cmp.Equal(got, want) {
+				t.Errorf("Annotations = %v, want: %v, diff (-got, +want): %s", got, want, cmp.Diff(got, want))
+			}
+		})
+	}
+
 }

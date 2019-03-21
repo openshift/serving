@@ -21,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -36,6 +37,8 @@ import (
 	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/controller"
 	"github.com/knative/pkg/kmeta"
+	"github.com/knative/pkg/system"
+	_ "github.com/knative/pkg/system/testing"
 	"github.com/knative/serving/pkg/apis/networking"
 	"github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
@@ -45,7 +48,6 @@ import (
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress/config"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress/resources"
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
-	"github.com/knative/serving/pkg/system"
 )
 
 const (
@@ -129,15 +131,15 @@ func TestReconcile(t *testing.T) {
 					Conditions: duckv1alpha1.Conditions{{
 						Type:     v1alpha1.ClusterIngressConditionLoadBalancerReady,
 						Status:   corev1.ConditionTrue,
-						Severity: "Error",
+						Severity: duckv1alpha1.ConditionSeverityError,
 					}, {
 						Type:     v1alpha1.ClusterIngressConditionNetworkConfigured,
 						Status:   corev1.ConditionTrue,
-						Severity: "Error",
+						Severity: duckv1alpha1.ConditionSeverityError,
 					}, {
 						Type:     v1alpha1.ClusterIngressConditionReady,
 						Status:   corev1.ConditionTrue,
-						Severity: "Error",
+						Severity: duckv1alpha1.ConditionSeverityError,
 					}},
 				},
 			),
@@ -154,7 +156,7 @@ func TestReconcile(t *testing.T) {
 			&v1alpha3.VirtualService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "reconcile-virtualservice",
-					Namespace: system.Namespace,
+					Namespace: system.Namespace(),
 					Labels: map[string]string{
 						networking.IngressLabelKey:     "reconcile-virtualservice",
 						serving.RouteLabelKey:          "test-route",
@@ -180,22 +182,22 @@ func TestReconcile(t *testing.T) {
 					Conditions: duckv1alpha1.Conditions{{
 						Type:     v1alpha1.ClusterIngressConditionLoadBalancerReady,
 						Status:   corev1.ConditionTrue,
-						Severity: "Error",
+						Severity: duckv1alpha1.ConditionSeverityError,
 					}, {
 						Type:     v1alpha1.ClusterIngressConditionNetworkConfigured,
 						Status:   corev1.ConditionTrue,
-						Severity: "Error",
+						Severity: duckv1alpha1.ConditionSeverityError,
 					}, {
 						Type:     v1alpha1.ClusterIngressConditionReady,
 						Status:   corev1.ConditionTrue,
-						Severity: "Error",
+						Severity: duckv1alpha1.ConditionSeverityError,
 					}},
 				},
 			),
 		}},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated status for VirtualService %q/%q",
-				system.Namespace, "reconcile-virtualservice"),
+				system.Namespace(), "reconcile-virtualservice"),
 		},
 		Key: "reconcile-virtualservice",
 	}}
@@ -259,8 +261,8 @@ func ingressWithStatus(name string, generation int64, status v1alpha1.IngressSta
 			},
 		},
 		Spec: v1alpha1.IngressSpec{
-			Generation: generation,
-			Rules:      ingressRules,
+			DeprecatedGeneration: generation,
+			Rules:                ingressRules,
 		},
 		Status: status,
 	}
@@ -286,7 +288,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      config.IstioConfigName,
-				Namespace: system.Namespace,
+				Namespace: system.Namespace(),
 			},
 			Data: originGateways,
 		},
@@ -295,7 +297,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 		cms = append(cms, cm)
 	}
 
-	configMapWatcher = &configmap.ManualWatcher{Namespace: system.Namespace}
+	configMapWatcher = &configmap.ManualWatcher{Namespace: system.Namespace()}
 	sharedClient = fakesharedclientset.NewSimpleClientset()
 	servingClient = fakeclientset.NewSimpleClientset()
 
@@ -330,7 +332,13 @@ func TestGlobalResyncOnUpdateGatewayConfigMap(t *testing.T) {
 	_, _, servingClient, controller, _, _, sharedInformer, servingInformer, watcher := newTestSetup(t)
 
 	stopCh := make(chan struct{})
-	defer close(stopCh)
+	grp := errgroup.Group{}
+	defer func() {
+		close(stopCh)
+		if err := grp.Wait(); err != nil {
+			t.Errorf("Wait() = %v", err)
+		}
+	}()
 
 	h := NewHooks()
 
@@ -359,7 +367,10 @@ func TestGlobalResyncOnUpdateGatewayConfigMap(t *testing.T) {
 		t.Fatalf("failed to start cluster ingress manager: %v", err)
 	}
 
-	go controller.Run(1, stopCh)
+	servingInformer.WaitForCacheSync(stopCh)
+	sharedInformer.WaitForCacheSync(stopCh)
+
+	grp.Go(func() error { return controller.Run(1, stopCh) })
 
 	ingress := ingressWithStatus("config-update", 1234,
 		v1alpha1.IngressStatus{
@@ -389,7 +400,7 @@ func TestGlobalResyncOnUpdateGatewayConfigMap(t *testing.T) {
 	domainConfig := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      config.IstioConfigName,
-			Namespace: system.Namespace,
+			Namespace: system.Namespace(),
 		},
 		Data: newGateways,
 	}

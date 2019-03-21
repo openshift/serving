@@ -24,11 +24,11 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	duckv1alpha1 "github.com/knative/pkg/apis/duck/v1alpha1"
 	"github.com/knative/pkg/apis/istio/v1alpha3"
 	"github.com/knative/pkg/configmap"
 	ctrl "github.com/knative/pkg/controller"
+	"github.com/knative/pkg/system"
 	"github.com/knative/serving/pkg/activator"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
@@ -36,10 +36,11 @@ import (
 	fakeclientset "github.com/knative/serving/pkg/client/clientset/versioned/fake"
 	informers "github.com/knative/serving/pkg/client/informers/externalversions"
 	"github.com/knative/serving/pkg/gc"
+	"github.com/knative/serving/pkg/network"
 	rclr "github.com/knative/serving/pkg/reconciler"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/config"
 	. "github.com/knative/serving/pkg/reconciler/v1alpha1/testing"
-	"github.com/knative/serving/pkg/system"
+	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -107,7 +108,7 @@ func getTestConfiguration() *v1alpha1.Configuration {
 		},
 		Spec: v1alpha1.ConfigurationSpec{
 			// This is a workaround for generation initialization
-			Generation: 1,
+			DeprecatedGeneration: 1,
 			RevisionTemplate: v1alpha1.RevisionTemplateSpec{
 				Spec: v1alpha1.RevisionSpec{
 					Container: corev1.Container{
@@ -142,7 +143,7 @@ func getTestRevisionForConfig(config *v1alpha1.Configuration) *v1alpha1.Revision
 func getActivatorDestinationWeight(w int) v1alpha3.DestinationWeight {
 	return v1alpha3.DestinationWeight{
 		Destination: v1alpha3.Destination{
-			Host: rclr.GetK8sServiceFullname(activator.K8sServiceName, system.Namespace),
+			Host: rclr.GetK8sServiceFullname(activator.K8sServiceName, system.Namespace()),
 			Port: v1alpha3.PortSelector{
 				Number: 80,
 			},
@@ -173,30 +174,33 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 
 	// Create fake clients
 	kubeClient = fakekubeclientset.NewSimpleClientset()
-	cms := []*corev1.ConfigMap{
-		{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      config.DomainConfigName,
-				Namespace: system.Namespace,
-			},
-			Data: map[string]string{
-				defaultDomainSuffix: "",
-				prodDomainSuffix:    "selector:\n  app: prod",
-			},
+	cms := []*corev1.ConfigMap{{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      config.DomainConfigName,
+			Namespace: system.Namespace(),
 		},
-		{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      gc.ConfigName,
-				Namespace: system.Namespace,
-			},
-			Data: map[string]string{},
+		Data: map[string]string{
+			defaultDomainSuffix: "",
+			prodDomainSuffix:    "selector:\n  app: prod",
 		},
-	}
+	}, {
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      network.ConfigName,
+			Namespace: system.Namespace(),
+		},
+		Data: map[string]string{},
+	}, {
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      gc.ConfigName,
+			Namespace: system.Namespace(),
+		},
+		Data: map[string]string{},
+	}}
 	for _, cm := range configs {
 		cms = append(cms, cm)
 	}
 
-	configMapWatcher = &configmap.ManualWatcher{Namespace: system.Namespace}
+	configMapWatcher = &configmap.ManualWatcher{Namespace: system.Namespace()}
 	servingClient = fakeclientset.NewSimpleClientset()
 
 	// Create informer factories with fake clients. The second parameter sets the
@@ -274,11 +278,9 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 	h.OnCreate(&kubeClient.Fake, "events", ExpectNormalEventDelivery(t, "^Created ClusterIngress.*" /*ingress name is unset in test*/))
 
 	// An inactive revision
-	rev := getTestRevisionWithCondition("test-rev",
-		duckv1alpha1.Condition{
-			Type:   v1alpha1.RevisionConditionActive,
-			Status: corev1.ConditionFalse,
-		})
+	rev := getTestRevision("test-rev")
+	rev.Status.MarkInactive("NoTraffic", "no message")
+
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
 	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 
@@ -307,16 +309,6 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 		t.Errorf("Unexpected label diff (-want +got): %v", diff)
 	}
 
-	// Check owner refs
-	expectedRefs := []metav1.OwnerReference{{
-		APIVersion: "serving.knative.dev/v1alpha1",
-		Kind:       "Route",
-		Name:       route.Name,
-	}}
-
-	if diff := cmp.Diff(expectedRefs, ci.OwnerReferences, cmpopts.IgnoreFields(expectedRefs[0], "Controller", "BlockOwnerDeletion")); diff != "" {
-		t.Errorf("Unexpected rule owner refs diff (-want +got): %v", diff)
-	}
 	domain := strings.Join([]string{route.Name, route.Namespace, defaultDomainSuffix}, ".")
 	expectedSpec := netv1alpha1.IngressSpec{
 		Visibility: netv1alpha1.IngressVisibilityExternalIP,
@@ -324,14 +316,12 @@ func TestCreateRouteForOneReserveRevision(t *testing.T) {
 			Hosts: []string{
 				domain,
 				"test-route.test.svc.cluster.local",
-				"test-route.test.svc",
-				"test-route.test",
 			},
 			HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
 				Paths: []netv1alpha1.HTTPClusterIngressPath{{
 					Splits: []netv1alpha1.ClusterIngressBackendSplit{{
 						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
-							ServiceNamespace: "knative-serving",
+							ServiceNamespace: system.Namespace(),
 							ServiceName:      "activator-service",
 							ServicePort:      intstr.FromInt(80),
 						},
@@ -413,8 +403,6 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 			Hosts: []string{
 				domain,
 				"test-route.test.svc.cluster.local",
-				"test-route.test.svc",
-				"test-route.test",
 			},
 			HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
 				Paths: []netv1alpha1.HTTPClusterIngressPath{{
@@ -451,11 +439,9 @@ func TestCreateRouteWithMultipleTargets(t *testing.T) {
 func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 	_, servingClient, controller, _, servingInformer, _ := newTestReconciler(t)
 	// A standalone inactive revision
-	rev := getTestRevisionWithCondition("test-rev",
-		duckv1alpha1.Condition{
-			Type:   v1alpha1.RevisionConditionActive,
-			Status: corev1.ConditionFalse,
-		})
+	rev := getTestRevision("test-rev")
+	rev.Status.MarkInactive("NoTraffic", "no message")
+
 	servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)
 	servingInformer.Serving().V1alpha1().Revisions().Informer().GetIndexer().Add(rev)
 
@@ -496,8 +482,6 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 			Hosts: []string{
 				domain,
 				"test-route.test.svc.cluster.local",
-				"test-route.test.svc",
-				"test-route.test",
 			},
 			HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
 				Paths: []netv1alpha1.HTTPClusterIngressPath{{
@@ -510,7 +494,7 @@ func TestCreateRouteWithOneTargetReserve(t *testing.T) {
 						Percent: 90,
 					}, {
 						ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
-							ServiceNamespace: "knative-serving",
+							ServiceNamespace: system.Namespace(),
 							ServiceName:      "activator-service",
 							ServicePort:      intstr.FromInt(80),
 						},
@@ -596,8 +580,6 @@ func TestCreateRouteWithDuplicateTargets(t *testing.T) {
 			Hosts: []string{
 				domain,
 				"test-route.test.svc.cluster.local",
-				"test-route.test.svc",
-				"test-route.test",
 			},
 			HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
 				Paths: []netv1alpha1.HTTPClusterIngressPath{{
@@ -716,8 +698,6 @@ func TestCreateRouteWithNamedTargets(t *testing.T) {
 			Hosts: []string{
 				domain,
 				"test-route.test.svc.cluster.local",
-				"test-route.test.svc",
-				"test-route.test",
 			},
 			HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
 				Paths: []netv1alpha1.HTTPClusterIngressPath{{
@@ -815,7 +795,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 			domainConfig := corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      config.DomainConfigName,
-					Namespace: system.Namespace,
+					Namespace: system.Namespace(),
 				},
 				Data: map[string]string{
 					defaultDomainSuffix: "",
@@ -830,7 +810,7 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 			domainConfig := corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      config.DomainConfigName,
-					Namespace: system.Namespace,
+					Namespace: system.Namespace(),
 				},
 				Data: map[string]string{
 					"newdefault.net":   "",
@@ -841,13 +821,14 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 			route.Labels = make(map[string]string)
 		},
 	}, {
-		// An invalid config map
-		expectedDomainSuffix: "newdefault.net",
+		// When no domain with an open selector is specified, we fallback
+		// on the default of example.com.
+		expectedDomainSuffix: config.DefaultDomain,
 		apply: func() {
 			domainConfig := corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      config.DomainConfigName,
-					Namespace: system.Namespace,
+					Namespace: system.Namespace(),
 				},
 				Data: map[string]string{
 					"mytestdomain.com": "selector:\n  app: prod",
@@ -857,18 +838,21 @@ func TestUpdateDomainConfigMap(t *testing.T) {
 			route.Labels = make(map[string]string)
 		},
 	}}
-	for _, expectation := range expectations {
-		expectation.apply()
-		servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
-		routeClient.Update(route)
-		controller.Reconcile(context.TODO(), KeyOrDie(route))
-		addResourcesToInformers(t, servingClient, servingInformer, route)
 
-		route, _ = routeClient.Get(route.Name, metav1.GetOptions{})
-		expectedDomain := fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, expectation.expectedDomainSuffix)
-		if route.Status.Domain != expectedDomain {
-			t.Errorf("Expected domain %q but saw %q", expectedDomain, route.Status.Domain)
-		}
+	for _, expectation := range expectations {
+		t.Run(expectation.expectedDomainSuffix, func(t *testing.T) {
+			expectation.apply()
+			servingInformer.Serving().V1alpha1().Routes().Informer().GetIndexer().Add(route)
+			routeClient.Update(route)
+			controller.Reconcile(context.TODO(), KeyOrDie(route))
+			addResourcesToInformers(t, servingClient, servingInformer, route)
+
+			route, _ = routeClient.Get(route.Name, metav1.GetOptions{})
+			expectedDomain := fmt.Sprintf("%s.%s.%s", route.Name, route.Namespace, expectation.expectedDomainSuffix)
+			if route.Status.Domain != expectedDomain {
+				t.Errorf("Expected domain %q but saw %q", expectedDomain, route.Status.Domain)
+			}
+		})
 	}
 }
 
@@ -887,7 +871,7 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 			domainConfig := corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      config.DomainConfigName,
-					Namespace: system.Namespace,
+					Namespace: system.Namespace(),
 				},
 				Data: map[string]string{
 					defaultDomainSuffix: "",
@@ -902,7 +886,7 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 			domainConfig := corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      config.DomainConfigName,
-					Namespace: system.Namespace,
+					Namespace: system.Namespace(),
 				},
 				Data: map[string]string{
 					defaultDomainSuffix: "",
@@ -917,7 +901,7 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 			domainConfig := corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      config.DomainConfigName,
-					Namespace: system.Namespace,
+					Namespace: system.Namespace(),
 				},
 				Data: map[string]string{
 					defaultDomainSuffix: "",
@@ -933,7 +917,13 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 			_, servingClient, controller, _, kubeInformer, servingInformer, watcher := newTestSetup(t)
 
 			stopCh := make(chan struct{})
-			defer close(stopCh)
+			grp := errgroup.Group{}
+			defer func() {
+				close(stopCh)
+				if err := grp.Wait(); err != nil {
+					t.Errorf("Wait() = %v", err)
+				}
+			}()
 
 			h := NewHooks()
 
@@ -961,7 +951,7 @@ func TestGlobalResyncOnUpdateDomainConfigMap(t *testing.T) {
 				t.Fatalf("failed to start configuration manager: %v", err)
 			}
 
-			go controller.Run(1, stopCh)
+			grp.Go(func() error { return controller.Run(1, stopCh) })
 
 			// Create a route.
 			route := getTestRouteWithTrafficTargets([]v1alpha1.TrafficTarget{})

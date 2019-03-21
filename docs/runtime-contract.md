@@ -226,8 +226,13 @@ full set of HTTP headers is constantly evolving, it is RECOMMENDED that
 platforms which strip headers define a common prefix which covers all headers
 removed by the platform.
 
-Also, the following proxy-specific request headers MUST be set, in addition to
-the base set of HTTP/1.1 headers (e.g. `Host:`)
+In addition, the following base set of HTTP/1.1 headers MUST be set on the
+request:
+
+- `Host` - As specified by
+  [RFC 7230 Section 5.4](https://tools.ietf.org/html/rfc7230#section-5.4)
+
+Also, the following proxy-specific request headers MUST be set:
 
 - `Forwarded` - As specified by [RFC 7239](https://tools.ietf.org/html/rfc7239).
 
@@ -331,9 +336,19 @@ serverless workloads. Containers MUST use the provided temporary storage areas
 
 ### Mounts
 
-Platform providers SHOULD NOT allow additional volume mounts. Stateless
-applications should package their dependencies within the container. As
-serverless applications are expected to scale horizontally and statelessly,
+In general, stateless applications should package their dependencies within the
+container and not rely on mutable external state for templates, logging
+configuration, etc. In some cases, it may be necessary for certain application
+settings to be overridden at deploy time (for example, database backends or
+authentication credentials). When these settings need to be loaded via a file,
+read-only mounts of application configuration and secrets are supported by
+`ConfigMap` and `Secrets` volumes. Platform providers MAY apply updates to
+`Secrets` and `ConfigMaps` while the application is running; these updates could
+complicate rollout and rollback. It is up to the developer to choose appropriate
+policies for mounting and updating `ConfigMap` and `Secrets` which are mounted
+as volumes.
+
+As serverless applications are expected to scale horizontally and statelessly,
 per-container volumes are likely to introduce state and scaling bottlenecks and
 are NOT RECOMMENDED.
 

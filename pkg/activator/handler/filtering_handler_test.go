@@ -31,20 +31,17 @@ func TestFilteringHandler(t *testing.T) {
 		headers:        http.Header{},
 		passed:         true,
 		expectedStatus: http.StatusOK,
-	},
-		{
-			label:          "filter a request containing retry header",
-			headers:        mapToHeader(map[string]string{activator.RequestCountHTTPHeader: "4"}),
-			passed:         false,
-			expectedStatus: http.StatusServiceUnavailable,
-		},
-		{
-			label:          "forward a request containing empty retry header",
-			headers:        mapToHeader(map[string]string{activator.RequestCountHTTPHeader: ""}),
-			passed:         true,
-			expectedStatus: http.StatusOK,
-		},
-	}
+	}, {
+		label:          "filter a request containing retry header",
+		headers:        mapToHeader(map[string]string{activator.RequestCountHTTPHeader: "4"}),
+		passed:         false,
+		expectedStatus: http.StatusServiceUnavailable,
+	}, {
+		label:          "forward a request containing empty retry header",
+		headers:        mapToHeader(map[string]string{activator.RequestCountHTTPHeader: ""}),
+		passed:         true,
+		expectedStatus: http.StatusOK,
+	}}
 
 	for _, e := range examples {
 		t.Run(e.label, func(t *testing.T) {
@@ -63,9 +60,9 @@ func TestFilteringHandler(t *testing.T) {
 
 			if wasPassed != e.passed {
 				if !e.passed {
-					t.Errorf("Request got passed to the next handler unexpectedly")
+					t.Error("Request got passed to the next handler unexpectedly")
 				} else {
-					t.Errorf("Request was not passed to the next handler as expected")
+					t.Error("Request was not passed to the next handler as expected")
 				}
 			}
 

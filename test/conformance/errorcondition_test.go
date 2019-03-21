@@ -19,13 +19,11 @@ limitations under the License.
 package conformance
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 	"testing"
 
-	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/knative/pkg/test/logging"
+	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
 	"github.com/knative/serving/test"
 	corev1 "k8s.io/api/core/v1"
@@ -40,40 +38,38 @@ const (
 // https://github.com/knative/serving/blob/master/docs/spec/errors.md
 // for the container image missing scenario.
 func TestContainerErrorMsg(t *testing.T) {
+	t.Parallel()
 	if strings.HasSuffix(strings.Split(test.ServingFlags.DockerRepo, "/")[0], ".local") {
 		t.Skip("Skipping for local docker repo")
 	}
 	clients := setup(t)
 
-	//add test case specific name to its own logger
-	logger := logging.GetContextLogger("TestContainerErrorMsg")
-
-	names := test.ResourceNames{Config: test.AppendRandomString("test-container-error-msg", logger)}
+	names := test.ResourceNames{
+		Config: test.ObjectNameForTest(t),
+		Image:  "invalidhelloworld",
+	}
 	// Specify an invalid image path
 	// A valid DockerRepo is still needed, otherwise will get UNAUTHORIZED instead of container missing error
-	imagePath := test.ImagePath("invalidhelloworld")
-
-	logger.Infof("Creating a new Configuration %s", imagePath)
-	_, err := test.CreateConfiguration(logger, clients, names, imagePath, &test.Options{})
-	if err != nil {
+	t.Logf("Creating a new Configuration %s", names.Image)
+	if _, err := test.CreateConfiguration(t, clients, names, &test.Options{}); err != nil {
 		t.Fatalf("Failed to create configuration %s", names.Config)
 	}
-	defer tearDown(clients, names)
-	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
+	defer test.TearDown(clients, names)
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
-	manifestUnknown := string(remote.ManifestUnknownErrorCode)
-	logger.Infof("When the imagepath is invalid, the Configuration should have error status.")
+	manifestUnknown := string(transport.ManifestUnknownErrorCode)
+	t.Log("When the imagepath is invalid, the Configuration should have error status.")
 
 	// Checking for "Container image not present in repository" scenario defined in error condition spec
-	err = test.WaitForConfigurationState(clients.ServingClient, names.Config, func(r *v1alpha1.Configuration) (bool, error) {
+	err := test.WaitForConfigurationState(clients.ServingClient, names.Config, func(r *v1alpha1.Configuration) (bool, error) {
 		cond := r.Status.GetCondition(v1alpha1.ConfigurationConditionReady)
 		if cond != nil && !cond.IsUnknown() {
 			if strings.Contains(cond.Message, manifestUnknown) && cond.IsFalse() {
 				return true, nil
 			}
-			logger.Infof("%s : %s : %s", cond.Reason, cond.Message, cond.Status)
-			s := fmt.Sprintf("The configuration %s was not marked with expected error condition (Reason=\"%s\", Message=\"%s\", Status=\"%s\"), but with (Reason=\"%s\", Message=\"%s\", Status=\"%s\")", names.Config, containerMissing, manifestUnknown, "False", cond.Reason, cond.Message, cond.Status)
-			return true, errors.New(s)
+			t.Logf("Reason: %s ; Message: %s ; Status %s", cond.Reason, cond.Message, cond.Status)
+			return true, fmt.Errorf("The configuration %s was not marked with expected error condition (Reason=%q, Message=%q, Status=%q), but with (Reason=%q, Message=%q, Status=%q)",
+				names.Config, containerMissing, manifestUnknown, "False", cond.Reason, cond.Message, cond.Status)
 		}
 		return false, nil
 	}, "ContainerImageNotPresent")
@@ -87,7 +83,7 @@ func TestContainerErrorMsg(t *testing.T) {
 		t.Fatalf("Failed to get revision from configuration %s: %v", names.Config, err)
 	}
 
-	logger.Infof("When the imagepath is invalid, the revision should have error status.")
+	t.Log("When the imagepath is invalid, the revision should have error status.")
 	err = test.WaitForRevisionState(clients.ServingClient, revisionName, func(r *v1alpha1.Revision) (bool, error) {
 		cond := r.Status.GetCondition(v1alpha1.RevisionConditionReady)
 		if cond != nil {
@@ -104,14 +100,14 @@ func TestContainerErrorMsg(t *testing.T) {
 		t.Fatalf("Failed to validate revision state: %s", err)
 	}
 
-	logger.Infof("When the revision has error condition, logUrl should be populated.")
+	t.Log("When the revision has error condition, logUrl should be populated.")
 	logURL, err := getLogURLFromRevision(clients, revisionName)
 	if err != nil {
 		t.Fatalf("Failed to get logUrl from revision %s: %v", revisionName, err)
 	}
 
 	// TODO(jessiezcc): actually validate the logURL, but requires kibana setup
-	logger.Debugf("LogURL: %s", logURL)
+	t.Logf("LogURL: %s", logURL)
 
 	// TODO(jessiezcc): add the check to validate that Route is not marked as ready once https://github.com/knative/serving/issues/990 is fixed
 }
@@ -120,20 +116,22 @@ func TestContainerErrorMsg(t *testing.T) {
 // https://github.com/knative/serving/blob/master/docs/spec/errors.md
 // for the container crashing scenario.
 func TestContainerExitingMsg(t *testing.T) {
+	t.Parallel()
 	clients := setup(t)
 
-	//add test case specific name to its own logger
-	logger := logging.GetContextLogger("TestContainerExitingMsg")
+	names := test.ResourceNames{
+		Config: test.ObjectNameForTest(t),
+		Image:  "failing",
+	}
 
-	names := test.ResourceNames{Config: test.AppendRandomString("test-container-exiting-msg", logger)}
-	imagePath := test.ImagePath("failing")
+	const (
+		// The given image will always exit with an exit code of 5
+		exitCodeReason = "ExitCode5"
+		// ... and will print "Crashed..." before it exits
+		errorLog = "Crashed..."
+	)
 
-	// The given image will always exit with an exit code of 5
-	exitCodeReason := "ExitCode5"
-	// ... and will print "Crashed..." before it exits
-	errorLog := "Crashed..."
-
-	logger.Infof("Creating a new Configuration %s", imagePath)
+	t.Logf("Creating a new Configuration %s", names.Image)
 
 	// This probe is crucial for having a race free conformance test. It will prevent the
 	// pod from becoming ready intermittently.
@@ -142,22 +140,21 @@ func TestContainerExitingMsg(t *testing.T) {
 			HTTPGet: &corev1.HTTPGetAction{},
 		},
 	}
-	_, err := test.CreateConfiguration(logger, clients, names, imagePath, &test.Options{ReadinessProbe: probe})
-	if err != nil {
+	if _, err := test.CreateConfiguration(t, clients, names, &test.Options{ReadinessProbe: probe}); err != nil {
 		t.Fatalf("Failed to create configuration %s: %v", names.Config, err)
 	}
-	defer tearDown(clients, names)
-	test.CleanupOnInterrupt(func() { tearDown(clients, names) }, logger)
+	defer test.TearDown(clients, names)
+	test.CleanupOnInterrupt(func() { test.TearDown(clients, names) })
 
-	logger.Infof("When the containers keep crashing, the Configuration should have error status.")
+	t.Log("When the containers keep crashing, the Configuration should have error status.")
 
-	err = test.WaitForConfigurationState(clients.ServingClient, names.Config, func(r *v1alpha1.Configuration) (bool, error) {
+	err := test.WaitForConfigurationState(clients.ServingClient, names.Config, func(r *v1alpha1.Configuration) (bool, error) {
 		cond := r.Status.GetCondition(v1alpha1.ConfigurationConditionReady)
 		if cond != nil && !cond.IsUnknown() {
 			if strings.Contains(cond.Message, errorLog) && cond.IsFalse() {
 				return true, nil
 			}
-			logger.Infof("%s : %s : %s", cond.Reason, cond.Message, cond.Status)
+			t.Logf("Reason: %s ; Message: %s ; Status: %s", cond.Reason, cond.Message, cond.Status)
 			return true, fmt.Errorf("The configuration %s was not marked with expected error condition (Reason=\"%s\", Message=\"%s\", Status=\"%s\"), but with (Reason=\"%s\", Message=\"%s\", Status=\"%s\")",
 				names.Config, containerMissing, errorLog, "False", cond.Reason, cond.Message, cond.Status)
 		}
@@ -173,7 +170,7 @@ func TestContainerExitingMsg(t *testing.T) {
 		t.Fatalf("Failed to get revision from configuration %s: %v", names.Config, err)
 	}
 
-	logger.Infof("When the containers keep crashing, the revision should have error status.")
+	t.Log("When the containers keep crashing, the revision should have error status.")
 	err = test.WaitForRevisionState(clients.ServingClient, revisionName, func(r *v1alpha1.Revision) (bool, error) {
 		cond := r.Status.GetCondition(v1alpha1.RevisionConditionReady)
 		if cond != nil {
@@ -190,9 +187,8 @@ func TestContainerExitingMsg(t *testing.T) {
 		t.Fatalf("Failed to validate revision state: %s", err)
 	}
 
-	logger.Infof("When the revision has error condition, logUrl should be populated.")
-	_, err = getLogURLFromRevision(clients, revisionName)
-	if err != nil {
+	t.Log("When the revision has error condition, logUrl should be populated.")
+	if _, err = getLogURLFromRevision(clients, revisionName); err != nil {
 		t.Fatalf("Failed to get logUrl from revision %s: %v", revisionName, err)
 	}
 }

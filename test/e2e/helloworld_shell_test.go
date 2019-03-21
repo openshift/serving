@@ -60,15 +60,16 @@ func serviceHostname() string {
 
 func ingressAddress(gateway string, addressType string) string {
 	return noStderrShell("oc", "get", "svc", gateway, "-n", "istio-system",
-		"-o", fmt.Sprintf("jsonpath={.status.loadBalancer.ingress[*]['%v']}", addressType))
+		"-o", fmt.Sprintf("jsonpath={.status.loadBalancer.ingress[*]['%s']}", addressType))
 }
 
 func TestHelloWorldFromShell(t *testing.T) {
+	t.Parallel()
 	//add test case specific name to its own logger
-	logger := logging.GetContextLogger("TestHelloWorldFromShell")
+	logger := logging.GetContextLogger(t.Name())
 	imagePath := test.ImagePath("helloworld")
 
-	logger.Infof("Creating manifest")
+	logger.Info("Creating manifest")
 
 	// Create manifest file.
 	newYaml, err := ioutil.TempFile("", "helloworld")
@@ -76,8 +77,8 @@ func TestHelloWorldFromShell(t *testing.T) {
 		t.Fatalf("Failed to create temporary manifest: %v", err)
 	}
 	newYamlFilename := newYaml.Name()
-	defer cleanup(newYamlFilename, logger)
-	test.CleanupOnInterrupt(func() { cleanup(newYamlFilename, logger) }, logger)
+	defer cleanup(newYamlFilename)
+	test.CleanupOnInterrupt(func() { cleanup(newYamlFilename) })
 
 	// Populate manifets file with the real path to the container
 	yamlBytes, err := ioutil.ReadFile(appYaml)
@@ -105,27 +106,26 @@ func TestHelloWorldFromShell(t *testing.T) {
 	}
 
 	logger.Info("Waiting for ingress to come up")
-
+	gateway := "istio-ingressgateway"
 	// Wait for ingress to come up
 	ingressAddr := ""
 	serviceHost := ""
 	timeout := ingressTimeout
 	for (ingressAddr == "" || serviceHost == "") && timeout >= 0 {
-		serviceHost = serviceHostname()
-		gateway := "knative-ingressgateway"
+		if serviceHost == "" {
+			serviceHost = serviceHostname()
+		}
 		if ingressAddr = ingressAddress(gateway, "ip"); ingressAddr == "" {
 			ingressAddr = ingressAddress(gateway, "hostname")
 		}
+		timeout -= checkInterval
 		time.Sleep(checkInterval)
-		timeout = timeout - checkInterval
 	}
 	if ingressAddr == "" || serviceHost == "" {
 		// serviceHost or ingressAddr might contain a useful error, dump them.
 		t.Fatalf("Ingress not found (ingress='%s', host='%s')", ingressAddr, serviceHost)
 	}
-	logger.Infof("Ingress is at %s/%s", ingressAddr, serviceHost)
-
-	logger.Info("Accessing app using curl")
+	logger.Infof("Curling %s/%s", ingressAddr, serviceHost)
 
 	outputString := ""
 	timeout = servingTimeout
@@ -138,17 +138,17 @@ func TestHelloWorldFromShell(t *testing.T) {
 		}
 		output, err := cmd.Output()
 		errorString := "none"
-		time.Sleep(checkInterval)
-		timeout = timeout - checkInterval
 		if err != nil {
 			errorString = err.Error()
 		}
 		outputString = strings.TrimSpace(string(output))
 		logger.Infof("App replied with '%s' (error: %s)", outputString, errorString)
+		timeout -= checkInterval
+		time.Sleep(checkInterval)
 	}
 
 	if outputString != helloWorldExpectedOutput {
-		t.Fatalf("Timeout waiting for app to start serving")
+		t.Fatal("Timeout waiting for app to start serving")
 	}
 	logger.Info("App is serving")
 }

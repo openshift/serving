@@ -28,29 +28,31 @@ import (
 	"github.com/knative/pkg/test/logging"
 	"github.com/knative/pkg/test/spoof"
 	"github.com/knative/serving/test"
+	"github.com/knative/test-infra/shared/junit"
 	"github.com/knative/test-infra/shared/loadgenerator"
 	"github.com/knative/test-infra/shared/testgrid"
 )
 
-func TestPerformanceLatency(t *testing.T) {
-	logger := logging.GetContextLogger("TestPerformanceLatency")
+func TestTimeToServeLatency(t *testing.T) {
+	testName := t.Name()
+	logger := logging.GetContextLogger(t.Name())
 
-	perfClients, err := Setup(context.Background(), logger, true)
+	perfClients, err := Setup(context.Background(), t, true)
 	if err != nil {
 		t.Fatalf("Cannot initialize performance client: %v", err)
 	}
 
 	names := test.ResourceNames{
-		Service: test.AppendRandomString("helloworld", logger),
+		Service: test.ObjectNameForTest(t),
 		Image:   "helloworld",
 	}
 	clients := perfClients.E2EClients
 
-	defer TearDown(perfClients, logger, names)
-	test.CleanupOnInterrupt(func() { TearDown(perfClients, logger, names) }, logger)
+	defer TearDown(t, perfClients, names)
+	test.CleanupOnInterrupt(func() { TearDown(t, perfClients, names) })
 
 	logger.Info("Creating a new Service")
-	objs, err := test.CreateRunLatestServiceReady(logger, clients, &names, &test.Options{})
+	objs, err := test.CreateRunLatestServiceReady(t, clients, &names, &test.Options{})
 	if err != nil {
 		t.Fatalf("Failed to create Service: %v", err)
 	}
@@ -74,17 +76,17 @@ func TestPerformanceLatency(t *testing.T) {
 	}
 
 	// Save the json result for benchmarking
-	resp.SaveJSON("TestPerformanceLatency")
+	resp.SaveJSON(testName)
 
 	// Add latency metrics
-	var tc []testgrid.TestCase
+	var tc []junit.TestCase
 	for _, p := range resp.Result.DurationHistogram.Percentiles {
 		val := float32(p.Value) * 1000
 		name := fmt.Sprintf("p%d(sec)", int(p.Percentile))
-		tc = append(tc, CreatePerfTestCase(val, name, "TestPerformanceLatency"))
+		tc = append(tc, CreatePerfTestCase(val, name, testName))
 	}
 
-	if err = testgrid.CreateTestgridXML(tc, "TestPerformanceLatency"); err != nil {
+	if err = testgrid.CreateXMLOutput(tc, testName); err != nil {
 		t.Fatalf("Cannot create output xml: %v", err)
 	}
 }

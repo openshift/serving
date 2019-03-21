@@ -17,55 +17,50 @@ limitations under the License.
 package resources
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/knative/pkg/kmeta"
+	"github.com/knative/pkg/system"
+	_ "github.com/knative/pkg/system/testing"
 	"github.com/knative/serving/pkg/apis/networking"
 	netv1alpha1 "github.com/knative/serving/pkg/apis/networking/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
-	"github.com/knative/serving/pkg/reconciler/v1alpha1/clusteringress"
 	"github.com/knative/serving/pkg/reconciler/v1alpha1/route/traffic"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 func TestMakeClusterIngress_CorrectMetadata(t *testing.T) {
-	targets := map[string][]traffic.RevisionTarget{}
+	targets := map[string]traffic.RevisionTargets{}
+	ingressClass := "foo-ingress"
 	r := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-route",
 			Namespace: "test-ns",
-			Annotations: map[string]string{
-				networking.IngressClassAnnotationKey: clusteringress.IstioIngressClassName,
-			},
+			UID:       "1234-5678",
 		},
 		Status: v1alpha1.RouteStatus{Domain: "domain.com"},
 	}
 	expected := metav1.ObjectMeta{
-		GenerateName: "test-route-",
+		Name: "route-1234-5678",
 		Labels: map[string]string{
 			serving.RouteLabelKey:          "test-route",
 			serving.RouteNamespaceLabelKey: "test-ns",
 		},
 		Annotations: map[string]string{
-			networking.IngressClassAnnotationKey: clusteringress.IstioIngressClassName,
-		},
-		OwnerReferences: []metav1.OwnerReference{
-			*kmeta.NewControllerRef(r),
+			networking.IngressClassAnnotationKey: ingressClass,
 		},
 	}
-	meta := MakeClusterIngress(r, &traffic.TrafficConfig{Targets: targets}).ObjectMeta
+	meta := MakeClusterIngress(r, &traffic.Config{Targets: targets}, ingressClass).ObjectMeta
 	if diff := cmp.Diff(expected, meta); diff != "" {
-		t.Errorf("Unexpected metadata (-want +got): %v", diff)
+		t.Errorf("Unexpected metadata (-want, +got): %v", diff)
 	}
 }
 
 func TestMakeClusterIngressSpec_CorrectRules(t *testing.T) {
-	targets := map[string][]traffic.RevisionTarget{
-		"": {{
+	targets := map[string]traffic.RevisionTargets{
+		traffic.DefaultTarget: {{
 			TrafficTarget: v1alpha1.TrafficTarget{
 				ConfigurationName: "config",
 				RevisionName:      "v2",
@@ -93,8 +88,6 @@ func TestMakeClusterIngressSpec_CorrectRules(t *testing.T) {
 		Hosts: []string{
 			"domain.com",
 			"test-route.test-ns.svc.cluster.local",
-			"test-route.test-ns.svc",
-			"test-route.test-ns",
 		},
 		HTTP: &netv1alpha1.HTTPClusterIngressRuleValue{
 			Paths: []netv1alpha1.HTTPClusterIngressPath{{
@@ -135,9 +128,7 @@ func TestMakeClusterIngressSpec_CorrectRules(t *testing.T) {
 	}}
 	rules := makeClusterIngressSpec(r, targets).Rules
 	if diff := cmp.Diff(expected, rules); diff != "" {
-		fmt.Printf("%+v\n", rules)
-		fmt.Printf("%+v\n", expected)
-		t.Errorf("Unexpected rules (-want +got): %v", diff)
+		t.Errorf("Unexpected rules (-want, +got): %v", diff)
 	}
 }
 
@@ -163,45 +154,72 @@ func TestMakeClusterIngressSpec_CorrectVisibility(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			v := makeClusterIngressSpec(&c.route, nil).Visibility
 			if diff := cmp.Diff(c.expectedVisbility, v); diff != "" {
-				t.Errorf("Unexpected visibility (-want +got): %v", diff)
+				t.Errorf("Unexpected visibility (-want, +got): %v", diff)
 			}
 		})
 	}
 	return
 }
 
-func TestGetRouteDomains_NamelessTarget(t *testing.T) {
+func TestGetRouteDomains_NamelessTargetDup(t *testing.T) {
+	const base = "test-route.test-ns"
 	r := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-route",
 			Namespace: "test-ns",
 		},
+		Status: v1alpha1.RouteStatus{
+			Domain: base,
+		},
 	}
-	base := "domain.com"
-	expected := []string{base,
+	expected := []string{
+		base,
 		"test-route.test-ns.svc.cluster.local",
-		"test-route.test-ns.svc",
-		"test-route.test-ns",
 	}
-	domains := getRouteDomains("", r, base)
+	domains := routeDomains("", r)
 	if diff := cmp.Diff(expected, domains); diff != "" {
-		t.Errorf("Unexpected domains  (-want +got): %v", diff)
+		t.Errorf("Unexpected domains  (-want, +got): %v", diff)
+	}
+}
+func TestGetRouteDomains_NamelessTarget(t *testing.T) {
+	const base = "domain.com"
+	r := &v1alpha1.Route{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-route",
+			Namespace: "test-ns",
+		},
+		Status: v1alpha1.RouteStatus{
+			Domain: base,
+		},
+	}
+	expected := []string{
+		base,
+		"test-route.test-ns.svc.cluster.local",
+	}
+	domains := routeDomains("", r)
+	if diff := cmp.Diff(expected, domains); diff != "" {
+		t.Errorf("Unexpected domains  (-want, +got): %v", diff)
 	}
 }
 
 func TestGetRouteDomains_NamedTarget(t *testing.T) {
+	const (
+		name = "v1"
+		base = "domain.com"
+	)
 	r := &v1alpha1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-route",
 			Namespace: "test-ns",
 		},
+		Status: v1alpha1.RouteStatus{
+			Domain: base,
+		},
 	}
-	name := "v1"
-	base := "domain.com"
 	expected := []string{"v1.domain.com"}
-	domains := getRouteDomains(name, r, base)
+	domains := routeDomains(name, r)
 	if diff := cmp.Diff(expected, domains); diff != "" {
-		t.Errorf("Unexpected domains  (-want +got): %v", diff)
+		t.Errorf("Unexpected domains  (-want, +got): %v", diff)
 	}
 }
 
@@ -216,7 +234,7 @@ func TestMakeClusterIngressRule_Vanilla(t *testing.T) {
 		Active: true,
 	}}
 	domains := []string{"a.com", "b.org"}
-	ns := "test-ns"
+	const ns = "test-ns"
 	rule := makeClusterIngressRule(domains, ns, targets)
 	expected := netv1alpha1.ClusterIngressRule{
 		Hosts: []string{
@@ -243,7 +261,7 @@ func TestMakeClusterIngressRule_Vanilla(t *testing.T) {
 	}
 
 	if diff := cmp.Diff(&expected, rule); diff != "" {
-		t.Errorf("Unexpected rule (-want +got): %v", diff)
+		t.Errorf("Unexpected rule (-want, +got): %v", diff)
 	}
 }
 
@@ -289,7 +307,7 @@ func TestMakeClusterIngressRule_ZeroPercentTarget(t *testing.T) {
 	}
 
 	if diff := cmp.Diff(&expected, rule); diff != "" {
-		t.Errorf("Unexpected rule (-want +got): %v", diff)
+		t.Errorf("Unexpected rule (-want, +got): %v", diff)
 	}
 }
 
@@ -311,7 +329,7 @@ func TestMakeClusterIngressRule_TwoTargets(t *testing.T) {
 		Active: true,
 	}}
 	domains := []string{"test.org"}
-	ns := "test-ns"
+	const ns = "test-ns"
 	rule := makeClusterIngressRule(domains, ns, targets)
 	expected := netv1alpha1.ClusterIngressRule{
 		Hosts: []string{"test.org"},
@@ -342,7 +360,7 @@ func TestMakeClusterIngressRule_TwoTargets(t *testing.T) {
 	}
 
 	if diff := cmp.Diff(&expected, rule); diff != "" {
-		t.Errorf("Unexpected rule (-want +got): %v", diff)
+		t.Errorf("Unexpected rule (-want, +got): %v", diff)
 	}
 }
 
@@ -357,7 +375,7 @@ func TestMakeClusterIngressRule_InactiveTarget(t *testing.T) {
 		Active: false,
 	}}
 	domains := []string{"a.com", "b.org"}
-	ns := "test-ns"
+	const ns = "test-ns"
 	rule := makeClusterIngressRule(domains, ns, targets)
 	expected := netv1alpha1.ClusterIngressRule{
 		Hosts: []string{
@@ -368,7 +386,7 @@ func TestMakeClusterIngressRule_InactiveTarget(t *testing.T) {
 			Paths: []netv1alpha1.HTTPClusterIngressPath{{
 				Splits: []netv1alpha1.ClusterIngressBackendSplit{{
 					ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
-						ServiceNamespace: "knative-serving",
+						ServiceNamespace: system.Namespace(),
 						ServiceName:      "activator-service",
 						ServicePort:      intstr.FromInt(80),
 					},
@@ -387,7 +405,7 @@ func TestMakeClusterIngressRule_InactiveTarget(t *testing.T) {
 		},
 	}
 	if diff := cmp.Diff(&expected, rule); diff != "" {
-		t.Errorf("Unexpected rule (-want +got): %v", diff)
+		t.Errorf("Unexpected rule (-want, +got): %v", diff)
 	}
 }
 
@@ -409,7 +427,7 @@ func TestMakeClusterIngressRule_TwoInactiveTargets(t *testing.T) {
 		Active: false,
 	}}
 	domains := []string{"a.com", "b.org"}
-	ns := "test-ns"
+	const ns = "test-ns"
 	rule := makeClusterIngressRule(domains, ns, targets)
 	expected := netv1alpha1.ClusterIngressRule{
 		Hosts: []string{
@@ -420,7 +438,7 @@ func TestMakeClusterIngressRule_TwoInactiveTargets(t *testing.T) {
 			Paths: []netv1alpha1.HTTPClusterIngressPath{{
 				Splits: []netv1alpha1.ClusterIngressBackendSplit{{
 					ClusterIngressBackend: netv1alpha1.ClusterIngressBackend{
-						ServiceNamespace: "knative-serving",
+						ServiceNamespace: system.Namespace(),
 						ServiceName:      "activator-service",
 						ServicePort:      intstr.FromInt(80),
 					},
@@ -439,7 +457,7 @@ func TestMakeClusterIngressRule_TwoInactiveTargets(t *testing.T) {
 		},
 	}
 	if diff := cmp.Diff(&expected, rule); diff != "" {
-		t.Errorf("Unexpected rule (-want +got): %v", diff)
+		t.Errorf("Unexpected rule (-want, +got): %v", diff)
 	}
 }
 
@@ -460,7 +478,7 @@ func TestMakeClusterIngressRule_ZeroPercentTargetInactive(t *testing.T) {
 		Active: false,
 	}}
 	domains := []string{"test.org"}
-	ns := "test-ns"
+	const ns = "test-ns"
 	rule := makeClusterIngressRule(domains, ns, targets)
 	expected := netv1alpha1.ClusterIngressRule{
 		Hosts: []string{"test.org"},
@@ -484,6 +502,6 @@ func TestMakeClusterIngressRule_ZeroPercentTargetInactive(t *testing.T) {
 	}
 
 	if diff := cmp.Diff(&expected, rule); diff != "" {
-		t.Errorf("Unexpected rule (-want +got): %v", diff)
+		t.Errorf("Unexpected rule (-want, +got): %v", diff)
 	}
 }

@@ -23,6 +23,7 @@ import (
 
 	"github.com/knative/pkg/apis"
 	. "github.com/knative/pkg/logging/testing"
+	_ "github.com/knative/pkg/system/testing"
 	"github.com/knative/serving/pkg/apis/autoscaling"
 	pav1alpha1 "github.com/knative/serving/pkg/apis/autoscaling/v1alpha1"
 	"github.com/knative/serving/pkg/apis/serving/v1alpha1"
@@ -205,7 +206,7 @@ func newRevision(t *testing.T, servingClient clientset.Interface, minScale, maxS
 			Annotations: annotations,
 		},
 		Spec: v1alpha1.RevisionSpec{
-			ConcurrencyModel: "Multi",
+			DeprecatedConcurrencyModel: "Multi",
 		},
 	}
 	rev, err := servingClient.ServingV1alpha1().Revisions(testNamespace).Create(rev)

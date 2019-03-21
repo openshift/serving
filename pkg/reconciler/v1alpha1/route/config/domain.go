@@ -17,24 +17,15 @@ limitations under the License.
 package config
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/ghodss/yaml"
+	"github.com/knative/serving/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 )
 
 const (
 	DomainConfigName = "config-domain"
-
-	// ClusterLocalDomain is the domain suffix used for cluster local
-	// routes. Currently we do not yet have a way to figure out this
-	// information programmatically.
-	//
-	// TODO(nghia): Extract this to a common network reconciler
-	// setting, or find an K8s API to discover this information.
-	ClusterLocalDomain = "svc.cluster.local"
-
 	// VisibilityLabelKey is the label to indicate visibility of Route
 	// and KServices.  It can be an annotation too but since users are
 	// already using labels for domain, it probably best to keep this
@@ -44,6 +35,13 @@ const (
 	// that will result to the Route/KService getting a cluster local
 	// domain suffix.
 	VisibilityClusterLocal = "cluster-local"
+	// DefaultDomain holds the domain that Route's live under by default
+	// when no label selector-based options apply.
+	DefaultDomain = "example.com"
+
+	// The key that holds our example configuration.
+	// TODO(mattmoor): We should get this from knative/pkg/configmap
+	exampleKey = "_example"
 )
 
 // LabelSelector represents map of {key,value} pairs. A single {key,value} in the
@@ -82,6 +80,9 @@ func NewDomainFromConfigMap(configMap *corev1.ConfigMap) (*Domain, error) {
 	c := Domain{Domains: map[string]*LabelSelector{}}
 	hasDefault := false
 	for k, v := range configMap.Data {
+		if k == exampleKey {
+			continue
+		}
 		labelSelector := LabelSelector{}
 		err := yaml.Unmarshal([]byte(v), &labelSelector)
 		if err != nil {
@@ -93,7 +94,7 @@ func NewDomainFromConfigMap(configMap *corev1.ConfigMap) (*Domain, error) {
 		}
 	}
 	if !hasDefault {
-		return nil, fmt.Errorf("Config %#v must have a default domain", configMap.Data)
+		c.Domains[DefaultDomain] = &LabelSelector{}
 	}
 	return &c, nil
 }
@@ -105,9 +106,9 @@ func (c *Domain) LookupDomainForLabels(labels map[string]string) string {
 	domain := ""
 	specificity := -1
 	// If we see VisibilityLabelKey sets with VisibilityClusterLocal, that
-	// will take precedence and the route will get a ClusterLocalDomain.
+	// will take precedence and the route will get a Cluster's Domain Name.
 	if l, _ := labels[VisibilityLabelKey]; l == VisibilityClusterLocal {
-		return ClusterLocalDomain
+		return "svc." + utils.GetClusterDomainName()
 	}
 	for k, selector := range c.Domains {
 		// Ignore if selector doesn't match, or decrease the specificity.

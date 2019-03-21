@@ -26,14 +26,10 @@ import (
 )
 
 func TestRouteDuckTypes(t *testing.T) {
-	var emptyGen duckv1alpha1.Generation
 	tests := []struct {
 		name string
 		t    duck.Implementable
 	}{{
-		name: "generation",
-		t:    &emptyGen,
-	}, {
 		name: "conditions",
 		t:    &duckv1alpha1.Conditions{},
 	}, {
@@ -286,6 +282,24 @@ func TestClusterIngressFailureRecovery(t *testing.T) {
 	checkConditionSucceededRoute(r.Status, RouteConditionAllTrafficAssigned, t)
 	checkConditionSucceededRoute(r.Status, RouteConditionIngressReady, t)
 	checkConditionSucceededRoute(r.Status, RouteConditionReady, t)
+}
+
+func TestRouteNotOwnedStuff(t *testing.T) {
+	r := &Route{}
+	r.Status.InitializeConditions()
+	r.Status.PropagateClusterIngressStatus(netv1alpha1.IngressStatus{
+		Conditions: duckv1alpha1.Conditions{{
+			Type:   netv1alpha1.ClusterIngressConditionReady,
+			Status: corev1.ConditionUnknown,
+		}},
+	})
+	checkConditionOngoingRoute(r.Status, RouteConditionAllTrafficAssigned, t)
+	checkConditionOngoingRoute(r.Status, RouteConditionIngressReady, t)
+	checkConditionOngoingRoute(r.Status, RouteConditionReady, t)
+
+	r.Status.MarkServiceNotOwned("evan")
+	checkConditionFailedRoute(r.Status, RouteConditionIngressReady, t)
+	checkConditionFailedRoute(r.Status, RouteConditionReady, t)
 }
 
 func checkConditionSucceededRoute(rs RouteStatus, rct duckv1alpha1.ConditionType, t *testing.T) {
