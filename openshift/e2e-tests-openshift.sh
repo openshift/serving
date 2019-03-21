@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-source $(dirname $0)/../test/cluster.sh
+source $(dirname $0)/../test/e2e-common.sh
 
 set -x
 
