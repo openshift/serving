@@ -49,7 +49,7 @@ func noStderrShell(name string, arg ...string) string {
 	return string(out)
 }
 
-func cleanup(yamlFilename string, logger *logging.BaseLogger) {
+func cleanup(yamlFilename string) {
 	exec.Command("oc", "delete", "-f", yamlFilename).Run()
 	os.Remove(yamlFilename)
 }
