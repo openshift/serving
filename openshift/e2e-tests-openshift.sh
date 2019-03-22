@@ -193,6 +193,9 @@ function install_knative(){
   oc adm policy add-cluster-role-to-user cluster-admin -z build-controller -n knative-build
   oc adm policy add-cluster-role-to-user cluster-admin -z controller -n knative-serving
 
+  oc adm policy add-scc-to-user anyuid -z build-pipeline-controller -n knative-build-pipeline
+  oc adm policy add-cluster-role-to-user cluster-admin -z build-pipeline-controller -n knative-build-pipeline
+
   # Deploy Knative Serving from the current source repository. This will also install Knative Build.
   create_serving_and_build
   enable_knative_interaction_with_registry
@@ -232,6 +235,7 @@ function install_knative(){
 function create_serving_and_build(){
   echo ">> Bringing up Build and Serving"
   oc apply -f third_party/config/build/release.yaml
+  oc apply -f third_party/config/pipeline/release.yaml
   
   > serving-resolved.yaml
   resolve_resources config/ $SERVING_NAMESPACE serving-resolved.yaml
