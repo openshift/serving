@@ -330,6 +330,7 @@ function delete_serving_openshift() {
   echo ">> Bringing down Serving"
   oc delete --ignore-not-found=true -f serving-resolved.yaml
   oc delete --ignore-not-found=true -f third_party/config/build/release.yaml
+  oc delete --ignore-not-found=true -f third_party/config/pipeline/release.yaml
 }
 
 function delete_test_resources_openshift() {
