@@ -198,7 +198,7 @@ function install_knative(){
   enable_knative_interaction_with_registry
 
   echo ">> Patching Istio"
-  for gateway in istio-ingressgateway knative-ingressgateway cluster-local-gateway istio-egressgateway; do
+  for gateway in istio-ingressgateway cluster-local-gateway istio-egressgateway; do
     if kubectl get svc -n istio-system ${gateway} > /dev/null 2>&1 ; then
       kubectl patch hpa -n istio-system ${gateway} --patch '{"spec": {"maxReplicas": 1}}'
       kubectl set resources deploy -n istio-system ${gateway} \
@@ -222,9 +222,9 @@ function install_knative(){
 
   wait_until_pods_running knative-build || return 1
   wait_until_pods_running knative-serving || return 1
-  wait_until_service_has_external_ip istio-system knative-ingressgateway || fail_test "Ingress has no external IP"
+  wait_until_service_has_external_ip istio-system istio-ingressgateway || fail_test "Ingress has no external IP"
 
-  wait_until_hostname_resolves $(kubectl get svc -n istio-system knative-ingressgateway -o jsonpath="{.status.loadBalancer.ingress[0].hostname}")
+  wait_until_hostname_resolves $(kubectl get svc -n istio-system istio-ingressgateway -o jsonpath="{.status.loadBalancer.ingress[0].hostname}")
 
   header "Knative Installed successfully"
 }
