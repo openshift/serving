@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-source $(dirname $0)/../test/cluster.sh
+source $(dirname $0)/../test/e2e-common.sh
 
 set -x
 
@@ -193,12 +193,15 @@ function install_knative(){
   oc adm policy add-cluster-role-to-user cluster-admin -z build-controller -n knative-build
   oc adm policy add-cluster-role-to-user cluster-admin -z controller -n knative-serving
 
+  oc adm policy add-scc-to-user anyuid -z build-pipeline-controller -n knative-build-pipeline
+  oc adm policy add-cluster-role-to-user cluster-admin -z build-pipeline-controller -n knative-build-pipeline
+
   # Deploy Knative Serving from the current source repository. This will also install Knative Build.
   create_serving_and_build
   enable_knative_interaction_with_registry
 
   echo ">> Patching Istio"
-  for gateway in istio-ingressgateway knative-ingressgateway cluster-local-gateway istio-egressgateway; do
+  for gateway in istio-ingressgateway cluster-local-gateway istio-egressgateway; do
     if kubectl get svc -n istio-system ${gateway} > /dev/null 2>&1 ; then
       kubectl patch hpa -n istio-system ${gateway} --patch '{"spec": {"maxReplicas": 1}}'
       kubectl set resources deploy -n istio-system ${gateway} \
@@ -222,9 +225,9 @@ function install_knative(){
 
   wait_until_pods_running knative-build || return 1
   wait_until_pods_running knative-serving || return 1
-  wait_until_service_has_external_ip istio-system knative-ingressgateway || fail_test "Ingress has no external IP"
+  wait_until_service_has_external_ip istio-system istio-ingressgateway || fail_test "Ingress has no external IP"
 
-  wait_until_hostname_resolves $(kubectl get svc -n istio-system knative-ingressgateway -o jsonpath="{.status.loadBalancer.ingress[0].hostname}")
+  wait_until_hostname_resolves $(kubectl get svc -n istio-system istio-ingressgateway -o jsonpath="{.status.loadBalancer.ingress[0].hostname}")
 
   header "Knative Installed successfully"
 }
@@ -232,6 +235,7 @@ function install_knative(){
 function create_serving_and_build(){
   echo ">> Bringing up Build and Serving"
   oc apply -f third_party/config/build/release.yaml
+  oc apply -f third_party/config/pipeline/release.yaml
   
   > serving-resolved.yaml
   resolve_resources config/ $SERVING_NAMESPACE serving-resolved.yaml
@@ -300,14 +304,14 @@ function run_e2e_tests(){
   failed=0
 
   report_go_test \
-    -v -tags=e2e -count=1 -timeout=35m -short \
+    -v -tags=e2e -count=1 -timeout=35m -short -parallel=1 \
     ./test/e2e \
     --kubeconfig $KUBECONFIG \
     --dockerrepo ${INTERNAL_REGISTRY}/${SERVING_NAMESPACE} \
     ${options} || failed=1
 
   report_go_test \
-    -v -tags=e2e -count=1 -timeout=35m \
+    -v -tags=e2e -count=1 -timeout=35m -parallel=1 \
     ./test/conformance \
     --kubeconfig $KUBECONFIG \
     --dockerrepo ${INTERNAL_REGISTRY}/${SERVING_NAMESPACE} \
@@ -326,6 +330,7 @@ function delete_serving_openshift() {
   echo ">> Bringing down Serving"
   oc delete --ignore-not-found=true -f serving-resolved.yaml
   oc delete --ignore-not-found=true -f third_party/config/build/release.yaml
+  oc delete --ignore-not-found=true -f third_party/config/pipeline/release.yaml
 }
 
 function delete_test_resources_openshift() {
