@@ -1,4 +1,4 @@
-#This makefile is used by ci-operator
+# This makefile is used by ci-operator
 
 CGO_ENABLED=0
 GOOS=linux
