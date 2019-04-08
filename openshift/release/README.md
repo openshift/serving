@@ -23,13 +23,13 @@ $ ./openshift/release/create-release-branch.sh v0.4.1 release-0.4
 This will create a new branch "release-0.4" based off the tag "v0.4.1" and add all OpenShift specific
 files that we need to run CI on top of it.
 
-### Updating a branch that follow upstream's HEAD
+### Updating the release-next branch that follow upstream's HEAD
 
 To update a branch to the latest HEAD of upstream use the `update-to-head.sh` script:
 
 ```bash
-$ ./openshift/release/update-to-head.sh release-0.5
+$ ./openshift/release/update-to-head.sh
 ```
 
-That will pull the latest master from upstream, rebase the current fixes on the release-0.5 branch
-on top of it and update the Openshift specific files if necessary.
+That will pull the latest master from upstream, rebase the current fixes on the release-next branch
+on top of it, update the Openshift specific files if necessary, and then trigger CI.
