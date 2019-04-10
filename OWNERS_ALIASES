@@ -1,62 +1,162 @@
 aliases:
+  serving-approvers:
+  - alanfx
+  - mgencur
+  - mvinkler
+  - bbrowning
+  - jcrossley3
+  - bobmcwhirter
+  - markusthoemmes
+  - vdemeester
+  - evanchooly
+  - arilivigni
+  serving-reviewers:
+  - alanfx
+  - mgencur
+  - mvinkler
+  - bbrowning
+  - jcrossley3
+  - bobmcwhirter
+  - markusthoemmes
+  - vdemeester
+  - evanchooly
+  - arilivigni
+
   serving-api-approvers:
-  - dgerd
-  - grantr
-  - mattmoor
-  - tcnghia
-  - vagababov
+  - alanfx
+  - mgencur
+  - mvinkler
+  - bbrowning
+  - jcrossley3
+  - bobmcwhirter
+  - markusthoemmes
+  - vdemeester
+  - evanchooly
+  - arilivigni
   serving-api-reviewers:
-  - dgerd
-  - dprotaso
-  - jonjohnsonjr
-  - mattmoor
-  - tcnghia
-  - vagababov
+  - alanfx
+  - mgencur
+  - mvinkler
+  - bbrowning
+  - jcrossley3
+  - bobmcwhirter
+  - markusthoemmes
+  - vdemeester
+  - evanchooly
+  - arilivigni
 
   autoscaling-approvers:
-  - josephburnett
+  - alanfx
+  - mgencur
+  - mvinkler
+  - bbrowning
+  - jcrossley3
+  - bobmcwhirter
   - markusthoemmes
-  - mdemirhan
+  - vdemeester
+  - evanchooly
+  - arilivigni
   autoscaling-reviewers:
-  - josephburnett
+  - alanfx
+  - mgencur
+  - mvinkler
+  - bbrowning
+  - jcrossley3
+  - bobmcwhirter
   - markusthoemmes
-  - mdemirhan
+  - vdemeester
+  - evanchooly
+  - arilivigni
 
   monitoring-approvers:
-  - mdemirhan
-  - yanweiguo
+  - alanfx
+  - mgencur
+  - mvinkler
+  - bbrowning
+  - jcrossley3
+  - bobmcwhirter
+  - markusthoemmes
+  - vdemeester
+  - evanchooly
+  - arilivigni
   monitoring-reviewers:
-  - mdemirhan
-  - yanweiguo
+  - alanfx
+  - mgencur
+  - mvinkler
+  - bbrowning
+  - jcrossley3
+  - bobmcwhirter
+  - markusthoemmes
+  - vdemeester
+  - evanchooly
+  - arilivigni
 
   productivity-approvers:
-  - adrcunha
-  - dushyanthsc
-  - ericklawitter
-  - jessiezcc
-  - srinivashegde86
-  - steuhs
+  - alanfx
+  - mgencur
+  - mvinkler
+  - bbrowning
+  - jcrossley3
+  - bobmcwhirter
+  - markusthoemmes
+  - vdemeester
+  - evanchooly
+  - arilivigni
   productivity-reviewers:
-  - adrcunha
-  - dushyanthsc
-  - ericklawitter
-  - jessiezcc
-  - srinivashegde86
-  - steuhs
+  - alanfx
+  - mgencur
+  - mvinkler
+  - bbrowning
+  - jcrossley3
+  - bobmcwhirter
+  - markusthoemmes
+  - vdemeester
+  - evanchooly
+  - arilivigni
 
   networking-approvers:
+  - alanfx
+  - mgencur
+  - mvinkler
+  - bbrowning
+  - jcrossley3
+  - bobmcwhirter
   - markusthoemmes
-  - mdemirhan
-  - tcnghia
+  - vdemeester
+  - evanchooly
+  - arilivigni
   networking-reviewers:
-  - lichuqiang
+  - alanfx
+  - mgencur
+  - mvinkler
+  - bbrowning
+  - jcrossley3
+  - bobmcwhirter
   - markusthoemmes
-  - mdemirhan
-  - tcnghia
+  - vdemeester
+  - evanchooly
+  - arilivigni
 
   build-approvers:
-  - imjasonh
-  - mattmoor
+  - alanfx
+  - mgencur
+  - mvinkler
+  - bbrowning
+  - jcrossley3
+  - bobmcwhirter
+  - markusthoemmes
+  - vdemeester
+  - evanchooly
+  - arilivigni
   build-reviewers:
-  - imjasonh
-  - mattmoor
+  - alanfx
+  - mgencur
+  - mvinkler
+  - bbrowning
+  - jcrossley3
+  - bobmcwhirter
+  - markusthoemmes
+  - vdemeester
+  - evanchooly
+  - arilivigni
+
