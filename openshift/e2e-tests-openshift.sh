@@ -18,6 +18,10 @@ readonly TEST_NAMESPACE=serving-tests
 readonly SERVING_NAMESPACE=knative-serving
 readonly TARGET_IMAGE_PREFIX="$INTERNAL_REGISTRY/$SERVING_NAMESPACE/knative-serving-"
 
+# Used for patching Istio up to 1.0.7
+readonly ISTIO_IMAGE_REPO="docker.io/istio/"
+readonly ISTIO_PATCH_VERSION="1.0.7"
+
 env
 
 function enable_admission_webhooks(){
@@ -124,7 +128,7 @@ function timeout() {
 }
 
 function patch_istio_for_knative(){
-  local sidecar_config=$(oc get configmap -n istio-system istio-sidecar-injector -o yaml)
+  local sidecar_config=$(oc get -n istio-system configmap/istio-sidecar-injector -o yaml)
   if [[ -z "${sidecar_config}" ]]; then
     return 1
   fi
@@ -132,10 +136,37 @@ function patch_istio_for_knative(){
   if [[ $? -eq 1 ]]; then
     echo "Patching Istio's preStop hook for graceful shutdown"
     echo "${sidecar_config}" | sed 's/\(name: istio-proxy\)/\1\\n    lifecycle:\\n      preStop:\\n        exec:\\n          command: [\\"sh\\", \\"-c\\", \\"sleep 20; while [ $(netstat -plunt | grep tcp | grep -v envoy | wc -l | xargs) -ne 0 ]; do sleep 1; done\\"]/' | oc replace -f -
-    oc delete pod -n istio-system -l istio=sidecar-injector
-    wait_until_pods_running istio-system || return 1
   fi
+
+  # Patch the sidecar injector configmap up to $ISTIO_PATCH_VERSION
+  oc get -n istio-system configmap/istio-sidecar-injector -o yaml | sed "s/:1.0.[[:digit:]]\+/:${ISTIO_PATCH_VERSION}/g" | oc replace -f -
+
+  # Ensure Istio $ISTIO_PATCH_VERSION is used everywhere
+  echo "Patching Istio images up to $ISTIO_PATCH_VERSION"
+  patch_istio_deployment istio-galley 0 galley || return 1
+  patch_istio_deployment istio-egressgateway 0 proxyv2 || return 1
+  patch_istio_deployment istio-ingressgateway 0 proxyv2 || return 1
+  patch_istio_deployment istio-policy 0 mixer || return 1
+  patch_istio_deployment istio-policy 1 proxyv2 || return 1
+  patch_istio_deployment istio-telemetry 0 mixer || return 1
+  patch_istio_deployment istio-telemetry 1 proxyv2 || return 1
+  patch_istio_deployment istio-pilot 0 pilot || return 1
+  patch_istio_deployment istio-pilot 1 proxyv2 || return 1
+  patch_istio_deployment istio-citadel 0 citadel || return 1
+  patch_istio_deployment istio-sidecar-injector 0 sidecar_injector || return 1
+
+  # Give a bit of time for the pods above to churn before we start waiting
+  sleep 2
+  wait_until_pods_running istio-system || return 1
+
   return 0
+}
+
+function patch_istio_deployment() {
+  local deployment="$1"
+  local containerIndex=$2
+  local imageName=$3
+  oc patch -n istio-system deployment/${deployment} --type json -p "[{\"op\": \"replace\", \"path\": \"/spec/template/spec/containers/${containerIndex}/image\", \"value\":\"${ISTIO_IMAGE_REPO}${imageName}:${ISTIO_PATCH_VERSION}\"}]"
 }
 
 function install_istio(){
