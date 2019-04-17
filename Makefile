@@ -2,7 +2,7 @@
 
 CGO_ENABLED=0
 GOOS=linux
-CORE_IMAGES=./cmd/activator ./cmd/autoscaler ./cmd/controller ./cmd/queue ./cmd/webhook
+CORE_IMAGES=./cmd/activator ./cmd/autoscaler ./cmd/controller ./cmd/queue ./cmd/webhook ./cmd/networking/istio
 TEST_IMAGES=$(shell find ./test/test_images -mindepth 1 -maxdepth 1 -type d) ./test/controller
 
 install:
