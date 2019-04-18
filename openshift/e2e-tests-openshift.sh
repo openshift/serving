@@ -16,6 +16,7 @@ readonly TEST_NAMESPACE=serving-tests
 readonly TEST_NAMESPACE_ALT=serving-tests-alt
 readonly SERVING_NAMESPACE=knative-serving
 readonly TARGET_IMAGE_PREFIX="$INTERNAL_REGISTRY/$SERVING_NAMESPACE/knative-serving-"
+readonly OLM_NAMESPACE="openshift-operator-lifecycle-manager"
 
 env
 
@@ -183,24 +184,31 @@ EOF
 function install_knative(){
   header "Installing Knative"
 
-  # Create knative-serving namespace, needed for imagestreams
-  oc create namespace $SERVING_NAMESPACE
+  echo ">> Patching Knative Serving CatalogSource to reference CI produced images"
+  CURRENT_GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+  RELEASE_YAML="https://raw.githubusercontent.com/openshift/knative-serving/${CURRENT_GIT_BRANCH}/openshift/release/knative-serving-ci.yaml"
+  sed "s|--filename=.*|--filename=${RELEASE_YAML}|"  openshift/olm/knative-serving.catalogsource.yaml > knative-serving.catalogsource-ci.yaml
 
-  # Grant the necessary privileges to the service accounts Knative will use:
+  # Install CatalogSources in OLM namespace
+  oc apply -n $OLM_NAMESPACE -f knative-serving.catalogsource-ci.yaml
+  timeout 900 '[[ $(oc get pods -n $OLM_NAMESPACE | grep -c knative) -eq 0 ]]' || return 1
+  wait_until_pods_running $OLM_NAMESPACE
+
+  # Install Knative Build
   oc adm policy add-scc-to-user anyuid -z build-controller -n knative-build
-  oc adm policy add-scc-to-user anyuid -z controller -n knative-serving
-  oc adm policy add-scc-to-user anyuid -z autoscaler -n knative-serving
-
   oc adm policy add-cluster-role-to-user cluster-admin -z build-controller -n knative-build
-  oc adm policy add-cluster-role-to-user cluster-admin -z controller -n knative-serving
+  oc apply -f third_party/config/build/release.yaml
 
+  # Install Tekton Pipeline
   oc adm policy add-scc-to-user anyuid -z build-pipeline-controller -n knative-build-pipeline
   oc adm policy add-cluster-role-to-user cluster-admin -z build-pipeline-controller -n knative-build-pipeline
+  oc apply -f third_party/config/pipeline/release.yaml
 
-  # Deploy Knative Serving from the current source repository. This will also install Knative Build.
-  create_serving_and_build
+  # Deploy Knative Operators Serving
+  deploy_knative_operator serving
 
-  enable_knative_interaction_with_registry
+  # Create imagestream for images generated in CI namespace
+  tag_core_images openshift/release/knative-serving-ci.yaml
 
   echo ">> Patching Istio"
   for gateway in istio-ingressgateway cluster-local-gateway istio-egressgateway; do
@@ -226,7 +234,14 @@ function install_knative(){
   fi
 
   wait_until_pods_running knative-build || return 1
+  wait_until_pods_running knative-build-pipeline || return 1
+
+  # Wait for 6 pods to appear first
+  timeout 900 '[[ $(oc get pods -n $SERVING_NAMESPACE --no-headers | wc -l) -lt 6 ]]' || return 1
   wait_until_pods_running knative-serving || return 1
+
+  enable_knative_interaction_with_registry
+
   wait_until_service_has_external_ip istio-system istio-ingressgateway || fail_test "Ingress has no external IP"
 
   wait_until_hostname_resolves $(kubectl get svc -n istio-system istio-ingressgateway -o jsonpath="{.status.loadBalancer.ingress[0].hostname}")
@@ -234,17 +249,44 @@ function install_knative(){
   header "Knative Installed successfully"
 }
 
-function create_serving_and_build(){
-  echo ">> Bringing up Build and Serving"
-  oc apply -f third_party/config/build/release.yaml
-  oc apply -f third_party/config/pipeline/release.yaml
-  
-  resolve_resources config/ serving-resolved.yaml $TARGET_IMAGE_PREFIX
+function deploy_knative_operator(){
+  local COMPONENT="knative-$1"
 
-  tag_core_images serving-resolved.yaml
-
-  # Remove nodePort spec as the ports do not fall into the range allowed by OpenShift
-  sed '/nodePort/d' serving-resolved.yaml | oc apply -f -
+  cat <<-EOF | oc apply -f -
+	apiVersion: v1
+	kind: Namespace
+	metadata:
+	  name: ${COMPONENT}
+	EOF
+  if oc get crd operatorgroups.operators.coreos.com >/dev/null 2>&1; then
+    cat <<-EOF | oc apply -f -
+	apiVersion: operators.coreos.com/v1
+	kind: OperatorGroup
+	metadata:
+	  name: ${COMPONENT}
+	  namespace: ${COMPONENT}
+	EOF
+  fi
+  cat <<-EOF | oc apply -f -
+	apiVersion: operators.coreos.com/v1alpha1
+	kind: Subscription
+	metadata:
+	  name: ${COMPONENT}-subscription
+	  generateName: ${COMPONENT}-
+	  namespace: ${COMPONENT}
+	spec:
+	  source: ${COMPONENT}-operator
+	  sourceNamespace: $OLM_NAMESPACE
+	  name: ${COMPONENT}-operator
+	  channel: alpha
+	EOF
+  cat <<-EOF | oc apply -f -
+  apiVersion: serving.knative.dev/v1alpha1
+  kind: Install
+  metadata:
+    name: ${COMPONENT}
+    namespace: ${COMPONENT}
+	EOF
 }
 
 function tag_core_images(){
@@ -324,11 +366,15 @@ function delete_istio_openshift(){
   oc delete ControlPlane/basic-install -n istio-system
 }
 
-function delete_serving_openshift() {
-  echo ">> Bringing down Serving"
-  oc delete --ignore-not-found=true -f serving-resolved.yaml
+function delete_knative_openshift() {
+  echo ">> Bringing down Knative Serving, Build and Pipeline"
+  oc delete --ignore-not-found=true -n $OLM_NAMESPACE -f knative-serving.catalogsource-ci.yaml
   oc delete --ignore-not-found=true -f third_party/config/build/release.yaml
   oc delete --ignore-not-found=true -f third_party/config/pipeline/release.yaml
+
+  oc delete project $SERVING_NAMESPACE
+  oc delete project knative-build
+  oc delete project knative-build-pipeline
 }
 
 function delete_test_resources_openshift() {
@@ -345,7 +391,7 @@ function delete_test_namespace(){
 function teardown() {
   delete_test_namespace
   delete_test_resources_openshift
-  delete_serving_openshift
+  delete_knative_openshift
   delete_istio_openshift
 }
 
