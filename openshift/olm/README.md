@@ -28,6 +28,7 @@ knative-serving), either use the console, or apply the following:
 	apiVersion: operators.coreos.com/v1alpha1
 	kind: Subscription
 	metadata:
+	  name: knative-serving-operator-sub
 	  generateName: knative-serving-operator-
 	  namespace: knative-serving
 	spec:
