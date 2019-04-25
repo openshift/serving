@@ -971,6 +971,7 @@ data:
                 - use
               - apiGroups:
                 - extensions
+                - apps
                 resources:
                 - deployments/finalizers
                 verbs:
@@ -978,7 +979,6 @@ data:
               - apiGroups:
                 - serving.knative.dev
                 - networking.internal.knative.dev
-                - admissionregistration.k8s.io
                 resources:
                 - '*/finalizers'
                 verbs:
