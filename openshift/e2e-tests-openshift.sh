@@ -204,7 +204,15 @@ function install_knative(){
 
   # Deploy Knative Serving from the current source repository. This will also install Knative Build.
   create_serving_and_build
+
   enable_knative_interaction_with_registry
+
+  # Disable docker.io sha resolving.
+  # TODO: Fix CRI-O bug and remove this once that lands.
+  kubectl patch configmap/config-deployment \
+    -n knative-serving \
+    --type merge \
+    -p '{"data":{"registriesSkippingTagResolving":"ko.local,dev.local,docker.io,index.docker.io"}}'
 
   echo ">> Patching Istio"
   for gateway in istio-ingressgateway cluster-local-gateway istio-egressgateway; do
