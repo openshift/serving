@@ -5,13 +5,11 @@ source $(dirname $0)/release/resolve.sh
 
 set -x
 
-readonly ENABLE_ADMISSION_WEBHOOKS="${ENABLE_ADMISSION_WEBHOOKS:-"true"}"
 readonly K8S_CLUSTER_OVERRIDE=$(oc config current-context | awk -F'/' '{print $2}')
 readonly API_SERVER=$(oc config view --minify | grep server | awk -F'//' '{print $2}' | awk -F':' '{print $1}')
-readonly INTERNAL_REGISTRY="${INTERNAL_REGISTRY:-"docker-registry.default.svc:5000"}"
+readonly INTERNAL_REGISTRY="${INTERNAL_REGISTRY:-"image-registry.openshift-image-registry.svc:5000"}"
 readonly USER=$KUBE_SSH_USER #satisfy e2e_flags.go#initializeFlags()
 readonly OPENSHIFT_REGISTRY="${OPENSHIFT_REGISTRY:-"registry.svc.ci.openshift.org"}"
-readonly SSH_PRIVATE_KEY="${SSH_PRIVATE_KEY:-"$HOME/.ssh/google_compute_engine"}"
 readonly INSECURE="${INSECURE:-"false"}"
 readonly MAISTRA_VERSION="0.6"
 readonly TEST_NAMESPACE=serving-tests
@@ -20,33 +18,6 @@ readonly SERVING_NAMESPACE=knative-serving
 readonly TARGET_IMAGE_PREFIX="$INTERNAL_REGISTRY/$SERVING_NAMESPACE/knative-serving-"
 
 env
-
-function enable_admission_webhooks(){
-  header "Enabling admission webhooks"
-  add_current_user_to_etc_passwd
-  disable_strict_host_checking
-  echo "API_SERVER=$API_SERVER"
-  echo "KUBE_SSH_USER=$KUBE_SSH_USER"
-  chmod 600 $SSH_PRIVATE_KEY
-  echo "$API_SERVER ansible_ssh_private_key_file=${SSH_PRIVATE_KEY}" > inventory.ini
-  ansible-playbook ${REPO_ROOT_DIR}/openshift/admission-webhooks.yaml -i inventory.ini -u $KUBE_SSH_USER
-  rm inventory.ini
-}
-
-function add_current_user_to_etc_passwd(){
-  if ! whoami &>/dev/null; then
-    echo "${USER:-default}:x:$(id -u):$(id -g):Default User:$HOME:/sbin/nologin" >> /etc/passwd
-  fi
-  cat /etc/passwd
-}
-
-function disable_strict_host_checking(){
-  cat >> ~/.ssh/config <<EOF
-Host *
-   StrictHostKeyChecking no
-   UserKnownHostsFile=/dev/null
-EOF
-}
 
 function scale_up_workers(){
   local cluster_api_ns="openshift-machine-api"
@@ -381,10 +352,6 @@ function tag_built_image() {
   local local_name=$2
   oc tag --insecure=${INSECURE} -n ${SERVING_NAMESPACE} ${OPENSHIFT_REGISTRY}/${OPENSHIFT_BUILD_NAMESPACE}/stable:${remote_name} ${local_name}:latest
 }
-
-if [[ $ENABLE_ADMISSION_WEBHOOKS == "true" ]]; then
-  enable_admission_webhooks
-fi
 
 scale_up_workers || exit 1
 
