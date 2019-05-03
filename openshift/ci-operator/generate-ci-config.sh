@@ -4,7 +4,7 @@ branch=${1-'knative-v0.3'}
 
 cat <<EOF
 tag_specification:
-  name: '4.0'
+  name: '4.1'
   namespace: ocp
 promotion:
   cluster: https://api.ci.openshift.org
@@ -12,7 +12,7 @@ promotion:
   name: $branch
 base_images:
   base:
-    name: '4.0'
+    name: '4.1'
     namespace: ocp
     tag: base
 build_root:
