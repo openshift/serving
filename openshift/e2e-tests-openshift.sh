@@ -136,6 +136,14 @@ spec:
       # use community images
       hub: "maistra"
       tag: ${MAISTRA_VERSION}.0
+      proxy:
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
     gateways:
       istio-egressgateway:
         autoscaleEnabled: false
@@ -147,6 +155,13 @@ spec:
         autoscaleEnabled: false
       telemetry:
         autoscaleEnabled: false
+        resources:
+          requests:
+            cpu: 100m
+            memory: 1G
+          limits:
+            cpu: 200m
+            memory: 2G
     pilot:
       autoscaleEnabled: false
     kiali:
