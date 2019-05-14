@@ -6,7 +6,9 @@ CORE_IMAGES=./cmd/activator ./cmd/autoscaler ./cmd/controller ./cmd/queue ./cmd/
 TEST_IMAGES=$(shell find ./test/test_images -mindepth 1 -maxdepth 1 -type d) ./test/controller
 
 install:
-	go install $(CORE_IMAGES)
+	for img in $(CORE_IMAGES); do \
+		go install $$img ; \
+	done
 .PHONY: install
 
 test-install:
