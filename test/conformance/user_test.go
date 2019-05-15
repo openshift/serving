@@ -67,6 +67,7 @@ func TestMustRunAsUser(t *testing.T) {
 // in the Dockerfile is respected when executed in Knative as declared by "SHOULD"
 // in the runtime-contract.
 func TestShouldRunAsUserContainerDefault(t *testing.T) {
+	t.Skip()
 	t.Parallel()
 	clients := setup(t)
 	_, ri, err := fetchRuntimeInfoUnprivileged(t, clients, &test.Options{})
