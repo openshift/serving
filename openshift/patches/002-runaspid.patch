@@ -1,0 +1,12 @@
+diff --git a/test/conformance/user_test.go b/test/conformance/user_test.go
+index 1166a54d..f0529837 100644
+--- a/test/conformance/user_test.go
++++ b/test/conformance/user_test.go
+@@ -67,6 +67,7 @@ func TestMustRunAsUser(t *testing.T) {
+ // in the Dockerfile is respected when executed in Knative as declared by "SHOULD"
+ // in the runtime-contract.
+ func TestShouldRunAsUserContainerDefault(t *testing.T) {
++	t.Skip("Known not to work on OCP as is.")
+ 	t.Parallel()
+ 	clients := setup(t)
+ 	_, ri, err := fetchRuntimeInfoUnprivileged(t, clients, &test.Options{})
