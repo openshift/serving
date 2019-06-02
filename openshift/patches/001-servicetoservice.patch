@@ -1,0 +1,20 @@
+diff --git a/test/e2e/service_to_service_test.go b/test/e2e/service_to_service_test.go
+index bd1d23dc..1b6bafd5 100644
+--- a/test/e2e/service_to_service_test.go
++++ b/test/e2e/service_to_service_test.go
+@@ -136,6 +136,7 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldDomain
+ // The expected result is that the request sent to httpproxy app is successfully redirected
+ // to helloworld app.
+ func TestServiceToServiceCall(t *testing.T) {
++	t.Skip("Known to be broken in non-mesh cases.")
+ 	t.Parallel()
+ 	clients := Setup(t)
+ 
+@@ -179,6 +180,7 @@ func TestServiceToServiceCall(t *testing.T) {
+ // Same test as TestServiceToServiceCall but before sending requests
+ // we're waiting for target app to be scaled to zero
+ func TestServiceToServiceCallFromZero(t *testing.T) {
++	t.Skip("Known to be broken in non-mesh cases.")
+ 	t.Parallel()
+ 	clients := Setup(t)
+ 
