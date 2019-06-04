@@ -23,12 +23,12 @@ import (
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
-	"knative.dev/pkg/test/logging"
-	"knative.dev/pkg/test/spoof"
 	"github.com/knative/serving/pkg/apis/serving/v1beta1"
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"knative.dev/pkg/test/logging"
+	"knative.dev/pkg/test/spoof"
 
 	rtesting "github.com/knative/serving/pkg/testing/v1beta1"
 	"github.com/knative/serving/test"
@@ -114,7 +114,7 @@ func IsRouteReady(r *v1beta1.Route) (bool, error) {
 // - 404 until the route is propagated to the proxy
 func RetryingRouteInconsistency(innerCheck spoof.ResponseChecker) spoof.ResponseChecker {
 	return func(resp *spoof.Response) (bool, error) {
-		if resp.StatusCode == http.StatusNotFound {
+		if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusServiceUnavailable {
 			return false, nil
 		}
 
