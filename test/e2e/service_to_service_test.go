@@ -138,6 +138,7 @@ func testProxyToHelloworld(t *testing.T, clients *test.Clients, helloworldDomain
 // The expected result is that the request sent to httpproxy app is successfully redirected
 // to helloworld app.
 func TestServiceToServiceCall(t *testing.T) {
+	t.Skip("Known to be broken in non-mesh cases.")
 	t.Parallel()
 	clients := Setup(t)
 
@@ -181,6 +182,7 @@ func TestServiceToServiceCall(t *testing.T) {
 // Same test as TestServiceToServiceCall but before sending requests
 // we're waiting for target app to be scaled to zero
 func TestServiceToServiceCallFromZero(t *testing.T) {
+	t.Skip("Known to be broken in non-mesh cases.")
 	t.Parallel()
 	clients := Setup(t)
 
