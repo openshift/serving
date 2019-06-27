@@ -2,5 +2,5 @@
 FROM registry.svc.ci.openshift.org/openshift/origin-v3.11:base
 USER 65532
 
-ADD controller /usr/bin/controller
-ENTRYPOINT ["/usr/bin/controller"]
+ADD controller /ko-app/controller
+ENTRYPOINT ["/ko-app/controller"]

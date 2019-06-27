@@ -2,5 +2,5 @@
 FROM registry.svc.ci.openshift.org/openshift/origin-v3.11:base
 USER 65532
 
-ADD grpc-ping /usr/bin/grpc-ping
-ENTRYPOINT ["/usr/bin/grpc-ping"]
+ADD grpc-ping /ko-app/grpc-ping
+ENTRYPOINT ["/ko-app/grpc-ping"]

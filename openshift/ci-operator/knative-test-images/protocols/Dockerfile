@@ -2,5 +2,5 @@
 FROM registry.svc.ci.openshift.org/openshift/origin-v3.11:base
 USER 65532
 
-ADD protocols /usr/bin/protocols
-ENTRYPOINT ["/usr/bin/protocols"]
+ADD protocols /ko-app/protocols
+ENTRYPOINT ["/ko-app/protocols"]

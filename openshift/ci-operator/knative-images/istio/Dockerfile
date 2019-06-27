@@ -2,5 +2,5 @@
 FROM registry.svc.ci.openshift.org/openshift/origin-v3.11:base
 USER 65532
 
-ADD istio /usr/bin/istio
-ENTRYPOINT ["/usr/bin/istio"]
+ADD istio /ko-app/istio
+ENTRYPOINT ["/ko-app/istio"]

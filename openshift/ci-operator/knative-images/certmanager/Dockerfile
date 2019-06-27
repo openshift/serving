@@ -2,5 +2,5 @@
 FROM registry.svc.ci.openshift.org/openshift/origin-v3.11:base
 USER 65532
 
-ADD certmanager /usr/bin/certmanager
-ENTRYPOINT ["/usr/bin/certmanager"]
+ADD certmanager /ko-app/certmanager
+ENTRYPOINT ["/ko-app/certmanager"]

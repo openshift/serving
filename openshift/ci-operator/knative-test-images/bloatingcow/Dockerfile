@@ -2,5 +2,5 @@
 FROM registry.svc.ci.openshift.org/openshift/origin-v3.11:base
 USER 65532
 
-ADD bloatingcow /usr/bin/bloatingcow
-ENTRYPOINT ["/usr/bin/bloatingcow"]
+ADD bloatingcow /ko-app/bloatingcow
+ENTRYPOINT ["/ko-app/bloatingcow"]

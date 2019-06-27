@@ -2,5 +2,5 @@
 FROM registry.svc.ci.openshift.org/openshift/origin-v3.11:base
 USER 65532
 
-ADD activator /usr/bin/activator
-ENTRYPOINT ["/usr/bin/activator"]
+ADD activator /ko-app/activator
+ENTRYPOINT ["/ko-app/activator"]

@@ -2,5 +2,5 @@
 FROM registry.svc.ci.openshift.org/openshift/origin-v3.11:base
 USER 65532
 
-ADD observed-concurrency /usr/bin/observed-concurrency
-ENTRYPOINT ["/usr/bin/observed-concurrency"]
+ADD observed-concurrency /ko-app/observed-concurrency
+ENTRYPOINT ["/ko-app/observed-concurrency"]

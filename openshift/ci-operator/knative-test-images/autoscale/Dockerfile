@@ -2,5 +2,5 @@
 FROM registry.svc.ci.openshift.org/openshift/origin-v3.11:base
 USER 65532
 
-ADD autoscale /usr/bin/autoscale
-ENTRYPOINT ["/usr/bin/autoscale"]
+ADD autoscale /ko-app/autoscale
+ENTRYPOINT ["/ko-app/autoscale"]

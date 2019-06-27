@@ -2,5 +2,5 @@
 FROM registry.svc.ci.openshift.org/openshift/origin-v3.11:base
 USER 65532
 
-ADD queue /usr/bin/queue
-ENTRYPOINT ["/usr/bin/queue"]
+ADD queue /ko-app/queue
+ENTRYPOINT ["/ko-app/queue"]

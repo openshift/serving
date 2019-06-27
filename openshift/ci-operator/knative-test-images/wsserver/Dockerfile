@@ -2,5 +2,5 @@
 FROM registry.svc.ci.openshift.org/openshift/origin-v3.11:base
 USER 65532
 
-ADD wsserver /usr/bin/wsserver
-ENTRYPOINT ["/usr/bin/wsserver"]
+ADD wsserver /ko-app/wsserver
+ENTRYPOINT ["/ko-app/wsserver"]

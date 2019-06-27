@@ -2,5 +2,5 @@
 FROM registry.svc.ci.openshift.org/openshift/origin-v3.11:base
 USER 65532
 
-ADD autoscaler /usr/bin/autoscaler
-ENTRYPOINT ["/usr/bin/autoscaler"]
+ADD autoscaler /ko-app/autoscaler
+ENTRYPOINT ["/ko-app/autoscaler"]

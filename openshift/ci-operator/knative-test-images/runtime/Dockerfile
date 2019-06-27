@@ -2,5 +2,5 @@
 FROM registry.svc.ci.openshift.org/openshift/origin-v3.11:base
 USER 65532
 
-ADD runtime /usr/bin/runtime
-ENTRYPOINT ["/usr/bin/runtime"]
+ADD runtime /ko-app/runtime
+ENTRYPOINT ["/ko-app/runtime"]

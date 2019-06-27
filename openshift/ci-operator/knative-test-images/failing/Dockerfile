@@ -2,5 +2,5 @@
 FROM registry.svc.ci.openshift.org/openshift/origin-v3.11:base
 USER 65532
 
-ADD failing /usr/bin/failing
-ENTRYPOINT ["/usr/bin/failing"]
+ADD failing /ko-app/failing
+ENTRYPOINT ["/ko-app/failing"]

@@ -2,5 +2,5 @@
 FROM registry.svc.ci.openshift.org/openshift/origin-v3.11:base
 USER 65532
 
-ADD hellovolume /usr/bin/hellovolume
-ENTRYPOINT ["/usr/bin/hellovolume"]
+ADD hellovolume /ko-app/hellovolume
+ENTRYPOINT ["/ko-app/hellovolume"]

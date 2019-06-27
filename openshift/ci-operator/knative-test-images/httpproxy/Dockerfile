@@ -2,5 +2,5 @@
 FROM registry.svc.ci.openshift.org/openshift/origin-v3.11:base
 USER 65532
 
-ADD httpproxy /usr/bin/httpproxy
-ENTRYPOINT ["/usr/bin/httpproxy"]
+ADD httpproxy /ko-app/httpproxy
+ENTRYPOINT ["/ko-app/httpproxy"]

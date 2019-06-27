@@ -2,5 +2,5 @@
 FROM registry.svc.ci.openshift.org/openshift/origin-v3.11:base
 USER 65532
 
-ADD printport /usr/bin/printport
-ENTRYPOINT ["/usr/bin/printport"]
+ADD printport /ko-app/printport
+ENTRYPOINT ["/ko-app/printport"]

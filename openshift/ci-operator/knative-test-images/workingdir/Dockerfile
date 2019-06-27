@@ -2,5 +2,5 @@
 FROM registry.svc.ci.openshift.org/openshift/origin-v3.11:base
 USER 65532
 
-ADD workingdir /usr/bin/workingdir
-ENTRYPOINT ["/usr/bin/workingdir"]
+ADD workingdir /ko-app/workingdir
+ENTRYPOINT ["/ko-app/workingdir"]

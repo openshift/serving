@@ -2,5 +2,5 @@
 FROM registry.svc.ci.openshift.org/openshift/origin-v3.11:base
 USER 65532
 
-ADD webhook /usr/bin/webhook
-ENTRYPOINT ["/usr/bin/webhook"]
+ADD webhook /ko-app/webhook
+ENTRYPOINT ["/ko-app/webhook"]
