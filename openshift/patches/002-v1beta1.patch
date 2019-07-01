@@ -1,0 +1,12 @@
+diff --git a/test/e2e/v1beta1_test.go b/test/e2e/v1beta1_test.go
+index aa538b91..3891cad1 100644
+--- a/test/e2e/v1beta1_test.go
++++ b/test/e2e/v1beta1_test.go
+@@ -33,6 +33,7 @@ import (
+ )
+ 
+ func TestV1beta1Translation(t *testing.T) {
++	t.Skip("v1beta1 API is not yet available")
+ 	t.Parallel()
+ 	cancel := logstream.Start(t)
+ 	defer cancel()
