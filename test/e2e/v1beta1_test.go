@@ -33,6 +33,7 @@ import (
 )
 
 func TestV1beta1Translation(t *testing.T) {
+	t.Skip("v1beta1 API is not yet available")
 	t.Parallel()
 	cancel := logstream.Start(t)
 	defer cancel()

@@ -112,9 +112,10 @@ func IsRouteReady(r *v1beta1.Route) (bool, error) {
 
 // RetryingRouteInconsistency retries common requests seen when creating a new route
 // - 404 until the route is propagated to the proxy
+// - 503 to account for Openshift route inconsistency (https://jira.coreos.com/browse/SRVKS-157)
 func RetryingRouteInconsistency(innerCheck spoof.ResponseChecker) spoof.ResponseChecker {
 	return func(resp *spoof.Response) (bool, error) {
-		if resp.StatusCode == http.StatusNotFound {
+		if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusServiceUnavailable {
 			return false, nil
 		}
 
