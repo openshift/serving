@@ -1,0 +1,12 @@
+diff --git a/test/e2e/grpc_test.go b/test/e2e/grpc_test.go
+index f43da5af..ca0b8814 100644
+--- a/test/e2e/grpc_test.go
++++ b/test/e2e/grpc_test.go
+@@ -157,6 +157,7 @@ func streamTest(t *testing.T, resources *v1a1test.ResourceObjects, clients *test
+ }
+ 
+ func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
++	t.Skip("gRPC doesn't work with OCP Routes")
+ 	t.Helper()
+ 	t.Parallel()
+ 	cancel := logstream.Start(t)
