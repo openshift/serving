@@ -15,7 +15,9 @@ readonly TEST_NAMESPACE=serving-tests
 readonly TEST_NAMESPACE_ALT=serving-tests-alt
 readonly SERVING_NAMESPACE=knative-serving
 readonly TARGET_IMAGE_PREFIX="$INTERNAL_REGISTRY/$SERVING_NAMESPACE/knative-serving-"
-readonly OLM_NAMESPACE="openshift-operator-lifecycle-manager"
+# CatalogSource should be deployed on openshift-operator-lifecycle-manager in general, but v4.2 seems not work with subscription in different namespace(?).
+#readonly OLM_NAMESPACE="openshift-operator-lifecycle-manager"
+readonly OLM_NAMESPACE="knative-serving"
 
 env
 
@@ -241,6 +243,14 @@ function teardown() {
   delete_knative_openshift
 }
 
+function dump_openshift_olm_state(){
+  echo ">>> subscriptions.operators.coreos.com:"
+  oc get subscriptions.operators.coreos.com -o yaml --all-namespaces   # This is for status checking.
+
+  echo ">>> catalog operator log:"
+  oc logs -n openshift-operator-lifecycle-manager deployment/catalog-operator
+}
+
 function dump_openshift_ingress_state(){
   echo ">>> routes.route.openshift.io:"
   oc get routes.route.openshift.io -o yaml --all-namespaces
@@ -284,6 +294,8 @@ failed=0
 (( !failed )) && run_e2e_tests || failed=1
 
 (( failed )) && dump_cluster_state
+
+(( failed )) && dump_openshift_olm_state
 
 (( failed )) && dump_openshift_ingress_state
 
