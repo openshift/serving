@@ -83,6 +83,8 @@ function timeout() {
 function install_knative(){
   header "Installing Knative"
 
+  create_knative_namespace serving
+
   echo ">> Patching Knative Serving CatalogSource to reference CI produced images"
   CURRENT_GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
   RELEASE_YAML="https://raw.githubusercontent.com/openshift/knative-serving/${CURRENT_GIT_BRANCH}/openshift/release/knative-serving-ci.yaml"
@@ -112,9 +114,8 @@ function install_knative(){
   header "Knative Installed successfully"
 }
 
-function deploy_knative_operator(){
+function create_knative_namespace(){
   local COMPONENT="knative-$1"
-  local KIND=$2
 
   cat <<-EOF | oc apply -f -
 	apiVersion: v1
@@ -122,6 +123,12 @@ function deploy_knative_operator(){
 	metadata:
 	  name: ${COMPONENT}
 	EOF
+}
+
+function deploy_knative_operator(){
+  local COMPONENT="knative-$1"
+  local KIND=$2
+
   if oc get crd operatorgroups.operators.coreos.com >/dev/null 2>&1; then
     cat <<-EOF | oc apply -f -
 	apiVersion: operators.coreos.com/v1
