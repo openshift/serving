@@ -299,11 +299,18 @@ failed=0
 (( !failed )) && install_knative || failed=1
 
 set -e
+echo "> Only v1alpha1 versions"
+oc api-versions | grep serving.knative.dev
+echo "> Adding v1beta1 versions"
+oc apply -f config/v1beta1
+sleep 30
+echo "> Both v1alpha1 and v1beta1 versions"
+oc api-versions | grep serving.knative.dev
 cat <<EOF | oc create -n default -f -
 apiVersion: serving.knative.dev/v1alpha1
 kind: Service
 metadata:
-  name: helloworld-go
+  name: helloworld-go-alpha1
   namespace: default
 spec:
   template:
@@ -314,8 +321,33 @@ spec:
         - name: TARGET
           value: "Go Sample v1"
 EOF
-oc apply -f config/v1beta1
-oc label ksvc helloworld-go -n default --overwrite donkey=kong
+cat <<EOF | oc create -n default -f -
+apiVersion: serving.knative.dev/v1beta1
+kind: Service
+metadata:
+  name: helloworld-go-beta1
+  namespace: default
+spec:
+  template:
+    spec:
+      containers:
+      - image: gcr.io/knative-samples/helloworld-go
+        env:
+        - name: TARGET
+          value: "Go Sample v1"
+EOF
+echo "> Deleting Kube API server pods"
+oc get pod -n openshift-kube-apiserver -l apiserver=true --no-headers | awk '{print $1}' | xargs oc delete pod -n openshift-kube-apiserver
+set +e
+echo "> Waiting for Kube API server pods to come back up"
+timeout 900 '[[ $(oc get pods -n openshift-kube-apiserver -l apiserver=true --no-headers | wc -l) -lt 3 ]]' || failed=1
+wait_until_pods_running openshift-kube-apiserver || failed=1
+set -e
+echo "> Should still have both v1alpha1 and v1beta1 versions"
+oc api-versions | grep serving.knative.dev
+echo "> Attempting to edit both services"
+oc label ksvc helloworld-go-alpha1 -n default donkey=kong
+oc label ksvc helloworld-go-beta1 -n default donkey=kong
 set +e
 
 # (( !failed )) && create_test_resources_openshift || failed=1
