@@ -156,6 +156,7 @@ func streamTest(t *testing.T, resources *v1a1test.ResourceObjects, clients *test
 }
 
 func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
+	t.Skip("gRPC doesn't work with OCP Routes")
 	t.Helper()
 	t.Parallel()
 	cancel := logstream.Start(t)
