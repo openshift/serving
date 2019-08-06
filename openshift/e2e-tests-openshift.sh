@@ -269,9 +269,29 @@ failed=0
 
 (( !failed )) && install_knative || failed=1
 
-(( !failed )) && create_test_resources_openshift || failed=1
+set -e
+cat <<EOF | oc create -n default -f -
+apiVersion: serving.knative.dev/v1alpha1
+kind: Service
+metadata:
+  name: helloworld-go
+  namespace: default
+spec:
+  template:
+    spec:
+      containers:
+      - image: gcr.io/knative-samples/helloworld-go
+        env:
+        - name: TARGET
+          value: "Go Sample v1"
+EOF
+oc apply -f config/v1beta1
+oc label ksvc helloworld-go -n default --overwrite donkey=kong
+set +e
 
-(( !failed )) && run_e2e_tests || failed=1
+# (( !failed )) && create_test_resources_openshift || failed=1
+
+# (( !failed )) && run_e2e_tests || failed=1
 
 (( failed )) && dump_cluster_state
 
