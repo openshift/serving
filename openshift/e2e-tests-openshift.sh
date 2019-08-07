@@ -224,6 +224,13 @@ function run_e2e_tests(){
     --dockerrepo "${INTERNAL_REGISTRY}/${SERVING_NAMESPACE}" \
     --resolvabledomain || failed=1
 
+    report_go_test \
+    -v -tags=e2e -count=1 -timeout=35m -parallel=1 \
+    ./test/conformance/api/v1beta1/... \
+    --kubeconfig "$KUBECONFIG" \
+    --dockerrepo "${INTERNAL_REGISTRY}/${SERVING_NAMESPACE}" \
+    --resolvabledomain || failed=1
+
   return $failed
 }
 
@@ -348,11 +355,13 @@ oc api-versions | grep serving.knative.dev
 echo "> Attempting to edit both services"
 oc label ksvc helloworld-go-alpha1 -n default donkey=kong
 oc label ksvc helloworld-go-beta1 -n default donkey=kong
+oc delete ksvc helloworld-go-alpha1
+oc delete ksvc helloworld-go-beta1
 set +e
 
-# (( !failed )) && create_test_resources_openshift || failed=1
+(( !failed )) && create_test_resources_openshift || failed=1
 
-# (( !failed )) && run_e2e_tests || failed=1
+(( !failed )) && run_e2e_tests || failed=1
 
 (( failed )) && dump_cluster_state
 
