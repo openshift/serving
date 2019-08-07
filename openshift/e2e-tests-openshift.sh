@@ -355,8 +355,8 @@ oc api-versions | grep serving.knative.dev
 echo "> Attempting to edit both services"
 oc label ksvc helloworld-go-alpha1 -n default donkey=kong
 oc label ksvc helloworld-go-beta1 -n default donkey=kong
-oc delete ksvc helloworld-go-alpha1
-oc delete ksvc helloworld-go-beta1
+oc delete ksvc helloworld-go-alpha1 -n default
+oc delete ksvc helloworld-go-beta1 -n default
 set +e
 
 (( !failed )) && create_test_resources_openshift || failed=1
