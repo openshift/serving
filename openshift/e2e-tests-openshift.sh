@@ -15,8 +15,14 @@ readonly TEST_NAMESPACE=serving-tests
 readonly TEST_NAMESPACE_ALT=serving-tests-alt
 readonly SERVING_NAMESPACE=knative-serving
 readonly TARGET_IMAGE_PREFIX="$INTERNAL_REGISTRY/$SERVING_NAMESPACE/knative-serving-"
-# The global namespace was moved to openshift-marketplace ref: https://jira.coreos.com/browse/OLM-1190
-readonly OLM_NAMESPACE="openshift-marketplace"
+# The global namespace was moved to openshift-marketplace since v4.2 
+# ref: https://jira.coreos.com/browse/OLM-1190
+if [ ${HOSTNAME} = "e2e-aws-ocp-41" ]; then
+    readonly OLM_NAMESPACE="openshift-operator-lifecycle-manager"
+else
+    readonly OLM_NAMESPACE="openshift-marketplace"
+fi
+
 
 env
 
