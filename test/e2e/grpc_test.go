@@ -157,6 +157,10 @@ func streamTest(t *testing.T, resources *v1a1test.ResourceObjects, clients *test
 
 func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
 	t.Helper()
+	if test.ServingFlags.ResolvableDomain {
+		test.ServingFlags.ResolvableDomain = false
+		defer func() { test.ServingFlags.ResolvableDomain = true }()
+	}
 	t.Parallel()
 	cancel := logstream.Start(t)
 	defer cancel()
