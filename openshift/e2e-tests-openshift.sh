@@ -15,6 +15,7 @@ readonly TEST_NAMESPACE=serving-tests
 readonly TEST_NAMESPACE_ALT=serving-tests-alt
 readonly SERVING_NAMESPACE=knative-serving
 readonly TARGET_IMAGE_PREFIX="$INTERNAL_REGISTRY/$SERVING_NAMESPACE/knative-serving-"
+readonly MAISTRA_VERSION="0.12"
 
 # The OLM global namespace was moved to openshift-marketplace since v4.2
 # ref: https://jira.coreos.com/browse/OLM-1190
@@ -85,6 +86,100 @@ function timeout() {
   return 0
 }
 
+function install_istio(){
+  header "Installing Istio"
+
+  # Install the Maistra Operator
+  oc new-project istio-operator
+  oc new-project istio-system
+  oc apply -n istio-operator -f https://raw.githubusercontent.com/Maistra/istio-operator/maistra-${MAISTRA_VERSION}/deploy/maistra-operator.yaml
+
+  # Wait until the Operator pod is up and running
+  wait_until_pods_running istio-operator || return 1
+
+  # Deploy Istio
+  cat <<EOF | oc apply -f -
+apiVersion: maistra.io/v1
+kind: ServiceMeshControlPlane
+metadata:
+  name: minimal-multitenant-cni-install
+spec:
+  istio:
+    global:
+      multitenant: true
+      proxy:
+        # constrain resources for use in smaller environments
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 128Mi
+        autoInject: disabled
+      omitSidecarInjectorConfigMap: true
+      disablePolicyChecks: false
+    istio_cni:
+      enabled: true
+    gateways:
+      istio-ingressgateway:
+        autoscaleEnabled: false
+      istio-egressgateway:
+        enabled: false
+      cluster-local-gateway:
+        autoscaleEnabled: false
+        enabled: true
+        labels:
+          app: cluster-local-gateway
+          istio: cluster-local-gateway
+        ports:
+          - name: status-port
+            port: 15020
+          - name: http2
+            port: 80
+            targetPort: 80
+          - name: https
+            port: 443
+    mixer:
+      enabled: false
+      policy:
+        enabled: false
+      telemetry:
+        enabled: false
+    pilot:
+      # disable autoscaling for use in smaller environments
+      autoscaleEnabled: false
+      sidecar: false
+    kiali:
+      enabled: false
+    tracing:
+      enabled: false
+    prometheus:
+      enabled: false
+    grafana:
+      enabled: false
+    sidecarInjectorWebhook:
+      enabled: false
+---
+apiVersion: maistra.io/v1
+kind: ServiceMeshMemberRoll
+metadata:
+  name: default
+spec:
+  members:
+  - serving-tests
+  - serving-tests-alt
+  - knative-serving
+EOF
+
+  timeout 900 '[[ $(oc get pods -n istio-system --no-headers | wc -l) -lt 2 ]]' || return 1
+  wait_until_service_has_external_ip istio-system istio-ingressgateway || fail_test "Ingress has no external IP"
+
+  wait_until_hostname_resolves $(kubectl get svc -n istio-system istio-ingressgateway -o jsonpath="{.status.loadBalancer.ingress[0].hostname}")
+
+  header "Istio Installed successfully"
+}
+
 function install_knative(){
   header "Installing Knative"
 
@@ -109,12 +204,6 @@ function install_knative(){
   # Wait for 6 pods to appear first
   timeout 900 '[[ $(oc get pods -n $SERVING_NAMESPACE --no-headers | wc -l) -lt 6 ]]' || return 1
   wait_until_pods_running knative-serving || return 1
-
-  # Wait for 2 pods to appear first
-  timeout 900 '[[ $(oc get pods -n istio-system --no-headers | wc -l) -lt 2 ]]' || return 1
-  wait_until_service_has_external_ip istio-system istio-ingressgateway || fail_test "Ingress has no external IP"
-
-  wait_until_hostname_resolves $(kubectl get svc -n istio-system istio-ingressgateway -o jsonpath="{.status.loadBalancer.ingress[0].hostname}")
 
   header "Knative Installed successfully"
 }
@@ -298,6 +387,8 @@ scale_up_workers || exit 1
 create_test_namespace || exit 1
 
 failed=0
+
+(( !failed )) && install_istio || failed=1
 
 (( !failed )) && install_knative || failed=1
 
