@@ -97,6 +97,9 @@ function install_istio(){
   # Wait until the Operator pod is up and running
   wait_until_pods_running istio-operator || return 1
 
+  # Workaround for MAISTRA-670
+  oc delete validatingwebhookconfiguration istio-operator.servicemesh-resources.maistra.io
+
   # Deploy Istio
   cat <<EOF | oc apply -f -
 apiVersion: maistra.io/v1
@@ -108,14 +111,6 @@ spec:
     global:
       multitenant: true
       proxy:
-        # constrain resources for use in smaller environments
-        resources:
-          requests:
-            cpu: 100m
-            memory: 128Mi
-          limits:
-            cpu: 500m
-            memory: 128Mi
         autoInject: disabled
       omitSidecarInjectorConfigMap: true
       disablePolicyChecks: false
