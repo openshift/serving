@@ -106,6 +106,7 @@ apiVersion: maistra.io/v1
 kind: ServiceMeshControlPlane
 metadata:
   name: minimal-multitenant-cni-install
+  namespace: istio-system
 spec:
   istio:
     global:
@@ -119,6 +120,7 @@ spec:
     gateways:
       istio-ingressgateway:
         autoscaleEnabled: false
+        type: LoadBalancer
       istio-egressgateway:
         enabled: false
       cluster-local-gateway:
@@ -167,8 +169,8 @@ spec:
   - knative-serving
 EOF
 
-  # Wait for 2 pods to appear first.
-  timeout 900 '[[ $(oc get pods -n istio-system --no-headers | wc -l) -lt 2 ]]' || return 1
+  # Wait for the ingressgateway pod to appear.
+  timeout 900 '[[ $(oc get pods -n istio-system | grep -c istio-ingressgateway) -eq 0 ]]' || return 1
 
   wait_until_service_has_external_ip istio-system istio-ingressgateway || fail_test "Ingress has no external IP"
   wait_until_hostname_resolves $(kubectl get svc -n istio-system istio-ingressgateway -o jsonpath="{.status.loadBalancer.ingress[0].hostname}")
