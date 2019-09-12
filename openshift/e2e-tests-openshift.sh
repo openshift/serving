@@ -14,6 +14,7 @@ readonly INSECURE="${INSECURE:-"false"}"
 readonly TEST_NAMESPACE=serving-tests
 readonly TEST_NAMESPACE_ALT=serving-tests-alt
 readonly SERVING_NAMESPACE=knative-serving
+readonly SERVICEMESH_NAMESPACE=istio-system
 readonly TARGET_IMAGE_PREFIX="$INTERNAL_REGISTRY/$SERVING_NAMESPACE/knative-serving-"
 
 # The OLM global namespace was moved to openshift-marketplace since v4.2
@@ -85,84 +86,105 @@ function timeout() {
   return 0
 }
 
+function install_servicemesh(){
+  header "Installing ServiceMesh"
+
+  # Install the ServiceMesh Operator
+  oc apply -f openshift/servicemesh/operator-install.yaml
+
+  # Wait for the istio-operator pod to appear
+  timeout 900 '[[ $(oc get pods -n openshift-operators | grep -c istio-operator) -eq 0 ]]' || return 1
+
+  # Wait until the Operator pod is up and running
+  wait_until_pods_running openshift-operators || return 1
+
+  # Deploy ServiceMesh
+  oc new-project $SERVICEMESH_NAMESPACE
+  oc apply -n $SERVICEMESH_NAMESPACE -f openshift/servicemesh/controlplane-install.yaml
+  cat <<EOF | oc apply -f -
+apiVersion: maistra.io/v1
+kind: ServiceMeshMemberRoll
+metadata:
+  name: default
+  namespace: ${SERVICEMESH_NAMESPACE}
+spec:
+  members:
+  - serving-tests
+  - serving-tests-alt
+  - ${SERVING_NAMESPACE}
+EOF
+
+  # Wait for the ingressgateway pod to appear.
+  timeout 900 '[[ $(oc get pods -n $SERVICEMESH_NAMESPACE | grep -c istio-ingressgateway) -eq 0 ]]' || return 1
+
+  wait_until_service_has_external_ip $SERVICEMESH_NAMESPACE istio-ingressgateway || fail_test "Ingress has no external IP"
+  wait_until_hostname_resolves "$(kubectl get svc -n $SERVICEMESH_NAMESPACE istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')"
+
+  wait_until_pods_running $SERVICEMESH_NAMESPACE
+
+  header "ServiceMesh installed successfully"
+}
+
 function install_knative(){
   header "Installing Knative"
 
-  create_knative_namespace serving
-
-  echo ">> Patching Knative Serving CatalogSource to reference CI produced images"
-  CURRENT_GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-  RELEASE_YAML="https://raw.githubusercontent.com/openshift/knative-serving/${CURRENT_GIT_BRANCH}/openshift/release/knative-serving-ci.yaml"
-  sed "s|--filename=.*|--filename=${RELEASE_YAML}|"  openshift/olm/knative-serving.catalogsource.yaml > knative-serving.catalogsource-ci.yaml
+  oc new-project $SERVING_NAMESPACE
 
   # Install CatalogSource in OLM namespace
-  oc apply -n $OLM_NAMESPACE -f knative-serving.catalogsource-ci.yaml
-  timeout 900 '[[ $(oc get pods -n $OLM_NAMESPACE | grep -c knative) -eq 0 ]]' || return 1
+  oc apply -n $OLM_NAMESPACE -f openshift/olm/knative-serving.catalogsource.yaml
+  timeout 900 '[[ $(oc get pods -n $OLM_NAMESPACE | grep -c serverless) -eq 0 ]]' || return 1
   wait_until_pods_running $OLM_NAMESPACE
 
-  # Deploy Knative Serving Operator
-  deploy_knative_operator serving KnativeServing
+  # Deploy Serverless Operator
+  deploy_serverless_operator
+
+  # Wait for the CRD to appear
+  timeout 900 '[[ $(oc get crd | grep -c knativeservings) -eq 0 ]]' || return 1
+
+  # Install Knative Serving
+  cat <<-EOF | oc apply -f -
+apiVersion: serving.knative.dev/v1alpha1
+kind: KnativeServing
+metadata:
+  name: knative-serving
+  namespace: ${SERVING_NAMESPACE}
+EOF
 
   # Create imagestream for images generated in CI namespace
   tag_core_images openshift/release/knative-serving-ci.yaml
 
   # Wait for 6 pods to appear first
   timeout 900 '[[ $(oc get pods -n $SERVING_NAMESPACE --no-headers | wc -l) -lt 6 ]]' || return 1
-  wait_until_pods_running knative-serving || return 1
-
-  # Wait for 2 pods to appear first
-  timeout 900 '[[ $(oc get pods -n istio-system --no-headers | wc -l) -lt 2 ]]' || return 1
-  wait_until_service_has_external_ip istio-system istio-ingressgateway || fail_test "Ingress has no external IP"
-
-  wait_until_hostname_resolves $(kubectl get svc -n istio-system istio-ingressgateway -o jsonpath="{.status.loadBalancer.ingress[0].hostname}")
+  wait_until_pods_running $SERVING_NAMESPACE || return 1
 
   header "Knative Installed successfully"
 }
 
-function create_knative_namespace(){
-  local COMPONENT="knative-$1"
-
-  cat <<-EOF | oc apply -f -
-	apiVersion: v1
-	kind: Namespace
-	metadata:
-	  name: ${COMPONENT}
-	EOF
-}
-
-function deploy_knative_operator(){
-  local COMPONENT="knative-$1"
-  local KIND=$2
+function deploy_serverless_operator(){
+  local NAME="serverless-operator"
 
   if oc get crd operatorgroups.operators.coreos.com >/dev/null 2>&1; then
     cat <<-EOF | oc apply -f -
-	apiVersion: operators.coreos.com/v1
-	kind: OperatorGroup
-	metadata:
-	  name: ${COMPONENT}
-	  namespace: ${COMPONENT}
-	EOF
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: ${NAME}
+  namespace: ${SERVING_NAMESPACE}
+EOF
   fi
+
   cat <<-EOF | oc apply -f -
-	apiVersion: operators.coreos.com/v1alpha1
-	kind: Subscription
-	metadata:
-	  name: ${COMPONENT}-subscription
-	  generateName: ${COMPONENT}-
-	  namespace: ${COMPONENT}
-	spec:
-	  source: ${COMPONENT}-operator
-	  sourceNamespace: $OLM_NAMESPACE
-	  name: ${COMPONENT}-operator
-	  channel: alpha
-	EOF
-  cat <<-EOF | oc apply -f -
-  apiVersion: serving.knative.dev/v1alpha1
-  kind: $KIND
-  metadata:
-    name: ${COMPONENT}
-    namespace: ${COMPONENT}
-	EOF
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: ${NAME}-subscription
+  namespace: ${SERVING_NAMESPACE}
+spec:
+  source: ${NAME}
+  sourceNamespace: $OLM_NAMESPACE
+  name: ${NAME}
+  channel: techpreview
+EOF
 }
 
 function tag_core_images(){
@@ -270,7 +292,7 @@ function dump_openshift_ingress_state(){
   oc get routes.serving.knative.dev -o yaml --all-namespaces
 
   echo ">>> openshift-ingress log:"
-  oc logs deployment/knative-openshift-ingress -n knative-serving 
+  oc logs deployment/knative-openshift-ingress -n $SERVING_NAMESPACE
 }
 
 function tag_test_images() {
@@ -298,6 +320,8 @@ scale_up_workers || exit 1
 create_test_namespace || exit 1
 
 failed=0
+
+(( !failed )) && install_servicemesh || failed=1
 
 (( !failed )) && install_knative || failed=1
 
