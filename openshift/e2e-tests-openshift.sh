@@ -280,9 +280,6 @@ function teardown() {
 function dump_openshift_olm_state(){
   echo ">>> subscriptions.operators.coreos.com:"
   oc get subscriptions.operators.coreos.com -o yaml --all-namespaces   # This is for status checking.
-
-  echo ">>> catalog operator log:"
-  oc logs -n openshift-operator-lifecycle-manager deployment/catalog-operator
 }
 
 function dump_openshift_ingress_state(){
@@ -290,9 +287,6 @@ function dump_openshift_ingress_state(){
   oc get routes.route.openshift.io -o yaml --all-namespaces
   echo ">>> routes.serving.knative.dev:"
   oc get routes.serving.knative.dev -o yaml --all-namespaces
-
-  echo ">>> openshift-ingress log:"
-  oc logs deployment/knative-openshift-ingress -n $SERVING_NAMESPACE
 }
 
 function tag_test_images() {
@@ -315,9 +309,26 @@ function tag_built_image() {
   oc tag --insecure=${INSECURE} -n ${SERVING_NAMESPACE} ${OPENSHIFT_REGISTRY}/${OPENSHIFT_BUILD_NAMESPACE}/stable:${remote_name} ${local_name}:latest
 }
 
+function test_setup() {
+  echo ">> Setting up logging..."
+
+  # Install kail if needed.
+  if ! which kail > /dev/null; then
+    bash <( curl -sfL https://raw.githubusercontent.com/boz/kail/master/godownloader.sh) -b "$GOPATH/bin"
+  fi
+
+  # Capture all logs.
+  kail > ${ARTIFACTS}/k8s.log.txt &
+  local kail_pid=$!
+  # Clean up kail so it doesn't interfere with job shutting down
+  trap "kill $kail_pid || true" EXIT
+}
+
 scale_up_workers || exit 1
 
 create_test_namespace || exit 1
+
+test_setup || exit 1
 
 failed=0
 
