@@ -318,7 +318,7 @@ function test_setup() {
   fi
 
   # Capture all logs.
-  kail > ${ARTIFACTS}/k8s.log.txt &
+  $KUBECONFIG kail > ${ARTIFACTS}/k8s.log.txt & 2>&1
   local kail_pid=$!
   # Clean up kail so it doesn't interfere with job shutting down
   trap "kill $kail_pid || true" EXIT
