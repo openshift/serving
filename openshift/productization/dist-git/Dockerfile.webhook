@@ -1,5 +1,5 @@
 FROM rhel8/go-toolset:1.12.8 AS builder
-WORKDIR /opt/app-root/src/go/src/github.com/knative/serving
+WORKDIR /opt/app-root/src/go/src/knative.dev/serving
 COPY . .
 RUN go build -o /tmp/webhook ./cmd/webhook
 
