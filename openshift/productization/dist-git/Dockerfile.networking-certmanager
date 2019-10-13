@@ -1,0 +1,18 @@
+FROM rhel8/go-toolset:1.12.8 AS builder
+WORKDIR /opt/app-root/src/go/src/github.com/knative/serving
+COPY . .
+RUN go build -o /tmp/networking-certmanager ./cmd/networking/certmanager
+
+FROM ubi8:8-released
+COPY --from=builder /tmp/networking-certmanager /usr/bin/networking-certmanager
+
+LABEL \
+      com.redhat.component="openshift-serverless-1-tech-preview-serving-networking-certmanager-rhel8-container" \
+      name="openshift-serverless-1-tech-preview/serving-networking-certmanager-rhel8" \
+      version="0.7.1" \
+      summary="Red Hat OpenShift Serverless 1 Serving Networking-Certmanager" \
+      maintainer="mthoemme@redhat.com" \
+      description="Red Hat OpenShift Serverless 1 Serving Networking-Certmanager" \
+      io.k8s.display-name="Red Hat OpenShift Serverless 1 Serving Networking-Certmanager"
+
+ENTRYPOINT ["/usr/bin/networking-certmanager"]
