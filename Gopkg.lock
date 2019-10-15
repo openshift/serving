@@ -1121,12 +1121,12 @@
   version = "v2.1"
 
 [[projects]]
-  digest = "1:7c95b35057a0ff2e19f707173cc1a947fa43a6eb5c4d300d196ece0334046082"
+  digest = "1:accc3bfe4e404aa53ac3621470e7cf9fce1efe48f0fabcfe6d12a72579d9d91f"
   name = "gopkg.in/yaml.v2"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "5420a8b6744d3b0345ab293f6fcba19c978f1183"
-  version = "v2.2.1"
+  revision = "f221b8435cfb71e54062f6c6e99e9ade30b124d5"
+  version = "v2.2.4"
 
 [[projects]]
   digest = "1:1d34342a53d8f8c625260d6c4c2e5c99442b1635bbf4208f426bd12aa210b870"
@@ -1694,8 +1694,6 @@
     "injection/informers/kubeinformers/corev1/configmap/fake",
     "injection/informers/kubeinformers/corev1/endpoints",
     "injection/informers/kubeinformers/corev1/endpoints/fake",
-    "injection/informers/kubeinformers/corev1/pod",
-    "injection/informers/kubeinformers/corev1/pod/fake",
     "injection/informers/kubeinformers/corev1/secret",
     "injection/informers/kubeinformers/corev1/secret/fake",
     "injection/informers/kubeinformers/corev1/service",
@@ -1724,6 +1722,7 @@
     "test/logstream",
     "test/monitoring",
     "test/spoof",
+    "test/vegeta/pacers",
     "test/zipkin",
     "tracker",
     "version",
@@ -1903,8 +1902,6 @@
     "knative.dev/pkg/injection/informers/kubeinformers/corev1/configmap/fake",
     "knative.dev/pkg/injection/informers/kubeinformers/corev1/endpoints",
     "knative.dev/pkg/injection/informers/kubeinformers/corev1/endpoints/fake",
-    "knative.dev/pkg/injection/informers/kubeinformers/corev1/pod",
-    "knative.dev/pkg/injection/informers/kubeinformers/corev1/pod/fake",
     "knative.dev/pkg/injection/informers/kubeinformers/corev1/secret",
     "knative.dev/pkg/injection/informers/kubeinformers/corev1/secret/fake",
     "knative.dev/pkg/injection/informers/kubeinformers/corev1/service",
@@ -1930,6 +1927,7 @@
     "knative.dev/pkg/test/logging",
     "knative.dev/pkg/test/logstream",
     "knative.dev/pkg/test/spoof",
+    "knative.dev/pkg/test/vegeta/pacers",
     "knative.dev/pkg/test/zipkin",
     "knative.dev/pkg/tracker",
     "knative.dev/pkg/version",
