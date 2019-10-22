@@ -16,6 +16,7 @@ readonly TEST_NAMESPACE_ALT=serving-tests-alt
 readonly SERVING_NAMESPACE=knative-serving
 readonly SERVICEMESH_NAMESPACE=istio-system
 readonly TARGET_IMAGE_PREFIX="$INTERNAL_REGISTRY/$SERVING_NAMESPACE/knative-serving-"
+export INGRESS_TYPE="${INGRESS_TYPE:-"LoadBalancer"}" #export this for use in envsubst
 
 # The OLM global namespace was moved to openshift-marketplace since v4.2
 # ref: https://jira.coreos.com/browse/OLM-1190
@@ -100,7 +101,7 @@ function install_servicemesh(){
 
   # Deploy ServiceMesh
   oc new-project $SERVICEMESH_NAMESPACE
-  oc apply -n $SERVICEMESH_NAMESPACE -f openshift/servicemesh/controlplane-install.yaml
+  envsubst < openshift/servicemesh/controlplane-install.yaml | oc apply -n $SERVICEMESH_NAMESPACE -f -
   cat <<EOF | oc apply -f -
 apiVersion: maistra.io/v1
 kind: ServiceMeshMemberRoll
@@ -117,8 +118,10 @@ EOF
   # Wait for the ingressgateway pod to appear.
   timeout 900 '[[ $(oc get pods -n $SERVICEMESH_NAMESPACE | grep -c istio-ingressgateway) -eq 0 ]]' || return 1
 
-  wait_until_service_has_external_ip $SERVICEMESH_NAMESPACE istio-ingressgateway || fail_test "Ingress has no external IP"
-  wait_until_hostname_resolves "$(kubectl get svc -n $SERVICEMESH_NAMESPACE istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')"
+  if [[ $(oc get routes -n istio-system istio-ingressgateway -o=jsonpath='{.spec.host}') == "" ]]; then
+    wait_until_service_has_external_ip $SERVICEMESH_NAMESPACE istio-ingressgateway || fail_test "Ingress has no available route"
+    wait_until_hostname_resolves "$(oc get svc -n $SERVICEMESH_NAMESPACE istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')"
+  fi
 
   wait_until_pods_running $SERVICEMESH_NAMESPACE
 

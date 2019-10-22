@@ -17,7 +17,7 @@ spec:
     gateways:
       istio-ingressgateway:
         autoscaleEnabled: false
-        type: LoadBalancer
+        type: ${INGRESS_TYPE}
       istio-egressgateway:
         enabled: false
       cluster-local-gateway:
