@@ -117,8 +117,10 @@ EOF
   # Wait for the ingressgateway pod to appear.
   timeout 900 '[[ $(oc get pods -n $SERVICEMESH_NAMESPACE | grep -c istio-ingressgateway) -eq 0 ]]' || return 1
 
-  wait_until_service_has_external_ip $SERVICEMESH_NAMESPACE istio-ingressgateway || fail_test "Ingress has no external IP"
-  wait_until_hostname_resolves "$(kubectl get svc -n $SERVICEMESH_NAMESPACE istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')"
+  if [[ $(oc get routes -n istio-system istio-ingressgateway -o=jsonpath='{.spec.host}') == "" ]]; then
+    wait_until_service_has_external_ip $SERVICEMESH_NAMESPACE istio-ingressgateway || fail_test "Ingress has no available route"
+    wait_until_hostname_resolves "$(oc get svc -n $SERVICEMESH_NAMESPACE istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')"
+  fi
 
   wait_until_pods_running $SERVICEMESH_NAMESPACE
 
