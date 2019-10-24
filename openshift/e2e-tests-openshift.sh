@@ -122,6 +122,11 @@ kind: KnativeServing
 metadata:
   name: knative-serving
   namespace: ${SERVING_NAMESPACE}
+spec:
+  config:
+    network:
+      clusteringress.class: "kourier.ingress.networking.knative.dev"
+      ingress.class: "kourier.ingress.networking.knative.dev"
 EOF
 
   # Create imagestream for images generated in CI namespace
