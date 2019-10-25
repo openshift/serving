@@ -242,6 +242,12 @@ data:
                 - knativeservings/finalizers
                 verbs:
                 - '*'
+              - apiGroups:
+                - maistra.io
+                resources:
+                - servicemeshmemberrolls
+                verbs:
+                - '*'
               serviceAccountName: knative-openshift-ingress
             deployments:
             - name: knative-serving-operator
@@ -288,7 +294,7 @@ data:
                         value: image-registry.openshift-image-registry.svc:5000/knative-serving/knative-serving-istio
                       - name: IMAGE_webhook
                         value: image-registry.openshift-image-registry.svc:5000/knative-serving/knative-serving-webhook
-                      image: quay.io/openshift-knative/knative-serving-operator:v0.7.1-TP1-03
+                      image: quay.io/openshift-knative/knative-serving-operator:v0.9.0-1.2.0-savita
                       args:
                         - --filename=https://raw.githubusercontent.com/openshift/knative-serving/release-next/openshift/release/knative-serving-ci.yaml # remove this from individual release branches
                       imagePullPolicy: Always
@@ -309,7 +315,7 @@ data:
                     serviceAccountName: knative-openshift-ingress
                     containers:
                       - name: knative-openshift-ingress
-                        image: quay.io/openshift-knative/knative-openshift-ingress:v0.1.0
+                        image: quay.io/openshift-knative/knative-openshift-ingress:savita
                         command:
                         - knative-openshift-ingress
                         imagePullPolicy: Always
