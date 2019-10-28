@@ -1,7 +1,7 @@
 FROM rhel8/go-toolset:1.12.8 AS builder
 WORKDIR /opt/app-root/src/go/src/github.com/knative/serving
 COPY . .
-RUN go build -o /tmp/networking-istio ./cmd/
+RUN go build -o /tmp/networking-istio ./cmd/networking/istio
 
 FROM ubi8:8-released
 COPY --from=builder /tmp/networking-istio /usr/bin/networking-istio
@@ -9,10 +9,10 @@ COPY --from=builder /tmp/networking-istio /usr/bin/networking-istio
 LABEL \
       com.redhat.component="openshift-serverless-1-tech-preview-serving-networking-istio-rhel8-container" \
       name="openshift-serverless-1-tech-preview/serving-networking-istio-rhel8" \
-      version="0.7.1" \
-      summary="Red Hat OpenShift Serverless 1  " \
+      version="0.9.0" \
+      summary="Red Hat OpenShift Serverless 1 Serving Networking Istio" \
       maintainer="mthoemme@redhat.com" \
-      description="Red Hat OpenShift Serverless 1  " \
-      io.k8s.display-name="Red Hat OpenShift Serverless 1  "
+      description="Red Hat OpenShift Serverless 1 Serving Networking Istio" \
+      io.k8s.display-name="Red Hat OpenShift Serverless 1 Serving Networking Istio"
 
 ENTRYPOINT ["/usr/bin/networking-istio"]
