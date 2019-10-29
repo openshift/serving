@@ -162,14 +162,13 @@ EOF
 function install_kourier(){
   header "Install Kourier"
 
-  # Install a specific commit of the Kourier knative e2e stuff for now
-  oc apply -f https://raw.githubusercontent.com/3scale/kourier/0b3bcb7341ae92d1e31b40632a81571b808d941d/deploy/knative_e2e_tests/kourier-istio-system.yaml
+  # Install the Kourier knative e2e stuff
+  oc apply -f https://raw.githubusercontent.com/3scale/kourier/v0.2.0/deploy/knative_e2e_tests/kourier-istio-system.yaml
 
   # Wait for the kourier pod to appear
   timeout 900 '[[ $(oc get pods -n $SERVICEMESH_NAMESPACE | grep -c 3scale-kourier) -eq 0 ]]' || return 1
 
-  # hardcoded istio-system shouldn't be here, but that kourier yaml
-  # hardcodes it for now so I do too
+  # Wait until all kourier pods are up
   wait_until_pods_running $SERVICEMESH_NAMESPACE
 
   wait_until_service_has_external_ip $SERVICEMESH_NAMESPACE istio-ingressgateway || fail_test "Ingress has no external IP"
