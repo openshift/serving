@@ -9,7 +9,7 @@ COPY --from=builder /tmp/$SUBCOMPONENT /ko-app/$SUBCOMPONENT
 LABEL \
       com.redhat.component="openshift-serverless-1-tech-preview-$COMPONENT-$SUBCOMPONENT-rhel8-container" \
       name="openshift-serverless-1-tech-preview/$COMPONENT-$SUBCOMPONENT-rhel8" \
-      version="0.9.0" \
+      version="$VERSION" \
       summary="Red Hat OpenShift Serverless 1 $CAPITALIZED_COMPONENT $CAPITALIZED_SUBCOMPONENT" \
       maintainer="wvanwinc@redhat.com" \
       description="Red Hat OpenShift Serverless 1 $CAPITALIZED_COMPONENT $CAPITALIZED_SUBCOMPONENT" \
