@@ -4,15 +4,15 @@ COPY . .
 RUN go build -o /tmp/controller ./cmd/controller
 
 FROM ubi8:8-released
-COPY --from=builder /tmp/controller /usr/bin/controller
+COPY --from=builder /tmp/controller /ko-app/controller
 
 LABEL \
       com.redhat.component="openshift-serverless-1-tech-preview-serving-controller-rhel8-container" \
       name="openshift-serverless-1-tech-preview/serving-controller-rhel8" \
       version="0.9.0" \
       summary="Red Hat OpenShift Serverless 1 Serving Controller" \
-      maintainer="mthoemme@redhat.com" \
+      maintainer="wvanwinc@redhat.com" \
       description="Red Hat OpenShift Serverless 1 Serving Controller" \
       io.k8s.display-name="Red Hat OpenShift Serverless 1 Serving Controller"
 
-ENTRYPOINT ["/usr/bin/controller"]
+ENTRYPOINT ["/ko-app/controller"]

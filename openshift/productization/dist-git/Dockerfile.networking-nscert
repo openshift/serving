@@ -4,15 +4,15 @@ COPY . .
 RUN go build -o /tmp/networking-nscert ./cmd/networking/nscert
 
 FROM ubi8:8-released
-COPY --from=builder /tmp/networking-nscert /usr/bin/networking-nscert
+COPY --from=builder /tmp/networking-nscert /ko-app/networking-nscert
 
 LABEL \
       com.redhat.component="openshift-serverless-1-tech-preview-serving-networking-nscert-rhel8-container" \
       name="openshift-serverless-1-tech-preview/serving-networking-nscert-rhel8" \
       version="0.9.0" \
       summary="Red Hat OpenShift Serverless 1 Serving Networking NSCert" \
-      maintainer="mthoemme@redhat.com" \
+      maintainer="wvanwinc@redhat.com" \
       description="Red Hat OpenShift Serverless 1 Serving Networking NSCert" \
       io.k8s.display-name="Red Hat OpenShift Serverless 1 Serving Networking NSCert"
 
-ENTRYPOINT ["/usr/bin/networking-nscert"]
+ENTRYPOINT ["/ko-app/networking-nscert"]

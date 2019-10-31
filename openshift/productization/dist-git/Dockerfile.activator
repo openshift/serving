@@ -4,15 +4,15 @@ COPY . .
 RUN go build -o /tmp/activator ./cmd/activator
 
 FROM ubi8:8-released
-COPY --from=builder /tmp/activator /usr/bin/activator
+COPY --from=builder /tmp/activator /ko-app/activator
 
 LABEL \
       com.redhat.component="openshift-serverless-1-tech-preview-serving-activator-rhel8-container" \
       name="openshift-serverless-1-tech-preview/serving-activator-rhel8" \
       version="0.9.0" \
       summary="Red Hat OpenShift Serverless 1 Serving Activator" \
-      maintainer="mthoemme@redhat.com" \
+      maintainer="wvanwinc@redhat.com" \
       description="Red Hat OpenShift Serverless 1 Serving Activator" \
       io.k8s.display-name="Red Hat OpenShift Serverless 1 Serving Activator"
 
-ENTRYPOINT ["/usr/bin/activator"]
+ENTRYPOINT ["/ko-app/activator"]

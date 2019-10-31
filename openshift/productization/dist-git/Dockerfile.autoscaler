@@ -4,15 +4,15 @@ COPY . .
 RUN go build -o /tmp/autoscaler ./cmd/autoscaler
 
 FROM ubi8:8-released
-COPY --from=builder /tmp/autoscaler /usr/bin/autoscaler
+COPY --from=builder /tmp/autoscaler /ko-app/autoscaler
 
 LABEL \
       com.redhat.component="openshift-serverless-1-tech-preview-serving-autoscaler-rhel8-container" \
       name="openshift-serverless-1-tech-preview/serving-autoscaler-rhel8" \
       version="0.9.0" \
       summary="Red Hat OpenShift Serverless 1 Serving Autoscaler" \
-      maintainer="mthoemme@redhat.com" \
+      maintainer="wvanwinc@redhat.com" \
       description="Red Hat OpenShift Serverless 1 Serving Autoscaler" \
       io.k8s.display-name="Red Hat OpenShift Serverless 1 Serving Autoscaler"
 
-ENTRYPOINT ["/usr/bin/autoscaler"]
+ENTRYPOINT ["/ko-app/autoscaler"]

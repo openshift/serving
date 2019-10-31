@@ -4,15 +4,15 @@ COPY . .
 RUN go build -o /tmp/webhook ./cmd/webhook
 
 FROM ubi8:8-released
-COPY --from=builder /tmp/webhook /usr/bin/webhook
+COPY --from=builder /tmp/webhook /ko-app/webhook
 
 LABEL \
       com.redhat.component="openshift-serverless-1-tech-preview-serving-webhook-rhel8-container" \
       name="openshift-serverless-1-tech-preview/serving-webhook-rhel8" \
       version="0.9.0" \
       summary="Red Hat OpenShift Serverless 1 Serving Webhook" \
-      maintainer="mthoemme@redhat.com" \
+      maintainer="wvanwinc@redhat.com" \
       description="Red Hat OpenShift Serverless 1 Serving Webhook" \
       io.k8s.display-name="Red Hat OpenShift Serverless 1 Serving Webhook"
 
-ENTRYPOINT ["/usr/bin/webhook"]
+ENTRYPOINT ["/ko-app/webhook"]
