@@ -11,7 +11,7 @@ LABEL \
       name="openshift-serverless-1-tech-preview/$COMPONENT-$SUBCOMPONENT-rhel8" \
       version="$VERSION" \
       summary="Red Hat OpenShift Serverless 1 $CAPITALIZED_COMPONENT $CAPITALIZED_SUBCOMPONENT" \
-      maintainer="wvanwinc@redhat.com" \
+      maintainer="serverless-support@redhat.com" \
       description="Red Hat OpenShift Serverless 1 $CAPITALIZED_COMPONENT $CAPITALIZED_SUBCOMPONENT" \
       io.k8s.display-name="Red Hat OpenShift Serverless 1 $CAPITALIZED_COMPONENT $CAPITALIZED_SUBCOMPONENT"
 

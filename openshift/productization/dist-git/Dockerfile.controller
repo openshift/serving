@@ -11,7 +11,7 @@ LABEL \
       name="openshift-serverless-1-tech-preview/serving-controller-rhel8" \
       version="0.9.0" \
       summary="Red Hat OpenShift Serverless 1 Serving Controller" \
-      maintainer="wvanwinc@redhat.com" \
+      maintainer="serverless-support@redhat.com" \
       description="Red Hat OpenShift Serverless 1 Serving Controller" \
       io.k8s.display-name="Red Hat OpenShift Serverless 1 Serving Controller"
 
