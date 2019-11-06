@@ -261,9 +261,6 @@ EOF
   # Wait until all kourier pods are up
   wait_until_pods_running $SERVING_NAMESPACE
 
-  wait_until_service_has_external_ip $SERVING_NAMESPACE kourier || fail_test "Kourier Ingress has no external IP"
-  wait_until_hostname_resolves "$(kubectl get svc -n $SERVING_NAMESPACE kourier -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')"
-
   header "Kourier installed successfully"
 }
 
