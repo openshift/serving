@@ -166,6 +166,10 @@ function install_kourier(){
   # we still need the Istio CRDs, for now...
   oc apply -f https://raw.githubusercontent.com/knative/serving/release-0.9/third_party/istio-1.1.13/istio-crds.yaml
 
+  # And stub out some namespaces
+  oc create ns knative-serving
+  oc create ns knative-serving-ingress
+
   # Our operator specifically checks for the ServiceMeshMemberRoll...
   cat <<EOF | oc apply -f -
 apiVersion: apiextensions.k8s.io/v1beta1
