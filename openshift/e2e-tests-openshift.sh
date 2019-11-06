@@ -163,7 +163,7 @@ function install_kourier(){
   header "Install Kourier"
 
   # Install the Kourier knative e2e stuff
-  oc apply -f https://raw.githubusercontent.com/3scale/kourier/v0.2.1/deploy/knative_e2e_tests/kourier-istio-system.yaml
+  oc apply -f https://raw.githubusercontent.com/3scale/kourier/v0.2.2/deploy/knative_e2e_tests/kourier-istio-system.yaml
 
   # Wait for the kourier pod to appear
   timeout 900 '[[ $(oc get pods -n $SERVICEMESH_NAMESPACE | grep -c 3scale-kourier) -eq 0 ]]' || return 1
