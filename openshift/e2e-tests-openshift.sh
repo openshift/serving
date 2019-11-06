@@ -161,18 +161,104 @@ EOF
 
 function install_kourier(){
   header "Install Kourier"
+    
+  # TODO: GIANT HACKS BELOW
+  # we still need the Istio CRDs, for now...
+  oc apply -f https://raw.githubusercontent.com/knative/serving/release-0.9/third_party/istio-1.1.13/istio-crds.yaml
 
-  # Install the Kourier knative e2e stuff
-  oc apply -f https://raw.githubusercontent.com/3scale/kourier/v0.2.2/deploy/knative_e2e_tests/kourier-istio-system.yaml
+  # Our operator specifically checks for the ServiceMeshMemberRoll...
+  cat <<EOF | oc apply -f -
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: servicemeshcontrolplanes.maistra.io
+spec:
+  group: maistra.io
+  names:
+    kind: ServiceMeshControlPlane
+    listKind: ServiceMeshControlPlaneList
+    plural: servicemeshcontrolplanes
+    singular: servicemeshcontrolplane
+    shortNames:
+      - smcp
+  scope: Namespaced
+  version: v1
+  additionalPrinterColumns:
+  - JSONPath: .status.conditions[?(@.type=="Ready")].status
+    name: Ready
+    description: Whether or not the control plane installation is up to date and ready to handle requests.
+    type: string
+  - JSONPath: .status.conditions[?(@.type=="Ready")].message
+    name: Status
+    description: The status of the control plane installation.
+    type: string
+    priority: 1
+  - JSONPath: .status.conditions[?(@.type=="Reconciled")].status
+    name: Reconciled
+    description: Whether or not the control plane installation is up to date with the latest version of this resource.
+    type: string
+    priority: 1
+  - JSONPath: .status.conditions[?(@.type=="Reconciled")].message
+    name: Reconciliation Status
+    description: The status of the reconciliation process, if the control plane is not up to date with the latest version this resource.
+    type: string
+    priority: 1
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: servicemeshmemberrolls.maistra.io
+spec:
+  group: maistra.io
+  names:
+    kind: ServiceMeshMemberRoll
+    listKind: ServiceMeshMemberRollList
+    plural: servicemeshmemberrolls
+    singular: servicemeshmemberroll
+    shortNames:
+      - smmr
+  scope: Namespaced
+  version: v1
+  additionalPrinterColumns:
+  - JSONPath: .spec.members
+    description: Namespaces that are members of this Control Plane
+    name: Members
+    type: string
+EOF
+
+  # sleep a bit (for CRDs to get registered)
+  sleep 15
+
+  # Now create a fake SMMR
+  cat <<EOF | oc apply -f -
+apiVersion: maistra.io/v1
+kind: ServiceMeshMemberRoll
+metadata:
+  name: default
+  namespace: knative-serving-ingress
+spec:
+  members:
+  - serving-tests
+  - serving-tests-alt
+  - ${SERVING_NAMESPACE}
+status:
+  configuredMembers:
+  - serving-tests
+  - serving-tests-alt
+  - ${SERVING_NAMESPACE}
+EOF
+
+  # Install Kourier
+  oc apply -f https://raw.githubusercontent.com/3scale/kourier/v0.2.2/deploy/kourier-knative.yaml
 
   # Wait for the kourier pod to appear
-  timeout 900 '[[ $(oc get pods -n $SERVICEMESH_NAMESPACE | grep -c 3scale-kourier) -eq 0 ]]' || return 1
+  timeout 900 '[[ $(oc get pods -n $SERVING_NAMESPACE | grep -c 3scale-kourier) -eq 0 ]]' || return 1
 
   # Wait until all kourier pods are up
-  wait_until_pods_running $SERVICEMESH_NAMESPACE
+  wait_until_pods_running $SERVING_NAMESPACE
 
-  wait_until_service_has_external_ip $SERVICEMESH_NAMESPACE istio-ingressgateway || fail_test "Ingress has no external IP"
-  wait_until_hostname_resolves "$(kubectl get svc -n $SERVICEMESH_NAMESPACE istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')"
+  wait_until_service_has_external_ip $SERVING_NAMESPACE kourier || fail_test "Kourier Ingress has no external IP"
+  wait_until_hostname_resolves "$(kubectl get svc -n $SERVING_NAMESPACE kourier -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')"
 
   header "Kourier installed successfully"
 }
@@ -288,9 +374,9 @@ create_test_namespace || exit 1
 
 failed=0
 
-(( !failed )) && install_knative || failed=1
-
 (( !failed )) && install_kourier || failed=1
+
+(( !failed )) && install_knative || failed=1
 
 (( !failed )) && create_test_resources_openshift || failed=1
 
