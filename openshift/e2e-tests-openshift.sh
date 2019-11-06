@@ -16,6 +16,7 @@ readonly TEST_NAMESPACE_ALT=serving-tests-alt
 readonly SERVING_NAMESPACE=knative-serving
 readonly SERVICEMESH_NAMESPACE=istio-system
 readonly TARGET_IMAGE_PREFIX="$INTERNAL_REGISTRY/$SERVING_NAMESPACE/knative-serving-"
+readonly OPERATOR_NS=openshift-operators
 
 # The OLM global namespace was moved to openshift-marketplace since v4.2
 # ref: https://jira.coreos.com/browse/OLM-1190
@@ -93,10 +94,10 @@ function install_servicemesh(){
   oc apply -f openshift/servicemesh/operator-install.yaml
 
   # Wait for the istio-operator pod to appear
-  timeout 900 '[[ $(oc get pods -n openshift-operators | grep -c istio-operator) -eq 0 ]]' || return 1
+  timeout 900 '[[ $(oc get pods -n $OPERATOR_NS | grep -c istio-operator) -eq 0 ]]' || return 1
 
   # Wait until the Operator pod is up and running
-  wait_until_pods_running openshift-operators || return 1
+  wait_until_pods_running $OPERATOR_NS || return 1
 
   # Deploy ServiceMesh
   oc new-project $SERVICEMESH_NAMESPACE
@@ -130,11 +131,6 @@ function install_knative(){
 
   oc new-project $SERVING_NAMESPACE
 
-  # Install CatalogSource in OLM namespace
-  oc apply -n $OLM_NAMESPACE -f openshift/olm/knative-serving.catalogsource.yaml
-  timeout 900 '[[ $(oc get pods -n $OLM_NAMESPACE | grep -c serverless) -eq 0 ]]' || return 1
-  wait_until_pods_running $OLM_NAMESPACE
-
   # Deploy Serverless Operator
   deploy_serverless_operator
 
@@ -162,13 +158,24 @@ EOF
 
 function deploy_serverless_operator(){
   local NAME="serverless-operator"
+  local DIR="/tmp/${NAME}"
+
+  # Install CatalogSource in OLM namespace with replaced images in the latest CSV
+  git clone https://github.com/openshift-knative/serverless-operator.git ${DIR}
+  latest_csv=$(find ${DIR}/olm-catalog/serverless-operator/ | grep clusterserviceversion | sort | tail -n 1)
+  sed -i $latest_csv "s+\(.*value: \)\(quay.io/openshift-knative/\)\(.*\):\(.*\)+\1image-registry.openshift-image-registry.svc:5000/knative-serving/\3:latest+"
+  
+  ${DIR}/hack/catalog.sh | oc apply -n $OLM_NAMESPACE -f -
+
+  timeout 900 '[[ $(oc get pods -n $OLM_NAMESPACE | grep -c serverless) -eq 0 ]]' || return 1
+  wait_until_pods_running $OLM_NAMESPACE
 
   cat <<-EOF | oc apply -f -
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
 metadata:
   name: ${NAME}-subscription
-  namespace: openshift-operators
+  namespace: ${OPERATOR_NS}
 spec:
   source: ${NAME}
   sourceNamespace: $OLM_NAMESPACE
