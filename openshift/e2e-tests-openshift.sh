@@ -252,6 +252,83 @@ status:
   - ${SERVING_NAMESPACE}
 EOF
 
+  # And a fake SMCP
+  cat <<EOF | oc apply -f -
+apiVersion: maistra.io/v1
+kind: ServiceMeshControlPlane
+metadata:
+  name: basic-install
+  namespace: knative-serving-ingress
+spec:
+  istio:
+    global:
+      multitenant: true
+      proxy:
+        autoInject: disabled
+      omitSidecarInjectorConfigMap: true
+      disablePolicyChecks: false
+      defaultPodDisruptionBudget:
+        enabled: false
+    istio_cni:
+      enabled: true
+    gateways:
+      istio-ingressgateway:
+        autoscaleEnabled: false
+        type: LoadBalancer
+        labels:
+          maistra-control-plane: knative-serving-ingress
+      istio-egressgateway:
+        enabled: false
+      cluster-local-gateway:
+        autoscaleEnabled: false
+        enabled: true
+        labels:
+          app: cluster-local-gateway
+          istio: cluster-local-gateway
+          maistra-control-plane: knative-serving-ingress
+        ports:
+          - name: status-port
+            port: 15020
+          - name: http2
+            port: 80
+            targetPort: 8080
+          - name: https
+            port: 443
+    mixer:
+      enabled: false
+      policy:
+        enabled: false
+      telemetry:
+        enabled: false
+    pilot:
+      autoscaleEnabled: false
+      sidecar: false
+    kiali:
+      enabled: false
+    tracing:
+      enabled: false
+    prometheus:
+      enabled: false
+    grafana:
+      enabled: false
+    sidecarInjectorWebhook:
+      enabled: false
+status:
+  conditions:
+  - message: Successfully installed all mesh components
+    reason: InstallSuccessful
+    status: "True"
+    type: Installed
+  - message: Successfully updated from version 1.0.0-1 to version 1.0.1-8.el8-1
+    reason: UpdateSuccessful
+    status: "True"
+    type: Reconciled
+  - message: All component deployments are Available
+    reason: ComponentsReady
+    status: "True"
+    type: Ready
+EOF
+
   # Install Kourier
   oc apply -f https://raw.githubusercontent.com/3scale/kourier/v0.2.2/deploy/kourier-knative.yaml
 
