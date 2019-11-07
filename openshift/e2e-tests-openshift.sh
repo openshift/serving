@@ -15,7 +15,8 @@ readonly TEST_NAMESPACE=serving-tests
 readonly TEST_NAMESPACE_ALT=serving-tests-alt
 readonly SERVING_NAMESPACE=knative-serving
 readonly SERVICEMESH_NAMESPACE=knative-serving-ingress
-export GATEWAY_NAMESPACE_OVERRIDE="$SERVICEMESH_NAMESPACE"
+export GATEWAY_OVERRIDE="kourier"
+export GATEWAY_NAMESPACE_OVERRIDE="$SERVING_NAMESPACE"
 readonly TARGET_IMAGE_PREFIX="$INTERNAL_REGISTRY/$SERVING_NAMESPACE/knative-serving-"
 
 # The OLM global namespace was moved to openshift-marketplace since v4.2
