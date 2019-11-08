@@ -179,70 +179,6 @@ data:
                 verbs:
                 - '*'
               serviceAccountName: knative-serving-operator
-            - rules:
-              - apiGroups:
-                - ""
-                resources:
-                - pods
-                - services
-                - events
-                - configmaps
-                verbs:
-                - "*"
-              - apiGroups:
-                - ""
-                resources:
-                - namespaces
-                verbs:
-                - get
-              - apiGroups:
-                - apps
-                resources:
-                - deployments
-                - replicasets
-                verbs:
-                - "*"
-              - apiGroups:
-                - apiextensions.k8s.io
-                resources:
-                - customresourcedefinitions
-                verbs:
-                - "*"
-              - apiGroups:
-                - monitoring.coreos.com
-                resources:
-                - servicemonitors
-                verbs:
-                - get
-                - create
-              - apiGroups:
-                - networking.internal.knative.dev
-                resources:
-                - clusteringresses
-                - clusteringresses/status
-                - clusteringresses/finalizers
-                - ingresses
-                - ingresses/status
-                - ingresses/finalizers
-                verbs:
-                - "*"
-              - apiGroups:
-                - route.openshift.io
-                resources:
-                - routes
-                - routes/custom-host
-                - routes/status
-                - routes/finalizers
-                verbs:
-                - "*"
-              - apiGroups:
-                - serving.knative.dev
-                resources:
-                - knativeservings
-                - knativeservings/finalizers
-                verbs:
-                - '*'
-              serviceAccountName: knative-openshift-ingress
             deployments:
             - name: knative-serving-operator
               spec:
@@ -285,7 +221,7 @@ data:
                       - name: IMAGE_networking-certmanager
                         value: image-registry.openshift-image-registry.svc:5000/knative-serving/knative-serving-certmanager
                       - name: IMAGE_networking-istio
-                        value: image-registry.openshift-image-registry.svc:5000/knative-serving/knative-serving-istio
+                        value: quay.io/openshift-knative/knative-networking-openshift:pr2
                       - name: IMAGE_webhook
                         value: image-registry.openshift-image-registry.svc:5000/knative-serving/knative-serving-webhook
                       image: quay.io/openshift-knative/knative-serving-operator:v0.7.1-TP1-03
@@ -295,33 +231,6 @@ data:
                       name: knative-serving-operator
                       resources: {}
                     serviceAccountName: knative-serving-operator
-            - name: knative-openshift-ingress
-              spec:
-                replicas: 1
-                selector:
-                  matchLabels:
-                    name: knative-openshift-ingress
-                template:
-                  metadata:
-                    labels:
-                      name: knative-openshift-ingress
-                  spec:
-                    serviceAccountName: knative-openshift-ingress
-                    containers:
-                      - name: knative-openshift-ingress
-                        image: quay.io/openshift-knative/knative-openshift-ingress:v0.1.0
-                        command:
-                        - knative-openshift-ingress
-                        imagePullPolicy: Always
-                        env:
-                          - name: WATCH_NAMESPACE
-                            value: "" # watch all namespaces for ClusterIngress
-                          - name: POD_NAME
-                            valueFrom:
-                              fieldRef:
-                                fieldPath: metadata.name
-                          - name: OPERATOR_NAME
-                            value: "knative-openshift-ingress"
             permissions:
             - rules:
               - apiGroups:
