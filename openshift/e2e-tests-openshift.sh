@@ -155,10 +155,6 @@ function install_knative_previous(){
   # Deploy KnativeServing CR
   deploy_knativeserving
 
-  # Wait for 6 pods to appear first
-  timeout 900 '[[ $(oc get pods -n $SERVING_NAMESPACE --no-headers | wc -l) -lt 6 ]]' || return 1
-  wait_until_pods_running $SERVING_NAMESPACE || return 1
-
   header "Knative Installed successfully"
 }
 
@@ -182,10 +178,6 @@ function install_knative_latest(){
 
   # Deploy KnativeServing CR
   deploy_knativeserving
-
-  # Wait for 4 pods to appear first
-  timeout 900 '[[ $(oc get pods -n $SERVING_NAMESPACE --no-headers | wc -l) -lt 4 ]]' || return 1
-  wait_until_pods_running $SERVING_NAMESPACE || return 1
 
   wait_until_service_has_external_ip $SERVICEMESH_NAMESPACE istio-ingressgateway || fail_test "Ingress has no external IP"
   wait_until_hostname_resolves "$(kubectl get svc -n $SERVICEMESH_NAMESPACE istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')"
@@ -238,6 +230,8 @@ metadata:
   name: knative-serving
   namespace: ${SERVING_NAMESPACE}
 EOF
+
+  timeout 900 '[[ $(oc get knativeserving knative-serving -n $SERVING_NAMESPACE -o=jsonpath="{.status.conditions[?(@.type==\"Ready\")].status}") != True ]]'  || return 1
 }
 
 function approve_csv()
@@ -258,7 +252,7 @@ function find_install_plan()
   local csv=$1
   for plan in `oc get installplan -n openshift-operators --no-headers -o name`; do 
     [[ $(oc get $plan -n openshift-operators -o=jsonpath='{.spec.clusterServiceVersionNames}' | grep -c $csv) -eq 1 && \
-       $(oc get $plan -n openshift-operators -o=jsonpath='{.metadata.ownerReferences[?(@.name=="serverless-operator")]}') != "" ]] && echo $plan && return 0
+       $(oc get $plan -n openshift-operators -o=jsonpath='{.metadata.ownerReferences[?(@.name=="serverless-operator-subscription")]}') != "" ]] && echo $plan && return 0
   done
   echo ""
 }
