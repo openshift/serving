@@ -391,6 +391,13 @@ function run_rolling_upgrade_tests() {
     return $failed
 }
 
+function end_prober_test(){
+  local PROBER_PID=$1
+  echo "done" > /tmp/prober-signal
+  echo "Waiting for prober test to finish..."
+  wait ${PROBER_PID}
+}
+
 function dump_openshift_olm_state(){
   echo ">>> subscriptions.operators.coreos.com:"
   oc get subscriptions.operators.coreos.com -o yaml --all-namespaces   # This is for status checking.
