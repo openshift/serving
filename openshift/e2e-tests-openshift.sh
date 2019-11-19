@@ -272,6 +272,8 @@ function tag_core_images(){
 function create_test_resources_openshift() {
   echo ">> Creating test resources for OpenShift (test/config/)"
 
+  rm test/config/100-istio-default-domain.yaml
+
   resolve_resources test/config/ tests-resolved.yaml $TARGET_IMAGE_PREFIX
 
   tag_core_images tests-resolved.yaml
