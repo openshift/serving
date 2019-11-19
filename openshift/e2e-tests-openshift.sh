@@ -348,6 +348,12 @@ function run_rolling_upgrade_tests() {
     --kubeconfig $KUBECONFIG \
     --resolvabledomain &
 
+    # Wait for the upgrade-probe kservice to be ready before proceeding
+    timeout 900 '[[ $(oc get ksvc upgrade-probe -n $TEST_NAMESPACE -o=jsonpath="{.status.conditions[?(@.type==\"Ready\")].status}") != True ]]' || return 1
+
+    # Give routes time to be propagated
+    sleep 30
+
     PROBER_PID=$!
     echo "Prober PID is ${PROBER_PID}"
 
@@ -389,7 +395,7 @@ function run_rolling_upgrade_tests() {
     done
 
     # Give routes time to be propagated
-    sleep 10
+    sleep 30
 
     echo "Running postupgrade tests"
     report_go_test -tags=postupgrade -timeout=${TIMEOUT_TESTS} ./test/upgrade \
