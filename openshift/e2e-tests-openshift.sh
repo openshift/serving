@@ -386,6 +386,9 @@ function run_rolling_upgrade_tests() {
       timeout 900 '[[ $(oc get $kservice -n $TEST_NAMESPACE -o=jsonpath="{.status.conditions[?(@.type==\"Ready\")].status}") != True ]]' || return 1
     done
 
+    # Give routes time to be propagated
+    sleep 10
+
     echo "Running postupgrade tests"
     report_go_test -tags=postupgrade -timeout=${TIMEOUT_TESTS} ./test/upgrade \
     --dockerrepo "${INTERNAL_REGISTRY}/${SERVING_NAMESPACE}" \
