@@ -239,7 +239,7 @@ function approve_csv()
   local csv_version=$1
 
   # Wait for the installplan to be available
-  timeout 300 "[[ -z \$(find_install_plan $csv_version) ]]" || return 1
+  timeout 900 "[[ -z \$(find_install_plan $csv_version) ]]" || return 1
 
   local install_plan=$(find_install_plan $csv_version)
   oc get $install_plan -n openshift-operators -o yaml | sed 's/\(.*approved:\) false/\1 true/' | oc replace -f -
