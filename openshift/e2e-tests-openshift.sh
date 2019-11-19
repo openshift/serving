@@ -374,6 +374,9 @@ function run_rolling_upgrade_tests() {
 
       # The knativeserving CR should be updated now
       timeout 900 '[[ ! ( $(oc get knativeserving knative-serving -n $SERVING_NAMESPACE -o=jsonpath="{.status.version}") != $serving_version && $(oc get knativeserving knative-serving -n $SERVING_NAMESPACE -o=jsonpath="{.status.conditions[?(@.type==\"Ready\")].status}") == True ) ]]' || return 1
+
+      # Tests require the correct ingress gateway which is now in a new namespace after upgrade
+      export GATEWAY_NAMESPACE_OVERRIDE=knative-serving-ingress
     fi
 
     # Might not work in OpenShift CI but we want it here so that we can consume this script later and re-use
