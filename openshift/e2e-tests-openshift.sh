@@ -382,6 +382,10 @@ function run_rolling_upgrade_tests() {
       echo "New cluster version: $(oc get clusterversion)"
     fi
 
+    for kservice in `oc get ksvc -n $TEST_NAMESPACE --no-headers -o name`; do
+      timeout 900 '[[ $(oc get $kservice -n $TEST_NAMESPACE -o=jsonpath="{.status.conditions[?(@.type==\"Ready\")].status}") != True ]]' || return 1
+    done
+
     echo "Running postupgrade tests"
     report_go_test -tags=postupgrade -timeout=${TIMEOUT_TESTS} ./test/upgrade \
     --dockerrepo "${INTERNAL_REGISTRY}/${SERVING_NAMESPACE}" \
