@@ -209,19 +209,13 @@ function run_e2e_tests(){
 function dump_openshift_olm_state(){
   echo ">>> subscriptions.operators.coreos.com:"
   oc get subscriptions.operators.coreos.com -o yaml --all-namespaces   # This is for status checking.
-
-  echo ">>> catalog operator log:"
-  oc logs -n openshift-operator-lifecycle-manager deployment/catalog-operator
 }
 
-function dump_openshift_ingress_state(){
+function dump_routes_state(){
   echo ">>> routes.route.openshift.io:"
   oc get routes.route.openshift.io -o yaml --all-namespaces
   echo ">>> routes.serving.knative.dev:"
   oc get routes.serving.knative.dev -o yaml --all-namespaces
-
-  echo ">>> openshift-ingress log:"
-  oc logs deployment/knative-openshift-ingress -n $SERVING_NAMESPACE
 }
 
 function tag_test_images() {
@@ -260,7 +254,7 @@ failed=0
 
 (( failed )) && dump_openshift_olm_state
 
-(( failed )) && dump_openshift_ingress_state
+(( failed )) && dump_routes_state
 
 (( failed )) && exit 1
 
