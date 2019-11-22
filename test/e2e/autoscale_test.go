@@ -367,7 +367,6 @@ func TestAutoscaleUpCountPods(t *testing.T) {
 	t.Parallel()
 
 	classes := map[string]string{
-		"hpa": autoscaling.HPA,
 		"kpa": autoscaling.KPA,
 	}
 
@@ -400,7 +399,6 @@ func TestRPSBasedAutoscaleUpCountPods(t *testing.T) {
 	t.Parallel()
 
 	classes := map[string]string{
-		"hpa": autoscaling.HPA,
 		"kpa": autoscaling.KPA,
 	}
 
