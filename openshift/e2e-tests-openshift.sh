@@ -14,9 +14,9 @@ readonly INSECURE="${INSECURE:-"false"}"
 readonly TEST_NAMESPACE=serving-tests
 readonly TEST_NAMESPACE_ALT=serving-tests-alt
 readonly SERVING_NAMESPACE=knative-serving
-readonly TARGET_IMAGE_PREFIX="$INTERNAL_REGISTRY/$SERVING_NAMESPACE/knative-serving-"
 readonly UPGRADE_SERVERLESS="${UPGRADE_SERVERLESS:-"true"}"
 readonly UPGRADE_CLUSTER="${UPGRADE_CLUSTER:-"false"}"
+readonly TEST_IMAGE_TEMPLATE="${OPENSHIFT_REGISTRY}/${OPENSHIFT_BUILD_NAMESPACE}/stable:knative-serving-test-{{.Name}}"
 
 
 if [[ ${HOSTNAME} = e2e-aws-ocp-41* ]]; then
@@ -260,7 +260,10 @@ function find_install_plan()
 function tag_core_images(){
   local resolved_file_name=$1
 
+  # Make sure all relevant namespaces can pull the images.
   oc policy add-role-to-group system:image-puller system:serviceaccounts:${SERVING_NAMESPACE} --namespace=${OPENSHIFT_BUILD_NAMESPACE}
+  oc policy add-role-to-group system:image-puller system:serviceaccounts:${TEST_NAMESPACE} --namespace=${SERVING_NAMESPACE}
+  oc policy add-role-to-group system:image-puller system:serviceaccounts:${TEST_NAMESPACE_ALT} --namespace=${SERVING_NAMESPACE}
 
   echo ">> Creating imagestream tags for images referenced in yaml files"
   IMAGE_NAMES=$(cat $resolved_file_name | grep -i "image:" | grep "$INTERNAL_REGISTRY" | awk '{print $2}' | awk -F '/' '{print $3}')
@@ -273,20 +276,7 @@ function create_test_resources_openshift() {
   echo ">> Creating test resources for OpenShift (test/config/)"
 
   rm test/config/100-istio-default-domain.yaml
-
-  resolve_resources test/config/ tests-resolved.yaml $TARGET_IMAGE_PREFIX
-
-  tag_core_images tests-resolved.yaml
-
-  oc apply -f tests-resolved.yaml
-
-  echo ">> Ensuring pods in test namespaces can access test images"
-  oc policy add-role-to-group system:image-puller system:serviceaccounts:${TEST_NAMESPACE} --namespace=${SERVING_NAMESPACE}
-  oc policy add-role-to-group system:image-puller system:serviceaccounts:${TEST_NAMESPACE_ALT} --namespace=${SERVING_NAMESPACE}
-  oc policy add-role-to-group system:image-puller system:serviceaccounts:knative-testing --namespace=${SERVING_NAMESPACE}
-
-  echo ">> Creating imagestream tags for all test images"
-  tag_test_images test/test_images
+  oc apply -f test/config
 }
 
 function create_test_namespace(){
@@ -306,21 +296,21 @@ function run_e2e_tests(){
     -v -tags=e2e -count=1 -timeout=35m -short -parallel=3 \
     ./test/e2e \
     --kubeconfig "$KUBECONFIG" \
-    --dockerrepo "${INTERNAL_REGISTRY}/${SERVING_NAMESPACE}" \
+    --imagetemplate "$TEST_IMAGE_TEMPLATE" \
     --resolvabledomain || failed=1
 
   report_go_test \
     -v -tags=e2e -count=1 -timeout=35m -parallel=3 \
     ./test/conformance/runtime/... \
     --kubeconfig "$KUBECONFIG" \
-    --dockerrepo "${INTERNAL_REGISTRY}/${SERVING_NAMESPACE}" \
+    --imagetemplate "$TEST_IMAGE_TEMPLATE" \
     --resolvabledomain || failed=1
 
   report_go_test \
     -v -tags=e2e -count=1 -timeout=35m -parallel=3 \
     ./test/conformance/api/v1alpha1/... \
     --kubeconfig "$KUBECONFIG" \
-    --dockerrepo "${INTERNAL_REGISTRY}/${SERVING_NAMESPACE}" \
+    --imagetemplate "$TEST_IMAGE_TEMPLATE" \
     --resolvabledomain || failed=1
 
   return $failed
@@ -333,7 +323,7 @@ function run_rolling_upgrade_tests() {
     failed=0
 
     report_go_test -tags=preupgrade -timeout=${TIMEOUT_TESTS} ./test/upgrade \
-    --dockerrepo "${INTERNAL_REGISTRY}/${SERVING_NAMESPACE}" \
+    --imagetemplate "$TEST_IMAGE_TEMPLATE" \
     --kubeconfig $KUBECONFIG \
     --resolvabledomain || failed=1
 
@@ -344,7 +334,7 @@ function run_rolling_upgrade_tests() {
 
     rm -f /tmp/prober-signal
     report_go_test -tags=probe -timeout=${TIMEOUT_TESTS} ./test/upgrade \
-    --dockerrepo "${INTERNAL_REGISTRY}/${SERVING_NAMESPACE}" \
+    --imagetemplate "$TEST_IMAGE_TEMPLATE" \
     --kubeconfig $KUBECONFIG \
     --resolvabledomain &
 
@@ -402,7 +392,7 @@ function run_rolling_upgrade_tests() {
 
     echo "Running postupgrade tests"
     report_go_test -tags=postupgrade -timeout=${TIMEOUT_TESTS} ./test/upgrade \
-    --dockerrepo "${INTERNAL_REGISTRY}/${SERVING_NAMESPACE}" \
+    --imagetemplate "$TEST_IMAGE_TEMPLATE" \
     --kubeconfig $KUBECONFIG \
     --resolvabledomain || failed=1
 
@@ -432,20 +422,6 @@ function dump_openshift_ingress_state(){
 
   echo ">>> openshift-ingress log:"
   oc logs deployment/knative-openshift-ingress -n $SERVING_NAMESPACE
-}
-
-function tag_test_images() {
-  local dir=$1
-  image_dirs="$(find ${dir} -mindepth 1 -maxdepth 1 -type d)"
-
-  for image_dir in ${image_dirs}; do
-    name=$(basename ${image_dir})
-    tag_built_image knative-serving-test-${name} ${name}
-  done
-
-  # TestContainerErrorMsg also needs an invalidhelloworld imagestream
-  # to exist but NOT have a `latest` tag
-  oc tag --insecure=${INSECURE} -n ${SERVING_NAMESPACE} ${OPENSHIFT_REGISTRY}/${OPENSHIFT_BUILD_NAMESPACE}/stable:knative-serving-test-helloworld invalidhelloworld:not_latest
 }
 
 function tag_built_image() {
