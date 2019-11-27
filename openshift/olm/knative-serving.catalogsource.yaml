@@ -369,7 +369,7 @@ data:
                         value: registry.svc.ci.openshift.org/${OPENSHIFT_BUILD_NAMESPACE}/stable:knative-serving-webhook
                       image: quay.io/openshift-knative/knative-serving-operator:v0.9.0-1.2.0-05
                       args:
-                        - --filename=https://raw.githubusercontent.com/openshift/knative-serving/release-next/openshift/release/knative-serving-ci.yaml # remove this from individual release branches
+                        - --filename=https://raw.githubusercontent.com/markusthoemmes/knative-serving/oc-simplify/openshift/release/knative-serving-ci.yaml # remove this from individual release branches
                       imagePullPolicy: Always
                       name: knative-serving-operator
                       resources: {}
