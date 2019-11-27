@@ -23,6 +23,16 @@ function resolve_file() {
   local image_prefix=$3
   local image_tag=$4
 
+  # Skip cert-manager, it's not part of upstream's release YAML either.
+  if grep -q 'networking.knative.dev/certificate-provider: cert-manager' "$1"; then
+    return
+  fi
+
+  # Skip nscert, it's not part of upstream's release YAML either.
+  if grep -q 'networking.knative.dev/wildcard-certificate-provider: nscert' "$1"; then
+    return
+  fi
+
   echo "---" >> "$to"
   # 1. Rewrite image references
   # 2. Update config map entry
