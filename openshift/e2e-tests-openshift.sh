@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
-source $(dirname $0)/../test/e2e-common.sh
-source $(dirname $0)/release/resolve.sh
+# shellcheck disable=SC1090
+source "$(dirname "$0")/../test/e2e-common.sh"
+source "$(dirname "$0")/release/resolve.sh"
 
 set -x
 
@@ -24,10 +25,11 @@ function scale_up_workers(){
   oc get machineset -n ${cluster_api_ns} --show-labels
 
   # Get the name of the first machineset that has at least 1 replica
-  local machineset=$(oc get machineset -n ${cluster_api_ns} -o custom-columns="name:{.metadata.name},replicas:{.spec.replicas}" | grep " 1" | head -n 1 | awk '{print $1}')
+  local machineset
+  machineset=$(oc get machineset -n ${cluster_api_ns} -o custom-columns="name:{.metadata.name},replicas:{.spec.replicas}" | grep " 1" | head -n 1 | awk '{print $1}')
   # Bump the number of replicas to 6 (+ 1 + 1 == 8 workers)
-  oc patch machineset -n ${cluster_api_ns} ${machineset} -p '{"spec":{"replicas":6}}' --type=merge
-  wait_until_machineset_scales_up ${cluster_api_ns} ${machineset} 6
+  oc patch machineset -n ${cluster_api_ns} "${machineset}" -p '{"spec":{"replicas":6}}' --type=merge
+  wait_until_machineset_scales_up ${cluster_api_ns} "${machineset}" 6
 }
 
 # Waits until the machineset in the given namespaces scales up to the
@@ -37,8 +39,9 @@ function scale_up_workers(){
 #             $3 - desired number of replicas
 function wait_until_machineset_scales_up() {
   echo -n "Waiting until machineset $2 in namespace $1 scales up to $3 replicas"
-  for i in {1..150}; do  # timeout after 15 minutes
-    local available=$(oc get machineset -n $1 $2 -o jsonpath="{.status.availableReplicas}")
+  for _ in {1..150}; do  # timeout after 15 minutes
+    local available
+    available=$(oc get machineset -n "$1" "$2" -o jsonpath="{.status.availableReplicas}")
     if [[ ${available} -eq $3 ]]; then
       echo -e "\nMachineSet $2 in namespace $1 successfully scaled up to $3 replicas"
       return 0
@@ -46,7 +49,7 @@ function wait_until_machineset_scales_up() {
     echo -n "."
     sleep 6
   done
-  echo - "\n\nError: timeout waiting for machineset $2 in namespace $1 to scale up to $3 replicas"
+  echo - "Error: timeout waiting for machineset $2 in namespace $1 to scale up to $3 replicas"
   return 1
 }
 
@@ -54,8 +57,9 @@ function wait_until_machineset_scales_up() {
 # Parameters: $1 - hostname
 function wait_until_hostname_resolves() {
   echo -n "Waiting until hostname $1 resolves via DNS"
-  for i in {1..150}; do  # timeout after 15 minutes
-    local output="$(host -t a $1 | grep 'has address')"
+  for _ in {1..150}; do  # timeout after 15 minutes
+    local output
+    output=$(host -t a "$1" | grep 'has address')
     if [[ -n "${output}" ]]; then
       echo -e "\n${output}"
       return 0
@@ -113,19 +117,20 @@ EOF
 }
 
 function deploy_serverless_operator(){
-  local NAME="serverless-operator"
-  local OPERATOR_NS=$(kubectl get og --all-namespaces | grep global-operators | awk '{print $1}')
+  local name="serverless-operator"
+  local operator_ns
+  operator_ns=$(kubectl get og --all-namespaces | grep global-operators | awk '{print $1}')
 
   cat <<-EOF | oc apply -f -
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
 metadata:
-  name: ${NAME}-subscription
-  namespace: ${OPERATOR_NS}
+  name: ${name}-subscription
+  namespace: ${operator_ns}
 spec:
-  source: ${NAME}
-  sourceNamespace: $OLM_NAMESPACE
-  name: ${NAME}
+  source: ${name}
+  sourceNamespace: $operator_ns
+  name: ${name}
   channel: techpreview
 EOF
 }
