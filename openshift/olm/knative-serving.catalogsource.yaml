@@ -365,10 +365,6 @@ data:
                         value: registry.svc.ci.openshift.org/${OPENSHIFT_BUILD_NAMESPACE}/stable:knative-serving-controller
                       - name: IMAGE_networking-istio
                         value: registry.svc.ci.openshift.org/${OPENSHIFT_BUILD_NAMESPACE}/stable:knative-serving-istio
-                      - name: IMAGE_networking-ns-cert
-                        value: registry.svc.ci.openshift.org/${OPENSHIFT_BUILD_NAMESPACE}/stable:knative-serving-nscert
-                      - name: IMAGE_networking-certmanager
-                        value: registry.svc.ci.openshift.org/${OPENSHIFT_BUILD_NAMESPACE}/stable:knative-serving-certmanager
                       - name: IMAGE_webhook
                         value: registry.svc.ci.openshift.org/${OPENSHIFT_BUILD_NAMESPACE}/stable:knative-serving-webhook
                       image: quay.io/openshift-knative/knative-serving-operator:v0.9.0-1.2.0-05

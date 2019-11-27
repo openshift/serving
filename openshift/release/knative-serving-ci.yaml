@@ -10,19 +10,6 @@ metadata:
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: knative-serving-certmanager
-  labels:
-    serving.knative.dev/release: devel
-    serving.knative.dev/controller: "true"
-    networking.knative.dev/certificate-provider: cert-manager
-rules:
-  - apiGroups: ["certmanager.k8s.io"]
-    resources: ["certificates"]
-    verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]
----
-kind: ClusterRole
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
   name: knative-serving-istio
   labels:
     serving.knative.dev/release: devel
@@ -1026,24 +1013,6 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: config-certmanager
-  namespace: knative-serving
-  labels:
-    serving.knative.dev/release: devel
-    networking.knative.dev/certificate-provider: cert-manager
-data:
-  _example: |
-    issuerKind: acme
-    issuerRef: |
-      kind: ClusterIssuer
-      name: letsencrypt-issuer
-    solverConfig: |
-      dns01:
-        provider: cloud-dns-provider
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
   name: config-defaults
   namespace: knative-serving
   labels:
@@ -1276,57 +1245,6 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: networking-certmanager
-  namespace: knative-serving
-  labels:
-    serving.knative.dev/release: devel
-    networking.knative.dev/certificate-provider: cert-manager
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: networking-certmanager
-  template:
-    metadata:
-      annotations:
-        sidecar.istio.io/inject: "false"
-      labels:
-        app: networking-certmanager
-        serving.knative.dev/release: devel
-    spec:
-      serviceAccountName: controller
-      containers:
-      - name: networking-certmanager
-        image: image-registry.openshift-image-registry.svc:5000/knative-serving/knative-serving-certmanager
-        resources:
-          requests:
-            cpu: 100m
-            memory: 100Mi
-          limits:
-            cpu: 1000m
-            memory: 1000Mi
-        ports:
-        - name: metrics
-          containerPort: 9090
-        - name: profiling
-          containerPort: 8008
-        env:
-        - name: SYSTEM_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-        - name: CONFIG_LOGGING_NAME
-          value: config-logging
-        - name: CONFIG_OBSERVABILITY_NAME
-          value: config-observability
-        - name: METRICS_DOMAIN
-          value: knative.dev/serving
-        securityContext:
-          allowPrivilegeEscalation: false
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
   name: networking-istio
   namespace: knative-serving
   labels:
@@ -1361,54 +1279,6 @@ spec:
           containerPort: 9090
         - name: profiling
           containerPort: 8008
-        env:
-        - name: SYSTEM_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-        - name: CONFIG_LOGGING_NAME
-          value: config-logging
-        - name: CONFIG_OBSERVABILITY_NAME
-          value: config-observability
-        - name: METRICS_DOMAIN
-          value: knative.dev/serving
-        securityContext:
-          allowPrivilegeEscalation: false
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: networking-ns-cert
-  namespace: knative-serving
-  labels:
-    serving.knative.dev/release: devel
-    networking.knative.dev/wildcard-certificate-provider: nscert
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: networking-ns-cert
-  template:
-    metadata:
-      annotations:
-        sidecar.istio.io/inject: "false"
-      labels:
-        app: networking-ns-cert
-    spec:
-      serviceAccountName: controller
-      containers:
-      - name: networking-nscert
-        image: image-registry.openshift-image-registry.svc:5000/knative-serving/knative-serving-nscert
-        resources:
-          requests:
-            cpu: 100m
-            memory: 100Mi
-          limits:
-            cpu: 1000m
-            memory: 1000Mi
-        ports:
-        - name: metrics
-          containerPort: 9090
         env:
         - name: SYSTEM_NAMESPACE
           valueFrom:
