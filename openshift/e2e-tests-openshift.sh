@@ -5,18 +5,17 @@ source $(dirname $0)/release/resolve.sh
 
 set -x
 
-readonly K8S_CLUSTER_OVERRIDE=$(oc config current-context | awk -F'/' '{print $2}')
-readonly API_SERVER=$(oc config view --minify | grep server | awk -F'//' '{print $2}' | awk -F':' '{print $1}')
-readonly INTERNAL_REGISTRY="${INTERNAL_REGISTRY:-"image-registry.openshift-image-registry.svc:5000"}"
-readonly USER=$KUBE_SSH_USER #satisfy e2e_flags.go#initializeFlags()
-readonly OPENSHIFT_REGISTRY="${OPENSHIFT_REGISTRY:-"registry.svc.ci.openshift.org"}"
-readonly INSECURE="${INSECURE:-"false"}"
 readonly TEST_NAMESPACE=serving-tests
 readonly TEST_NAMESPACE_ALT=serving-tests-alt
 readonly SERVING_NAMESPACE=knative-serving
 readonly SERVICEMESH_NAMESPACE=knative-serving-ingress
+
+# Needed because tests assume that istio is found in "istio-system"
 export GATEWAY_NAMESPACE_OVERRIDE="$SERVICEMESH_NAMESPACE"
-readonly TARGET_IMAGE_PREFIX="$INTERNAL_REGISTRY/$SERVING_NAMESPACE/knative-serving-"
+
+# A golang template to point the tests to the right image coordinates.
+# {{.Name}} is the name of the image, for example 'autoscale'.
+readonly TEST_IMAGE_TEMPLATE="registry.svc.ci.openshift.org/${OPENSHIFT_BUILD_NAMESPACE}/stable:knative-serving-test-{{.Name}}"
 
 # The OLM global namespace was moved to openshift-marketplace since v4.2
 # ref: https://jira.coreos.com/browse/OLM-1190
@@ -89,7 +88,7 @@ function install_knative(){
   oc new-project $SERVING_NAMESPACE
 
   # Install CatalogSource in OLM namespace
-  oc apply -n $OLM_NAMESPACE -f openshift/olm/knative-serving.catalogsource.yaml
+  envsubst < openshift/olm/knative-serving.catalogsource.yaml | oc apply -n $OLM_NAMESPACE -f -
   timeout 900 '[[ $(oc get pods -n $OLM_NAMESPACE | grep -c serverless) -eq 0 ]]' || return 1
   wait_until_pods_running $OLM_NAMESPACE
 
@@ -107,9 +106,6 @@ metadata:
   name: knative-serving
   namespace: ${SERVING_NAMESPACE}
 EOF
-
-  # Create imagestream for images generated in CI namespace
-  tag_core_images openshift/release/knative-serving-ci.yaml
 
   # Wait for 4 pods to appear first
   timeout 900 '[[ $(oc get pods -n $SERVING_NAMESPACE --no-headers | wc -l) -lt 4 ]]' || return 1
@@ -139,34 +135,11 @@ spec:
 EOF
 }
 
-function tag_core_images(){
-  local resolved_file_name=$1
-
-  oc policy add-role-to-group system:image-puller system:serviceaccounts:${SERVING_NAMESPACE} --namespace=${OPENSHIFT_BUILD_NAMESPACE}
-
-  echo ">> Creating imagestream tags for images referenced in yaml files"
-  IMAGE_NAMES=$(cat $resolved_file_name | grep -i "image:" | grep "$INTERNAL_REGISTRY" | awk '{print $2}' | awk -F '/' '{print $3}')
-  for name in $IMAGE_NAMES; do
-    tag_built_image ${name} ${name}
-  done
-}
-
 function create_test_resources_openshift() {
   echo ">> Creating test resources for OpenShift (test/config/)"
 
-  resolve_resources test/config/ tests-resolved.yaml $TARGET_IMAGE_PREFIX
-
-  tag_core_images tests-resolved.yaml
-
-  oc apply -f tests-resolved.yaml
-
-  echo ">> Ensuring pods in test namespaces can access test images"
-  oc policy add-role-to-group system:image-puller system:serviceaccounts:${TEST_NAMESPACE} --namespace=${SERVING_NAMESPACE}
-  oc policy add-role-to-group system:image-puller system:serviceaccounts:${TEST_NAMESPACE_ALT} --namespace=${SERVING_NAMESPACE}
-  oc policy add-role-to-group system:image-puller system:serviceaccounts:knative-testing --namespace=${SERVING_NAMESPACE}
-
-  echo ">> Creating imagestream tags for all test images"
-  tag_test_images test/test_images
+  rm test/config/100-istio-default-domain.yaml
+  oc apply -f test/config
 }
 
 function create_test_namespace(){
@@ -186,21 +159,21 @@ function run_e2e_tests(){
     -v -tags=e2e -count=1 -timeout=35m -short -parallel=3 \
     ./test/e2e \
     --kubeconfig "$KUBECONFIG" \
-    --dockerrepo "${INTERNAL_REGISTRY}/${SERVING_NAMESPACE}" \
+    --imagetemplate "$TEST_IMAGE_TEMPLATE" \
     --resolvabledomain || failed=1
 
   report_go_test \
     -v -tags=e2e -count=1 -timeout=35m -parallel=3 \
     ./test/conformance/runtime/... \
     --kubeconfig "$KUBECONFIG" \
-    --dockerrepo "${INTERNAL_REGISTRY}/${SERVING_NAMESPACE}" \
+    --imagetemplate "$TEST_IMAGE_TEMPLATE" \
     --resolvabledomain || failed=1
 
   report_go_test \
     -v -tags=e2e -count=1 -timeout=35m -parallel=3 \
     ./test/conformance/api/... \
     --kubeconfig "$KUBECONFIG" \
-    --dockerrepo "${INTERNAL_REGISTRY}/${SERVING_NAMESPACE}" \
+    --imagetemplate "$TEST_IMAGE_TEMPLATE" \
     --resolvabledomain || failed=1
 
   return $failed
@@ -216,26 +189,6 @@ function dump_routes_state(){
   oc get routes.route.openshift.io -o yaml --all-namespaces
   echo ">>> routes.serving.knative.dev:"
   oc get routes.serving.knative.dev -o yaml --all-namespaces
-}
-
-function tag_test_images() {
-  local dir=$1
-  image_dirs="$(find ${dir} -mindepth 1 -maxdepth 1 -type d)"
-
-  for image_dir in ${image_dirs}; do
-    name=$(basename ${image_dir})
-    tag_built_image knative-serving-test-${name} ${name}
-  done
-
-  # TestContainerErrorMsg also needs an invalidhelloworld imagestream
-  # to exist but NOT have a `latest` tag
-  oc tag --insecure=${INSECURE} -n ${SERVING_NAMESPACE} ${OPENSHIFT_REGISTRY}/${OPENSHIFT_BUILD_NAMESPACE}/stable:knative-serving-test-helloworld invalidhelloworld:not_latest
-}
-
-function tag_built_image() {
-  local remote_name=$1
-  local local_name=$2
-  oc tag --insecure=${INSECURE} -n ${SERVING_NAMESPACE} ${OPENSHIFT_REGISTRY}/${OPENSHIFT_BUILD_NAMESPACE}/stable:${remote_name} ${local_name}:latest
 }
 
 scale_up_workers || exit 1
