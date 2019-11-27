@@ -7,16 +7,16 @@ set -x
 
 readonly K8S_CLUSTER_OVERRIDE=$(oc config current-context | awk -F'/' '{print $2}')
 readonly API_SERVER=$(oc config view --minify | grep server | awk -F'//' '{print $2}' | awk -F':' '{print $1}')
-readonly INTERNAL_REGISTRY="${INTERNAL_REGISTRY:-"image-registry.openshift-image-registry.svc:5000"}"
 readonly USER=$KUBE_SSH_USER #satisfy e2e_flags.go#initializeFlags()
-readonly OPENSHIFT_REGISTRY="${OPENSHIFT_REGISTRY:-"registry.svc.ci.openshift.org"}"
-readonly INSECURE="${INSECURE:-"false"}"
 readonly TEST_NAMESPACE=serving-tests
 readonly TEST_NAMESPACE_ALT=serving-tests-alt
 readonly SERVING_NAMESPACE=knative-serving
 readonly UPGRADE_SERVERLESS="${UPGRADE_SERVERLESS:-"true"}"
 readonly UPGRADE_CLUSTER="${UPGRADE_CLUSTER:-"false"}"
-readonly TEST_IMAGE_TEMPLATE="${OPENSHIFT_REGISTRY}/${OPENSHIFT_BUILD_NAMESPACE}/stable:knative-serving-test-{{.Name}}"
+
+# A golang template to point the tests to the right image coordinates.
+# {{.Name}} is the name of the image, for example 'autoscale'.
+readonly TEST_IMAGE_TEMPLATE="registry.svc.ci.openshift.org/${OPENSHIFT_BUILD_NAMESPACE}/stable:knative-serving-test-{{.Name}}"
 
 
 if [[ ${HOSTNAME} = e2e-aws-ocp-41* ]]; then
@@ -189,11 +189,8 @@ function deploy_serverless_operator(){
   local csv=$1
   local NAME="serverless-operator"
 
-  # Create imagestream for images generated in CI namespace
-  tag_core_images openshift/release/knative-serving-ci.yaml
-
   # Install CatalogSource in OLM namespace
-  oc apply -n $OLM_NAMESPACE -f openshift/olm/knative-serving.catalogsource.yaml
+  envsubst < openshift/olm/knative-serving.catalogsource.yaml | oc apply -n $OLM_NAMESPACE -f -
   timeout 900 '[[ $(oc get pods -n $OLM_NAMESPACE | grep -c serverless) -eq 0 ]]' || return 1
   wait_until_pods_running $OLM_NAMESPACE
 
@@ -255,21 +252,6 @@ function find_install_plan()
        $(oc get $plan -n openshift-operators -o=jsonpath='{.metadata.ownerReferences[?(@.name=="serverless-operator-subscription")]}') != "" ]] && echo $plan && return 0
   done
   echo ""
-}
-
-function tag_core_images(){
-  local resolved_file_name=$1
-
-  # Make sure all relevant namespaces can pull the images.
-  oc policy add-role-to-group system:image-puller system:serviceaccounts:${SERVING_NAMESPACE} --namespace=${OPENSHIFT_BUILD_NAMESPACE}
-  oc policy add-role-to-group system:image-puller system:serviceaccounts:${TEST_NAMESPACE} --namespace=${SERVING_NAMESPACE}
-  oc policy add-role-to-group system:image-puller system:serviceaccounts:${TEST_NAMESPACE_ALT} --namespace=${SERVING_NAMESPACE}
-
-  echo ">> Creating imagestream tags for images referenced in yaml files"
-  IMAGE_NAMES=$(cat $resolved_file_name | grep -i "image:" | grep "$INTERNAL_REGISTRY" | awk '{print $2}' | awk -F '/' '{print $3}')
-  for name in $IMAGE_NAMES; do
-    tag_built_image ${name} ${name}
-  done
 }
 
 function create_test_resources_openshift() {
@@ -422,12 +404,6 @@ function dump_openshift_ingress_state(){
 
   echo ">>> openshift-ingress log:"
   oc logs deployment/knative-openshift-ingress -n $SERVING_NAMESPACE
-}
-
-function tag_built_image() {
-  local remote_name=$1
-  local local_name=$2
-  oc tag --insecure=${INSECURE} -n ${SERVING_NAMESPACE} ${OPENSHIFT_REGISTRY}/${OPENSHIFT_BUILD_NAMESPACE}/stable:${remote_name} ${local_name}:latest
 }
 
 scale_up_workers || exit 1
