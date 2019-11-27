@@ -129,7 +129,7 @@ metadata:
   namespace: ${operator_ns}
 spec:
   source: ${name}
-  sourceNamespace: $operator_ns
+  sourceNamespace: $OLM_NAMESPACE
   name: ${name}
   channel: techpreview
 EOF
