@@ -5,13 +5,8 @@ source $(dirname $0)/release/resolve.sh
 
 set -x
 
-readonly TEST_NAMESPACE=serving-tests
-readonly TEST_NAMESPACE_ALT=serving-tests-alt
 readonly SERVING_NAMESPACE=knative-serving
 readonly SERVICEMESH_NAMESPACE=knative-serving-ingress
-
-# Needed because tests assume that istio is found in "istio-system"
-export GATEWAY_NAMESPACE_OVERRIDE="$SERVICEMESH_NAMESPACE"
 
 # A golang template to point the tests to the right image coordinates.
 # {{.Name}} is the name of the image, for example 'autoscale'.
@@ -135,25 +130,22 @@ spec:
 EOF
 }
 
-function create_test_resources_openshift() {
+function run_e2e_tests(){
   echo ">> Creating test resources for OpenShift (test/config/)"
-
+  # Removing unneeded test resources.
   rm test/config/100-istio-default-domain.yaml
   oc apply -f test/config
-}
 
-function create_test_namespace(){
-  oc new-project $TEST_NAMESPACE
-  oc new-project $TEST_NAMESPACE_ALT
-  oc adm policy add-scc-to-user privileged -z default -n $TEST_NAMESPACE
-  oc adm policy add-scc-to-user privileged -z default -n $TEST_NAMESPACE_ALT
+  oc adm policy add-scc-to-user privileged -z default -n serving-tests
+  oc adm policy add-scc-to-user privileged -z default -n serving-tests-alt
   # adding scc for anyuid to test TestShouldRunAsUserContainerDefault.
-  oc adm policy add-scc-to-user anyuid -z default -n $TEST_NAMESPACE
-}
+  oc adm policy add-scc-to-user anyuid -z default -n serving-tests
 
-function run_e2e_tests(){
   header "Running tests"
   failed=0
+
+  # Needed because tests assume that istio is found in "istio-system"
+  export GATEWAY_NAMESPACE_OVERRIDE="$SERVICEMESH_NAMESPACE"
 
   report_go_test \
     -v -tags=e2e -count=1 -timeout=35m -short -parallel=3 \
@@ -179,36 +171,12 @@ function run_e2e_tests(){
   return $failed
 }
 
-function dump_openshift_olm_state(){
-  echo ">>> subscriptions.operators.coreos.com:"
-  oc get subscriptions.operators.coreos.com -o yaml --all-namespaces   # This is for status checking.
-}
-
-function dump_routes_state(){
-  echo ">>> routes.route.openshift.io:"
-  oc get routes.route.openshift.io -o yaml --all-namespaces
-  echo ">>> routes.serving.knative.dev:"
-  oc get routes.serving.knative.dev -o yaml --all-namespaces
-}
-
 scale_up_workers || exit 1
 
-create_test_namespace || exit 1
-
 failed=0
-
 (( !failed )) && install_knative || failed=1
-
-(( !failed )) && create_test_resources_openshift || failed=1
-
 (( !failed )) && run_e2e_tests || failed=1
-
 (( failed )) && dump_cluster_state
-
-(( failed )) && dump_openshift_olm_state
-
-(( failed )) && dump_routes_state
-
 (( failed )) && exit 1
 
 success
