@@ -1,6 +1,12 @@
 # Do not edit! This file was generated via Makefile
-FROM registry.svc.ci.openshift.org/openshift/origin-v3.11:base
-USER 65532
+FROM openshift/origin-release:golang-1.13 AS builder
 
-ADD nscert /ko-app/nscert
+WORKDIR ${GOPATH}/src/knative.dev/serving
+COPY . .
+RUN go build -o /tmp/nscert ./cmd/nscert
+
+FROM openshift/origin-base
+COPY --from=builder /tmp/nscert /ko-app/nscert
+
+USER 65532
 ENTRYPOINT ["/ko-app/nscert"]

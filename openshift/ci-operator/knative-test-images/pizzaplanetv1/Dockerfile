@@ -1,6 +1,12 @@
 # Do not edit! This file was generated via Makefile
-FROM registry.svc.ci.openshift.org/openshift/origin-v3.11:base
-USER 65532
+FROM openshift/origin-release:golang-1.13 AS builder
 
-ADD pizzaplanetv1 /ko-app/pizzaplanetv1
+WORKDIR ${GOPATH}/src/knative.dev/serving
+COPY . .
+RUN go build -o /tmp/pizzaplanetv1 ./cmd/pizzaplanetv1
+
+FROM openshift/origin-base
+COPY --from=builder /tmp/pizzaplanetv1 /ko-app/pizzaplanetv1
+
+USER 65532
 ENTRYPOINT ["/ko-app/pizzaplanetv1"]

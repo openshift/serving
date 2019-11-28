@@ -5,18 +5,6 @@ GOOS=linux
 CORE_IMAGES=./cmd/activator ./cmd/autoscaler ./cmd/autoscaler-hpa ./cmd/controller ./cmd/queue ./cmd/webhook ./cmd/networking/istio ./cmd/networking/certmanager ./cmd/networking/nscert
 TEST_IMAGES=$(shell find ./test/test_images -mindepth 1 -maxdepth 1 -type d) 
 
-install:
-	for img in $(CORE_IMAGES); do \
-		go install $$img ; \
-	done
-.PHONY: install
-
-test-install:
-	for img in $(TEST_IMAGES); do \
-		go install $$img ; \
-	done
-.PHONY: test-install
-
 test-e2e:
 	./openshift/e2e-tests-openshift.sh
 .PHONY: test-e2e

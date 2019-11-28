@@ -7,7 +7,7 @@ function generate_dockefiles() {
   for img in $@; do
     local image_base=$(basename $img)
     mkdir -p $target_dir/$image_base
-    bin=$image_base envsubst < openshift/ci-operator/Dockerfile.in > $target_dir/$image_base/Dockerfile
+    bin=$image_base envsubst '${bin}' < openshift/ci-operator/Dockerfile.in > $target_dir/$image_base/Dockerfile
   done
 }
 
