@@ -23,6 +23,7 @@ import (
 	"testing"
 
 	"github.com/mattbaird/jsonpatch"
+	errors "github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
