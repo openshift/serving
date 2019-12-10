@@ -1,0 +1,19 @@
+FROM rhel8/go-toolset:1.13.4 AS builder
+WORKDIR /opt/app-root/src/go/src/knative.dev/serving
+COPY . .
+ENV GOFLAGS="-mod=vendor"
+RUN go build -o /tmp/autoscaler-hpa ./cmd/autoscaler-hpa
+
+FROM ubi8-minimal:8-released
+COPY --from=builder /tmp/autoscaler-hpa /ko-app/autoscaler-hpa
+
+LABEL \
+      com.redhat.component="openshift-serverless-1-tech-preview-serving-autoscaler-hpa-rhel8-container" \
+      name="openshift-serverless-1-tech-preview/serving-autoscaler-hpa-rhel8" \
+      version="v0.10.0" \
+      summary="Red Hat OpenShift Serverless 1 Serving Autoscaler HPA" \
+      maintainer="serverless-support@redhat.com" \
+      description="Red Hat OpenShift Serverless 1 Serving Autoscaler HPA" \
+      io.k8s.display-name="Red Hat OpenShift Serverless 1 Serving Autoscaler HPA"
+
+ENTRYPOINT ["/ko-app/autoscaler-hpa"]
