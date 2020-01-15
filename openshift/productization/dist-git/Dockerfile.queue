@@ -9,7 +9,7 @@ COPY --from=builder /tmp/queue /ko-app/queue
 LABEL \
       com.redhat.component="openshift-serverless-1-tech-preview-serving-queue-rhel8-container" \
       name="openshift-serverless-1-tech-preview/serving-queue-rhel8" \
-      version="0.11.1" \
+      version="v0.11.1" \
       summary="Red Hat OpenShift Serverless 1 Serving Queue" \
       maintainer="serverless-support@redhat.com" \
       description="Red Hat OpenShift Serverless 1 Serving Queue" \
