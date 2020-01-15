@@ -500,9 +500,10 @@ func TestListProbeTargets(t *testing.T) {
 			},
 		},
 		results: []status.ProbeTarget{{
-			PodIPs: sets.NewString("1.1.1.1"),
-			Port:   "80",
-			URLs:   []*url.URL{{Scheme: "http", Host: "foo.bar.com:80"}},
+			PodIPs:  sets.NewString("1.1.1.1"),
+			PodPort: "80",
+			Port:    "80",
+			URLs:    []*url.URL{{Scheme: "http", Host: "foo.bar.com:80"}},
 		}},
 	}, {
 		name: "one gateway, https redirect",
@@ -896,13 +897,15 @@ func TestListProbeTargets(t *testing.T) {
 			},
 		},
 		results: []status.ProbeTarget{{
-			PodIPs: sets.NewString("1.1.1.1"),
-			Port:   "80",
-			URLs:   []*url.URL{{Scheme: "http", Host: "foo.bar.com:80"}},
+			PodIPs:  sets.NewString("1.1.1.1"),
+			PodPort: "80",
+			Port:    "80",
+			URLs:    []*url.URL{{Scheme: "http", Host: "foo.bar.com:80"}},
 		}, {
-			PodIPs: sets.NewString("2.2.2.2", "2.2.2.3"),
-			Port:   "90",
-			URLs:   []*url.URL{{Scheme: "http", Host: "foo.bar.com:90"}},
+			PodIPs:  sets.NewString("2.2.2.2", "2.2.2.3"),
+			PodPort: "90",
+			Port:    "90",
+			URLs:    []*url.URL{{Scheme: "http", Host: "foo.bar.com:90"}},
 		}},
 	}, {
 		name: "local gateways",
@@ -1047,8 +1050,9 @@ func TestListProbeTargets(t *testing.T) {
 			},
 		},
 		results: []status.ProbeTarget{{
-			PodIPs: sets.NewString("2.2.2.2", "2.2.2.3"),
-			Port:   "80",
+			PodIPs:  sets.NewString("2.2.2.2", "2.2.2.3"),
+			PodPort: "80",
+			Port:    "80",
 			URLs: []*url.URL{
 				{Scheme: "http", Host: "foo.bar:80"},
 				{Scheme: "http", Host: "foo.bar.svc:80"},
