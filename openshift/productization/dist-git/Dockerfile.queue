@@ -1,9 +1,10 @@
-FROM rhel8/go-toolset:1.12.8 AS builder
+FROM rhel8/go-toolset:1.13.4 AS builder
 WORKDIR /opt/app-root/src/go/src/knative.dev/serving
 COPY . .
+ENV GOFLAGS="-mod=vendor"
 RUN go build -o /tmp/queue ./cmd/queue
 
-FROM ubi8:8-released
+FROM ubi8-minimal:8-released
 COPY --from=builder /tmp/queue /ko-app/queue
 
 LABEL \
