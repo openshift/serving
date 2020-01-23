@@ -4,7 +4,7 @@
 
 release=$1
 target=$2
-release_regexp="^release-v([0-9]\.)+([0-9])$"
+release_regexp="^release-v([0-9]+\.)+([0-9])$"
 
 if [[ ! $target =~ $release_regexp ]]; then
     echo "\"$target\" is wrong format. Must have proper format like release-v0.1.2"
