@@ -1,65 +1,162 @@
 aliases:
+  serving-approvers:
+  - alanfx
+  - mgencur
+  - mvinkler
+  - bbrowning
+  - jcrossley3
+  - bobmcwhirter
+  - markusthoemmes
+  - vdemeester
+  - evanchooly
+  - arilivigni
+  serving-reviewers:
+  - alanfx
+  - mgencur
+  - mvinkler
+  - bbrowning
+  - jcrossley3
+  - bobmcwhirter
+  - markusthoemmes
+  - vdemeester
+  - evanchooly
+  - arilivigni
+
   serving-api-approvers:
-  - dgerd
-  - dprotaso
+  - alanfx
+  - mgencur
+  - mvinkler
+  - bbrowning
+  - jcrossley3
+  - bobmcwhirter
   - markusthoemmes
-  - mattmoor
-  - tcnghia
-  - vagababov
+  - vdemeester
+  - evanchooly
+  - arilivigni
   serving-api-reviewers:
-  - dgerd
-  - dprotaso
+  - alanfx
+  - mgencur
+  - mvinkler
+  - bbrowning
+  - jcrossley3
+  - bobmcwhirter
   - markusthoemmes
-  - mattmoor
-  - tcnghia
-  - vagababov
-
-  # WG leads + TOC.
-  serving-wg-leads:
-  - dgerd
-  - evankanderson
-  - markusthoemmes
-  - mattmoor
-  - tcnghia
-  - vagababov
-  - vaikas
-
+  - vdemeester
+  - evanchooly
+  - arilivigni
 
   autoscaling-approvers:
+  - alanfx
+  - mgencur
+  - mvinkler
+  - bbrowning
+  - jcrossley3
+  - bobmcwhirter
   - markusthoemmes
-  - vagababov
+  - vdemeester
+  - evanchooly
+  - arilivigni
   autoscaling-reviewers:
+  - alanfx
+  - mgencur
+  - mvinkler
+  - bbrowning
+  - jcrossley3
+  - bobmcwhirter
   - markusthoemmes
-  - taragu
-  - vagababov
-  - yanweiguo
+  - vdemeester
+  - evanchooly
+  - arilivigni
 
   monitoring-approvers:
-  - yanweiguo
+  - alanfx
+  - mgencur
+  - mvinkler
+  - bbrowning
+  - jcrossley3
+  - bobmcwhirter
+  - markusthoemmes
+  - vdemeester
+  - evanchooly
+  - arilivigni
   monitoring-reviewers:
-  - yanweiguo
+  - alanfx
+  - mgencur
+  - mvinkler
+  - bbrowning
+  - jcrossley3
+  - bobmcwhirter
+  - markusthoemmes
+  - vdemeester
+  - evanchooly
+  - arilivigni
 
   productivity-approvers:
-  - adrcunha
-  - chaodaiG
+  - alanfx
+  - mgencur
+  - mvinkler
+  - bbrowning
+  - jcrossley3
+  - bobmcwhirter
+  - markusthoemmes
+  - vdemeester
+  - evanchooly
+  - arilivigni
   productivity-reviewers:
-  - adrcunha
-  - chaodaiG
-  - coryrc
-  - chizhg
-  - steuhs
-  - yt3liu
+  - alanfx
+  - mgencur
+  - mvinkler
+  - bbrowning
+  - jcrossley3
+  - bobmcwhirter
+  - markusthoemmes
+  - vdemeester
+  - evanchooly
+  - arilivigni
 
   networking-approvers:
+  - alanfx
+  - mgencur
+  - mvinkler
+  - bbrowning
+  - jcrossley3
+  - bobmcwhirter
   - markusthoemmes
-  - mdemirhan
-  - tcnghia
-  - vagababov
+  - vdemeester
+  - evanchooly
+  - arilivigni
   networking-reviewers:
+  - alanfx
+  - mgencur
+  - mvinkler
+  - bbrowning
+  - jcrossley3
+  - bobmcwhirter
   - markusthoemmes
-  - mdemirhan
-  - nak3
-  - tcnghia
-  - vagababov
-  - yanweiguo
-  - ZhiminXiang
+  - vdemeester
+  - evanchooly
+  - arilivigni
+
+  build-approvers:
+  - alanfx
+  - mgencur
+  - mvinkler
+  - bbrowning
+  - jcrossley3
+  - bobmcwhirter
+  - markusthoemmes
+  - vdemeester
+  - evanchooly
+  - arilivigni
+  build-reviewers:
+  - alanfx
+  - mgencur
+  - mvinkler
+  - bbrowning
+  - jcrossley3
+  - bobmcwhirter
+  - markusthoemmes
+  - vdemeester
+  - evanchooly
+  - arilivigni
+
