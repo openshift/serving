@@ -11,7 +11,7 @@ readonly SERVICEMESH_NAMESPACE=knative-serving-ingress
 
 # A golang template to point the tests to the right image coordinates.
 # {{.Name}} is the name of the image, for example 'autoscale'.
-readonly TEST_IMAGE_TEMPLATE="registry.svc.ci.openshift.org/${OPENSHIFT_BUILD_NAMESPACE}/stable:knative-serving-test-{{.Name}}"
+readonly TEST_IMAGE_TEMPLATE="${IMAGE_FORMAT//\$\{component\}/knative-serving-test-{{.Name}}}"
 
 # The OLM global namespace was moved to openshift-marketplace since v4.2
 # ref: https://jira.coreos.com/browse/OLM-1190
