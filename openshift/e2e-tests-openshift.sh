@@ -11,7 +11,7 @@ readonly SERVICEMESH_NAMESPACE=knative-serving-ingress
 
 # A golang template to point the tests to the right image coordinates.
 # {{.Name}} is the name of the image, for example 'autoscale'.
-readonly TEST_IMAGE_TEMPLATE="registry.svc.ci.openshift.org/${OPENSHIFT_BUILD_NAMESPACE}/stable:knative-serving-test-{{.Name}}"
+readonly TEST_IMAGE_TEMPLATE="${IMAGE_FORMAT//\$\{component\}/knative-serving-test-{{.Name}}}"
 
 # The OLM global namespace was moved to openshift-marketplace since v4.2
 # ref: https://jira.coreos.com/browse/OLM-1190
@@ -87,6 +87,13 @@ function install_knative(){
   oc new-project $SERVING_NAMESPACE
 
   # Install CatalogSource in OLM namespace
+  export IMAGE_QUEUE=${IMAGE_FORMAT//\$\{component\}/knative-serving-queue}
+  export IMAGE_activator=${IMAGE_FORMAT//\$\{component\}/knative-serving-activator}
+  export IMAGE_autoscaler=${IMAGE_FORMAT//\$\{component\}/knative-serving-autoscaler}
+  export IMAGE_autoscaler_hpa=${IMAGE_FORMAT//\$\{component\}/knative-serving-autoscaler-hpa}
+  export IMAGE_controller=${IMAGE_FORMAT//\$\{component\}/knative-serving-controller}
+  export IMAGE_networking_istio=${IMAGE_FORMAT//\$\{component\}/knative-serving-istio}
+  export IMAGE_webhook=${IMAGE_FORMAT//\$\{component\}/knative-serving-webhook}
   envsubst < openshift/olm/knative-serving.catalogsource.yaml | oc apply -n $OLM_NAMESPACE -f -
   timeout 900 '[[ $(oc get pods -n $OLM_NAMESPACE | grep -c serverless) -eq 0 ]]' || return 1
   wait_until_pods_running $OLM_NAMESPACE
