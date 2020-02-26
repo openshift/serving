@@ -33,6 +33,11 @@ function resolve_file() {
     return
   fi
 
+  # Skip istio resources, as we use kourier.
+  if grep -q 'networking.knative.dev/ingress-provider: istio' "$1"; then
+    return
+  fi
+
   echo "---" >> "$to"
   # 1. Rewrite image references
   # 2. Update config map entry
