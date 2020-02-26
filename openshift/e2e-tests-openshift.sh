@@ -7,7 +7,7 @@ source "$(dirname "$0")/release/resolve.sh"
 set -x
 
 readonly SERVING_NAMESPACE=knative-serving
-readonly SERVICEMESH_NAMESPACE=knative-serving-ingress
+readonly SERVING_INGRESS_NAMESPACE=knative-serving-ingress
 
 # A golang template to point the tests to the right image coordinates.
 # {{.Name}} is the name of the image, for example 'autoscale'.
@@ -92,7 +92,6 @@ function install_knative(){
   export IMAGE_autoscaler=${IMAGE_FORMAT//\$\{component\}/knative-serving-autoscaler}
   export IMAGE_autoscaler_hpa=${IMAGE_FORMAT//\$\{component\}/knative-serving-autoscaler-hpa}
   export IMAGE_controller=${IMAGE_FORMAT//\$\{component\}/knative-serving-controller}
-  export IMAGE_networking_istio=${IMAGE_FORMAT//\$\{component\}/knative-serving-istio}
   export IMAGE_webhook=${IMAGE_FORMAT//\$\{component\}/knative-serving-webhook}
   envsubst < openshift/olm/knative-serving.catalogsource.yaml | oc apply -n $OLM_NAMESPACE -f -
   timeout 900 '[[ $(oc get pods -n $OLM_NAMESPACE | grep -c serverless) -eq 0 ]]' || return 1
@@ -106,7 +105,7 @@ function install_knative(){
 
   # Install Knative Serving
   cat <<-EOF | oc apply -f -
-apiVersion: serving.knative.dev/v1alpha1
+apiVersion: operator.knative.dev/v1alpha1
 kind: KnativeServing
 metadata:
   name: knative-serving
@@ -117,8 +116,8 @@ EOF
   timeout 900 '[[ $(oc get pods -n $SERVING_NAMESPACE --no-headers | wc -l) -lt 4 ]]' || return 1
   wait_until_pods_running $SERVING_NAMESPACE || return 1
 
-  wait_until_service_has_external_ip $SERVICEMESH_NAMESPACE istio-ingressgateway || fail_test "Ingress has no external IP"
-  wait_until_hostname_resolves "$(kubectl get svc -n $SERVICEMESH_NAMESPACE istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')"
+  wait_until_service_has_external_ip $SERVING_INGRESS_NAMESPACE kourier || fail_test "Ingress has no external IP"
+  wait_until_hostname_resolves "$(kubectl get svc -n $SERVING_INGRESS_NAMESPACE kourier -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')"
 
   header "Knative Installed successfully"
 }
@@ -144,8 +143,6 @@ EOF
 
 function run_e2e_tests(){
   echo ">> Creating test resources for OpenShift (test/config/)"
-  # Removing unneeded test resources.
-  rm test/config/100-istio-default-domain.yaml
   oc apply -f test/config
 
   oc adm policy add-scc-to-user privileged -z default -n serving-tests
@@ -156,8 +153,8 @@ function run_e2e_tests(){
   header "Running tests"
   failed=0
 
-  # Needed because tests assume that istio is found in "istio-system"
-  export GATEWAY_NAMESPACE_OVERRIDE="$SERVICEMESH_NAMESPACE"
+  export GATEWAY_OVERRIDE=kourier
+  export GATEWAY_NAMESPACE_OVERRIDE="$SERVING_INGRESS_NAMESPACE"
 
   report_go_test \
     -v -tags=e2e -count=1 -timeout=35m -short -parallel=3 \
