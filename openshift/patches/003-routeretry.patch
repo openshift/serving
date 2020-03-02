@@ -1,5 +1,5 @@
 diff --git a/test/v1/route.go b/test/v1/route.go
-index 9c9a89034..353cbb3b4 100644
+index 11026ffdc..b48db35f6 100644
 --- a/test/v1/route.go
 +++ b/test/v1/route.go
 @@ -19,6 +19,7 @@ package v1
@@ -8,9 +8,9 @@ index 9c9a89034..353cbb3b4 100644
  	"fmt"
 +	"net/http"
  
- 	"github.com/davecgh/go-spew/spew"
  	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-@@ -116,8 +117,13 @@ func IsRouteNotReady(r *v1.Route) (bool, error) {
+ 	"k8s.io/apimachinery/pkg/util/wait"
+@@ -115,8 +116,13 @@ func IsRouteNotReady(r *v1.Route) (bool, error) {
  }
  
  // RetryingRouteInconsistency retries common requests seen when creating a new route
@@ -25,7 +25,7 @@ index 9c9a89034..353cbb3b4 100644
  		return innerCheck(resp)
  	}
 diff --git a/test/v1alpha1/route.go b/test/v1alpha1/route.go
-index ead307fcb..1431d2ef0 100644
+index 87406b63e..ce6e6cc86 100644
 --- a/test/v1alpha1/route.go
 +++ b/test/v1alpha1/route.go
 @@ -21,6 +21,7 @@ package v1alpha1
@@ -34,9 +34,9 @@ index ead307fcb..1431d2ef0 100644
  	"fmt"
 +	"net/http"
  
- 	"github.com/davecgh/go-spew/spew"
  	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-@@ -51,9 +52,13 @@ func CreateRoute(t pkgTest.T, clients *test.Clients, names test.ResourceNames, f
+ 	"k8s.io/apimachinery/pkg/util/wait"
+@@ -50,10 +51,14 @@ func CreateRoute(t pkgTest.T, clients *test.Clients, names test.ResourceNames, f
  }
  
  // RetryingRouteInconsistency retries common requests seen when creating a new route
@@ -45,14 +45,15 @@ index ead307fcb..1431d2ef0 100644
 +// - 503 to account for Openshift route inconsistency (https://jira.coreos.com/browse/SRVKS-157)
  func RetryingRouteInconsistency(innerCheck spoof.ResponseChecker) spoof.ResponseChecker {
  	return func(resp *spoof.Response) (bool, error) {
+ 		// If we didn't match any retryable codes, invoke the ResponseChecker that we wrapped.
 +		if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusServiceUnavailable {
 +			return false, nil
 +		}
- 		// If we didn't match any retryable codes, invoke the ResponseChecker that we wrapped.
  		return innerCheck(resp)
  	}
+ }
 diff --git a/test/v1beta1/route.go b/test/v1beta1/route.go
-index c9c47da64..31121302f 100644
+index 119b4a818..1cbc802cb 100644
 --- a/test/v1beta1/route.go
 +++ b/test/v1beta1/route.go
 @@ -19,6 +19,7 @@ package v1beta1
@@ -61,9 +62,9 @@ index c9c47da64..31121302f 100644
  	"fmt"
 +	"net/http"
  
- 	"github.com/davecgh/go-spew/spew"
- 
-@@ -118,8 +119,13 @@ func IsRouteNotReady(r *v1beta1.Route) (bool, error) {
+ 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+ 	"k8s.io/apimachinery/pkg/util/wait"
+@@ -116,8 +117,13 @@ func IsRouteNotReady(r *v1beta1.Route) (bool, error) {
  }
  
  // RetryingRouteInconsistency retries common requests seen when creating a new route
