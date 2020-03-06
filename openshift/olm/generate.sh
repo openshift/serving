@@ -18,3 +18,5 @@ sed -i -e "s|registry.svc.ci.openshift.org/openshift/knative-$VERSION:knative-se
 sed -i -e "s|registry.svc.ci.openshift.org/openshift/knative-$VERSION:knative-serving-controller|$\{IMAGE_controller\}|g" $OUTFILE
 sed -i -e "s|registry.svc.ci.openshift.org/openshift/knative-$VERSION:knative-serving-webhook|$\{IMAGE_webhook\}|g" $OUTFILE
 sed -i -e "s|registry.svc.ci.openshift.org/openshift/knative-$VERSION:kourier|$\{IMAGE_kourier\}|g" $OUTFILE
+
+git apply config_map.patch
