@@ -86,9 +86,6 @@ function install_knative(){
 
   oc new-project $SERVING_NAMESPACE
 
-  # TODO: master branch will not work this file path. Probably wget is necessary.?
-  oc create configmap ko-data -n $SERVING_NAMESPACE --from-file="openshift/release/knative-serving-ci.yaml"
-
   # Install CatalogSource in OLM namespace
   export IMAGE_QUEUE=${IMAGE_FORMAT//\$\{component\}/knative-serving-queue}
   export IMAGE_activator=${IMAGE_FORMAT//\$\{component\}/knative-serving-activator}
@@ -129,6 +126,9 @@ function deploy_serverless_operator(){
   local name="serverless-operator"
   local operator_ns
   operator_ns=$(kubectl get og --all-namespaces | grep global-operators | awk '{print $1}')
+
+  # TODO: master branch will not work this file path. Probably wget is necessary.?
+  oc create configmap ko-data -n $operator_ns --from-file="openshift/release/knative-serving-ci.yaml"
 
   cat <<-EOF | oc apply -f -
 apiVersion: operators.coreos.com/v1alpha1
