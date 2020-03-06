@@ -184,8 +184,6 @@ data:
           listKind: KnativeServingList
           plural: knativeservings
           singular: knativeserving
-          shortNames:
-          - ks
         scope: Namespaced
         subresources:
           status: {}
@@ -2837,7 +2835,7 @@ data:
                           - name: IMAGE_3scale-kourier-gateway
                             value: docker.io/maistra/proxyv2-ubi8:1.0.4
                           - name: IMAGE_3scale-kourier-control
-                            value: quay.io/3scale/kourier:v0.3.10
+                            value: ${IMAGE_kourier}
             - name: knative-openshift-ingress
               spec:
                 replicas: 1
@@ -2957,6 +2955,10 @@ data:
             image: ${IMAGE_controller}
           - name: IMAGE_webhook
             image: ${IMAGE_webhook}
+          - name: IMAGE_3scale-kourier-control
+            image: ${IMAGE_kourier}
+          - name: IMAGE_3scale-kourier-gateway
+            image: docker.io/maistra/proxyv2-ubi8:1.0.4
           - name: knative-operator
             image: registry.svc.ci.openshift.org/openshift/openshift-serverless-nightly:knative-operator
           - name: knative-openshift-ingress
