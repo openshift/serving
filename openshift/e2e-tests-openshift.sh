@@ -128,7 +128,7 @@ function deploy_serverless_operator(){
   local operator_ns
   operator_ns=$(kubectl get og --all-namespaces | grep global-operators | awk '{print $1}')
 
-  # TODO: master branch will not work this file path. Probably wget is necessary.?
+  # Create configmap to use the latest manifest.
   oc create configmap ko-data -n $operator_ns --from-file="openshift/release/knative-serving-ci.yaml"
 
   cat <<-EOF | oc apply -f -

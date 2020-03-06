@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
-# NOTE: This knative-serving.catalogsource.yaml is generaed by catalog.sh in serverless-operator.
-#       Then, change image name to adjust for CI script.
+# NOTE:
+# The initial knative-serving.catalogsource.yaml is generaed by catalog.sh in serverless-operator.
+# So you need to run following command before running this script.
 #
 # git clone https://github.com/openshift-knative/serverless-operator.git
 # cd serverless-operator && bash hack/catalog.sh > $OUTFILE
