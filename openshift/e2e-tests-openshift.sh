@@ -93,7 +93,9 @@ function install_knative(){
   export IMAGE_autoscaler_hpa=${IMAGE_FORMAT//\$\{component\}/knative-serving-autoscaler-hpa}
   export IMAGE_controller=${IMAGE_FORMAT//\$\{component\}/knative-serving-controller}
   export IMAGE_webhook=${IMAGE_FORMAT//\$\{component\}/knative-serving-webhook}
-  export IMAGE_kourier=${IMAGE_FORMAT//\$\{component\}/kourier}
+  # Kourier is not built in this project.
+  # export IMAGE_kourier=${IMAGE_FORMAT//\$\{component\}/kourier}
+  export IMAGE_kourier="quay.io/3scale/kourier:v0.3.11"
   envsubst < openshift/olm/knative-serving.catalogsource.yaml | oc apply -n $OLM_NAMESPACE -f -
   timeout 900 '[[ $(oc get pods -n $OLM_NAMESPACE | grep -c serverless) -eq 0 ]]' || return 1
   wait_until_pods_running $OLM_NAMESPACE
