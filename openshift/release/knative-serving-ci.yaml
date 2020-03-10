@@ -1145,7 +1145,6 @@ metadata:
   labels:
     serving.knative.dev/release: devel
 data:
-  ingress.class: "kourier.ingress.networking.knative.dev"
   _example: |
     ingress.class: "istio.ingress.networking.knative.dev"
     certificate.class: "cert-manager.certificate.networking.knative.dev"

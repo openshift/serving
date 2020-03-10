@@ -149,21 +149,6 @@ function run_e2e_tests(){
   echo ">> Creating test resources for OpenShift (test/config/)"
   oc apply -f test/config
 
-  INGRESS_CLASS=kourier.ingress.networking.knative.dev
-
-  echo ">> Configuring the default Ingress: ${INGRESS_CLASS}"
-  cat <<EOF | kubectl apply -f -
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: config-network
-  namespace: knative-serving
-  labels:
-    serving.knative.dev/release: devel
-data:
-  ingress.class: ${INGRESS_CLASS}
-EOF
-
   oc adm policy add-scc-to-user privileged -z default -n serving-tests
   oc adm policy add-scc-to-user privileged -z default -n serving-tests-alt
   # adding scc for anyuid to test TestShouldRunAsUserContainerDefault.
@@ -174,6 +159,7 @@ EOF
 
   export GATEWAY_OVERRIDE=kourier
   export GATEWAY_NAMESPACE_OVERRIDE="$SERVING_INGRESS_NAMESPACE"
+  export INGRESS_CLASS=kourier.ingress.networking.knative.dev
 
   report_go_test \
     -v -tags=e2e -count=1 -timeout=35m -short -parallel=3 \
