@@ -1,7 +1,7 @@
 FROM rhel8/go-toolset:1.13.4 AS builder
 WORKDIR /opt/app-root/src/go/src/knative.dev/serving
 COPY . .
-ENV GOFLAGS="-mod=vendor"
+ENV GOFLAGS="-mod=vendor -tags=disable_gcp"
 RUN go build -o /tmp/networking-istio ./cmd/networking/istio
 
 FROM ubi8-minimal:8-released

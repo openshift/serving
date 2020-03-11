@@ -7,7 +7,7 @@ TEST_IMAGES=$(shell find ./test/test_images -mindepth 1 -maxdepth 1 -type d)
 
 install:
 	for img in $(CORE_IMAGES); do \
-		go install $$img ; \
+		go -tags="disable_gcp" install $$img ; \
 	done
 .PHONY: install
 
