@@ -21,6 +21,7 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
+	"net/http"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -50,10 +51,14 @@ func CreateRoute(t pkgTest.T, clients *test.Clients, names test.ResourceNames, f
 }
 
 // RetryingRouteInconsistency retries common requests seen when creating a new route
-// TODO(5573): Remove this.
+// - 404 until the route is propagated to the proxy
+// - 503 to account for Openshift route inconsistency (https://jira.coreos.com/browse/SRVKS-157)
 func RetryingRouteInconsistency(innerCheck spoof.ResponseChecker) spoof.ResponseChecker {
 	return func(resp *spoof.Response) (bool, error) {
 		// If we didn't match any retryable codes, invoke the ResponseChecker that we wrapped.
+		if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusServiceUnavailable {
+			return false, nil
+		}
 		return innerCheck(resp)
 	}
 }
