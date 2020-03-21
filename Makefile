@@ -7,7 +7,7 @@ TEST_IMAGES=$(shell find ./test/test_images -mindepth 1 -maxdepth 1 -type d)
 
 install:
 	for img in $(CORE_IMAGES); do \
-		go install -tags="disable_gcp disable_aws disable_azure" $$img ; \
+		go install -tags="disable_gcp,disable_aws,disable_azure" $$img ; \
 	done
 .PHONY: install
 
