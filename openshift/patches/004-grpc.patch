@@ -1,8 +1,8 @@
 diff --git a/test/e2e/grpc_test.go b/test/e2e/grpc_test.go
-index a358b354c..5676d6b66 100644
+index 797c5b2d6..5042a7994 100644
 --- a/test/e2e/grpc_test.go
 +++ b/test/e2e/grpc_test.go
-@@ -152,6 +152,7 @@ func streamTest(t *testing.T, resources *v1a1test.ResourceObjects, clients *test
+@@ -323,6 +323,7 @@ func streamTest(t *testing.T, resources *v1a1test.ResourceObjects, clients *test
  func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
  	t.Helper()
  	t.Parallel()
@@ -10,12 +10,14 @@ index a358b354c..5676d6b66 100644
  	cancel := logstream.Start(t)
  	defer cancel()
  
-@@ -181,12 +182,12 @@ func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
+@@ -353,14 +354,14 @@ func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
  		url,
  		v1a1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
  		"gRPCPingReadyToServe",
--		test.ServingFlags.ResolvableDomain); err != nil {
-+		resolvable); err != nil {
+-		test.ServingFlags.ResolvableDomain,
++		resolvable,
+ 		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https),
+ 	); err != nil {
  		t.Fatalf("The endpoint for Route %s at %s didn't return success: %v", names.Route, url, err)
  	}
  
