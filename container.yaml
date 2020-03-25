@@ -1,0 +1,7 @@
+go:
+  modules:
+  - module: github.com/knative/serving
+image_build_method: imagebuilder
+platforms:
+  only:
+  - x86_64
