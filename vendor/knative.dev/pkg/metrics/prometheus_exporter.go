@@ -36,10 +36,10 @@ func newPrometheusExporter(config *metricsConfig, logger *zap.SugaredLogger) (vi
 	}
 	logger.Infof("Created Opencensus Prometheus exporter with config: %v. Start the server for Prometheus exporter.", config)
 	// Start the server for Prometheus scraping
-	go func() {
-		srv := startNewPromSrv(e, config.prometheusPort)
-		srv.ListenAndServe()
-	}()
+	//go func() {
+	//	srv := startNewPromSrv(e, config.prometheusPort)
+	//	srv.ListenAndServe()
+	//}()
 	return e, nil
 }
 
