@@ -184,6 +184,20 @@ function run_e2e_tests(){
     --imagetemplate "$TEST_IMAGE_TEMPLATE" \
     --resolvabledomain "$(ingress_class)" || failed=1
 
+  # Enable leader election
+  oc -n knative-serving patch configmap/config-leader-election --type=merge \
+    --patch='{"data":{"enabledComponents":"controller,hpaautoscaler,certcontroller,istiocontroller,nscontroller"}}'
+
+  report_go_test \
+    -v -tags=e2e -count=1 -timeout=10m -parallel=1 \
+    ./test/ha \
+    --kubeconfig "$KUBECONFIG" \
+    --imagetemplate "$TEST_IMAGE_TEMPLATE" \
+    --resolvabledomain "$(ingress_class)"|| failed=1
+
+  # Disable leader election
+  oc get cm config-leader-election -n knative-serving -oyaml | sed '/.*enabledComponents.*/d' | oc replace -f -
+
   return $failed
 }
 
