@@ -2803,7 +2803,7 @@ data:
                     serviceAccountName: knative-serving-operator
                     containers:
                       - name: knative-serving-openshift
-                        image: registry.svc.ci.openshift.org/openshift/openshift-serverless-nightly:knative-operator
+                        image: registry.svc.ci.openshift.org/openshift/openshift-serverless-v1.6.0:knative-operator
                         command:
                         - knative-serving-openshift
                         imagePullPolicy: Always
@@ -2852,7 +2852,7 @@ data:
                     serviceAccountName: knative-openshift-ingress
                     containers:
                       - name: knative-openshift-ingress
-                        image: registry.svc.ci.openshift.org/openshift/openshift-serverless-nightly:knative-openshift-ingress
+                        image: registry.svc.ci.openshift.org/openshift/openshift-serverless-v1.6.0:knative-openshift-ingress
                         command:
                         - knative-openshift-ingress
                         imagePullPolicy: Always
@@ -2962,9 +2962,9 @@ data:
           - name: IMAGE_3scale-kourier-gateway
             image: docker.io/maistra/proxyv2-ubi8:1.0.8
           - name: knative-operator
-            image: registry.svc.ci.openshift.org/openshift/openshift-serverless-nightly:knative-operator
+            image: registry.svc.ci.openshift.org/openshift/openshift-serverless-v1.6.0:knative-operator
           - name: knative-openshift-ingress
-            image: registry.svc.ci.openshift.org/openshift/openshift-serverless-nightly:knative-openshift-ingress
+            image: registry.svc.ci.openshift.org/openshift/openshift-serverless-v1.6.0:knative-openshift-ingress
         replaces: serverless-operator.v1.4.1
         version: 1.5.0
   packages: |-
