@@ -3812,12 +3812,24 @@ data:
                             fieldPath: metadata.namespace
                       - name: METRICS_DOMAIN
                         value: knative.dev/serving-operator
+                      - name: KO_DATA_PATH
+                        value: /tmp/
                       image: registry.svc.ci.openshift.org/openshift/knative-v0.13.1:knative-serving-operator
                       imagePullPolicy: IfNotPresent
                       name: knative-serving-operator
                       ports:
                       - containerPort: 9090
                         name: metrics
+                      volumeMounts:
+                      - mountPath: /tmp/knative-serving
+                        name: release-manifest
+                    volumes:
+                    - name: release-manifest
+                      configMap:
+                        name: ko-data
+                        items:
+                        - key: knative-serving-ci.yaml
+                          path: knative-serving-ci.yaml
                     serviceAccountName: knative-serving-operator
             - name: knative-eventing-operator
               spec:
