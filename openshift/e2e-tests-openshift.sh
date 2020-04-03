@@ -143,7 +143,7 @@ spec:
   source: ${name}
   sourceNamespace: $OLM_NAMESPACE
   name: ${name}
-  channel: techpreview
+  channel: preview-4.3
 EOF
 }
 
