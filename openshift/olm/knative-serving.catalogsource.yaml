@@ -2855,24 +2855,12 @@ data:
                             fieldPath: metadata.namespace
                       - name: METRICS_DOMAIN
                         value: knative.dev/serving-operator
-                      - name: KO_DATA_PATH
-                        value: /tmp/
                       image: registry.svc.ci.openshift.org/openshift/knative-v0.12.1:knative-serving-operator
                       imagePullPolicy: IfNotPresent
                       name: knative-serving-operator
                       ports:
                       - containerPort: 9090
                         name: metrics
-                      volumeMounts:
-                      - mountPath: /tmp/knative-serving
-                        name: release-manifest
-                    volumes:
-                    - name: release-manifest
-                      configMap:
-                        name: ko-data
-                        items:
-                        - key: knative-serving-ci.yaml
-                          path: knative-serving-ci.yaml
                     serviceAccountName: knative-serving-operator
             - name: knative-serving-openshift
               spec:
@@ -2909,21 +2897,21 @@ data:
                           - name: KOURIER_MANIFEST_PATH
                             value: deploy/resources/kourier/kourier-latest.yaml
                           - name: IMAGE_queue-proxy
-                            value: ${IMAGE_QUEUE}
+                            value: registry.svc.ci.openshift.org/openshift/knative-v0.12.1:knative-serving-queue
                           - name: IMAGE_activator
-                            value: ${IMAGE_activator}
+                            value: registry.svc.ci.openshift.org/openshift/knative-v0.12.1:knative-serving-activator
                           - name: IMAGE_autoscaler
-                            value: ${IMAGE_autoscaler}
+                            value: registry.svc.ci.openshift.org/openshift/knative-v0.12.1:knative-serving-autoscaler
                           - name: IMAGE_autoscaler-hpa
-                            value: ${IMAGE_autoscaler}-hpa
+                            value: registry.svc.ci.openshift.org/openshift/knative-v0.12.1:knative-serving-autoscaler-hpa
                           - name: IMAGE_controller
-                            value: ${IMAGE_controller}
+                            value: registry.svc.ci.openshift.org/openshift/knative-v0.12.1:knative-serving-controller
                           - name: IMAGE_webhook
-                            value: ${IMAGE_webhook}
+                            value: registry.svc.ci.openshift.org/openshift/knative-v0.12.1:knative-serving-webhook
                           - name: IMAGE_3scale-kourier-gateway
                             value: docker.io/maistra/proxyv2-ubi8:1.0.8
                           - name: IMAGE_3scale-kourier-control
-                            value: ${IMAGE_kourier}
+                            value: registry.svc.ci.openshift.org/openshift/knative-v0.12.1:kourier
             - name: knative-openshift-ingress
               spec:
                 replicas: 1
@@ -3032,19 +3020,19 @@ data:
           name: Red Hat, Inc.
         relatedImages:
           - name: IMAGE_QUEUE
-            image: ${IMAGE_QUEUE}
+            image: registry.svc.ci.openshift.org/openshift/knative-v0.12.1:knative-serving-queue
           - name: IMAGE_activator
-            image: ${IMAGE_activator}
+            image: registry.svc.ci.openshift.org/openshift/knative-v0.12.1:knative-serving-activator
           - name: IMAGE_autoscaler
-            image: ${IMAGE_autoscaler}
+            image: registry.svc.ci.openshift.org/openshift/knative-v0.12.1:knative-serving-autoscaler
           - name: IMAGE_autoscaler-hpa
-            image: ${IMAGE_autoscaler}-hpa
+            image: registry.svc.ci.openshift.org/openshift/knative-v0.12.1:knative-serving-autoscaler-hpa
           - name: IMAGE_controller
-            image: ${IMAGE_controller}
+            image: registry.svc.ci.openshift.org/openshift/knative-v0.12.1:knative-serving-controller
           - name: IMAGE_webhook
-            image: ${IMAGE_webhook}
+            image: registry.svc.ci.openshift.org/openshift/knative-v0.12.1:knative-serving-webhook
           - name: IMAGE_3scale-kourier-control
-            image: ${IMAGE_kourier}
+            image: registry.svc.ci.openshift.org/openshift/knative-v0.12.1:kourier
           - name: IMAGE_3scale-kourier-gateway
             image: docker.io/maistra/proxyv2-ubi8:1.0.8
           - name: knative-operator
@@ -3370,21 +3358,21 @@ data:
                           - name: KOURIER_MANIFEST_PATH
                             value: deploy/resources/kourier/kourier-latest.yaml
                           - name: IMAGE_queue-proxy
-                            value: registry.svc.ci.openshift.org/openshift/knative-v0.13.1:knative-serving-queue
+                            value: ${IMAGE_QUEUE}
                           - name: IMAGE_activator
-                            value: registry.svc.ci.openshift.org/openshift/knative-v0.13.1:knative-serving-activator
+                            value: ${IMAGE_activator}
                           - name: IMAGE_autoscaler
-                            value: registry.svc.ci.openshift.org/openshift/knative-v0.13.1:knative-serving-autoscaler
+                            value: ${IMAGE_autoscaler}
                           - name: IMAGE_autoscaler-hpa
-                            value: registry.svc.ci.openshift.org/openshift/knative-v0.13.1:knative-serving-autoscaler-hpa
+                            value: ${IMAGE_autoscaler}-hpa
                           - name: IMAGE_controller
-                            value: registry.svc.ci.openshift.org/openshift/knative-v0.13.1:knative-serving-controller
+                            value: ${IMAGE_controller}
                           - name: IMAGE_webhook
-                            value: registry.svc.ci.openshift.org/openshift/knative-v0.13.1:knative-serving-webhook
+                            value: ${IMAGE_webhook}
                           - name: IMAGE_3scale-kourier-gateway
                             value: docker.io/maistra/proxyv2-ubi8:1.0.8
                           - name: IMAGE_3scale-kourier-control
-                            value: registry.svc.ci.openshift.org/openshift/knative-v0.13.1:kourier
+                            value: ${IMAGE_kourier}
             - name: knative-openshift-ingress
               spec:
                 replicas: 1
@@ -3493,19 +3481,19 @@ data:
           name: Red Hat, Inc.
         relatedImages:
           - name: IMAGE_QUEUE
-            image: registry.svc.ci.openshift.org/openshift/knative-v0.13.1:knative-serving-queue
+            image: ${IMAGE_QUEUE}
           - name: IMAGE_activator
-            image: registry.svc.ci.openshift.org/openshift/knative-v0.13.1:knative-serving-activator
+            image: ${IMAGE_activator}
           - name: IMAGE_autoscaler
-            image: registry.svc.ci.openshift.org/openshift/knative-v0.13.1:knative-serving-autoscaler
+            image: ${IMAGE_autoscaler}
           - name: IMAGE_autoscaler-hpa
-            image: registry.svc.ci.openshift.org/openshift/knative-v0.13.1:knative-serving-autoscaler-hpa
+            image: ${IMAGE_autoscaler}-hpa
           - name: IMAGE_controller
-            image: registry.svc.ci.openshift.org/openshift/knative-v0.13.1:knative-serving-controller
+            image: ${IMAGE_controller}
           - name: IMAGE_webhook
-            image: registry.svc.ci.openshift.org/openshift/knative-v0.13.1:knative-serving-webhook
+            image: ${IMAGE_webhook}
           - name: IMAGE_3scale-kourier-control
-            image: registry.svc.ci.openshift.org/openshift/knative-v0.13.1:kourier
+            image: ${IMAGE_kourier}
           - name: IMAGE_3scale-kourier-gateway
             image: docker.io/maistra/proxyv2-ubi8:1.0.8
           - name: knative-serving-operator
@@ -3902,21 +3890,21 @@ data:
                           - name: KOURIER_MANIFEST_PATH
                             value: deploy/resources/kourier/kourier-latest.yaml
                           - name: IMAGE_queue-proxy
-                            value: registry.svc.ci.openshift.org/openshift/knative-v0.13.1:knative-serving-queue
+                            value: ${IMAGE_QUEUE}
                           - name: IMAGE_activator
-                            value: registry.svc.ci.openshift.org/openshift/knative-v0.13.1:knative-serving-activator
+                            value: ${IMAGE_activator}
                           - name: IMAGE_autoscaler
-                            value: registry.svc.ci.openshift.org/openshift/knative-v0.13.1:knative-serving-autoscaler
+                            value: ${IMAGE_autoscaler}
                           - name: IMAGE_autoscaler-hpa
-                            value: registry.svc.ci.openshift.org/openshift/knative-v0.13.1:knative-serving-autoscaler-hpa
+                            value: ${IMAGE_autoscaler}-hpa
                           - name: IMAGE_controller
-                            value: registry.svc.ci.openshift.org/openshift/knative-v0.13.1:knative-serving-controller
+                            value: ${IMAGE_controller}
                           - name: IMAGE_webhook
-                            value: registry.svc.ci.openshift.org/openshift/knative-v0.13.1:knative-serving-webhook
+                            value: ${IMAGE_webhook}
                           - name: IMAGE_3scale-kourier-gateway
                             value: docker.io/maistra/proxyv2-ubi8:1.0.8
                           - name: IMAGE_3scale-kourier-control
-                            value: registry.svc.ci.openshift.org/openshift/knative-v0.13.1:kourier
+                            value: ${IMAGE_kourier}
                           - name: IMAGE_eventing-controller
                             value: registry.svc.ci.openshift.org/openshift/knative-v0.13.0:knative-eventing-controller
                           - name: IMAGE_eventing-webhook
@@ -4049,19 +4037,19 @@ data:
           name: Red Hat, Inc.
         relatedImages:
           - name: IMAGE_QUEUE
-            image: registry.svc.ci.openshift.org/openshift/knative-v0.13.1:knative-serving-queue
+            image: ${IMAGE_QUEUE}
           - name: IMAGE_activator
-            image: registry.svc.ci.openshift.org/openshift/knative-v0.13.1:knative-serving-activator
+            image: ${IMAGE_activator}
           - name: IMAGE_autoscaler
-            image: registry.svc.ci.openshift.org/openshift/knative-v0.13.1:knative-serving-autoscaler
+            image: ${IMAGE_autoscaler}
           - name: IMAGE_autoscaler-hpa
-            image: registry.svc.ci.openshift.org/openshift/knative-v0.13.1:knative-serving-autoscaler-hpa
+            image: ${IMAGE_autoscaler}-hpa
           - name: IMAGE_controller
-            image: registry.svc.ci.openshift.org/openshift/knative-v0.13.1:knative-serving-controller
+            image: ${IMAGE_controller}
           - name: IMAGE_webhook
-            image: registry.svc.ci.openshift.org/openshift/knative-v0.13.1:knative-serving-webhook
+            image: ${IMAGE_webhook}
           - name: IMAGE_3scale-kourier-control
-            image: registry.svc.ci.openshift.org/openshift/knative-v0.13.1:kourier
+            image: ${IMAGE_kourier}
           - name: IMAGE_3scale-kourier-gateway
             image: docker.io/maistra/proxyv2-ubi8:1.0.8
           - name: knative-serving-operator
