@@ -9,7 +9,7 @@
 
 set -e
 
-VERSION="v0.12.1"
+VERSION="v0.13.1"
 OUTFILE="knative-serving.catalogsource.yaml"
 
 sed -i -e "s|registry.svc.ci.openshift.org/openshift/knative-$VERSION:knative-serving-queue|$\{IMAGE_QUEUE\}|g" $OUTFILE
