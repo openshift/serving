@@ -6,7 +6,6 @@ aliases:
   - jcrossley3
   - bobmcwhirter
   - markusthoemmes
-  - vdemeester
   - evanchooly
   - arilivigni
   serving-reviewers:
@@ -16,7 +15,6 @@ aliases:
   - jcrossley3
   - bobmcwhirter
   - markusthoemmes
-  - vdemeester
   - evanchooly
   - arilivigni
 
@@ -27,7 +25,6 @@ aliases:
   - jcrossley3
   - bobmcwhirter
   - markusthoemmes
-  - vdemeester
   - evanchooly
   - arilivigni
   serving-api-reviewers:
@@ -37,7 +34,6 @@ aliases:
   - jcrossley3
   - bobmcwhirter
   - markusthoemmes
-  - vdemeester
   - evanchooly
   - arilivigni
 
@@ -48,7 +44,6 @@ aliases:
   - jcrossley3
   - bobmcwhirter
   - markusthoemmes
-  - vdemeester
   - evanchooly
   - arilivigni
   autoscaling-reviewers:
@@ -58,7 +53,6 @@ aliases:
   - jcrossley3
   - bobmcwhirter
   - markusthoemmes
-  - vdemeester
   - evanchooly
   - arilivigni
 
@@ -69,7 +63,6 @@ aliases:
   - jcrossley3
   - bobmcwhirter
   - markusthoemmes
-  - vdemeester
   - evanchooly
   - arilivigni
   monitoring-reviewers:
@@ -79,7 +72,6 @@ aliases:
   - jcrossley3
   - bobmcwhirter
   - markusthoemmes
-  - vdemeester
   - evanchooly
   - arilivigni
 
@@ -90,7 +82,6 @@ aliases:
   - jcrossley3
   - bobmcwhirter
   - markusthoemmes
-  - vdemeester
   - evanchooly
   - arilivigni
   productivity-reviewers:
@@ -100,7 +91,6 @@ aliases:
   - jcrossley3
   - bobmcwhirter
   - markusthoemmes
-  - vdemeester
   - evanchooly
   - arilivigni
 
@@ -111,7 +101,6 @@ aliases:
   - jcrossley3
   - bobmcwhirter
   - markusthoemmes
-  - vdemeester
   - evanchooly
   - arilivigni
   networking-reviewers:
@@ -121,7 +110,6 @@ aliases:
   - jcrossley3
   - bobmcwhirter
   - markusthoemmes
-  - vdemeester
   - evanchooly
   - arilivigni
 
@@ -132,7 +120,6 @@ aliases:
   - jcrossley3
   - bobmcwhirter
   - markusthoemmes
-  - vdemeester
   - evanchooly
   - arilivigni
   build-reviewers:
@@ -142,7 +129,6 @@ aliases:
   - jcrossley3
   - bobmcwhirter
   - markusthoemmes
-  - vdemeester
   - evanchooly
   - arilivigni
 
