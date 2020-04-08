@@ -1,0 +1,19 @@
+FROM rhel8/go-toolset:1.13.4 AS builder
+WORKDIR /opt/app-root/src/go/src/knative.dev/$COMPONENT
+COPY . .
+ENV GOFLAGS="-mod=vendor -tags=disable_gcp,disable_aws,disable_azure"
+RUN go build -o /tmp/$SUBCOMPONENT ./cmd/$GO_PACKAGE
+
+FROM ubi8-minimal:8-released
+COPY --from=builder /tmp/$SUBCOMPONENT /ko-app/$SUBCOMPONENT
+
+LABEL \
+      com.redhat.component="openshift-serverless-1-tech-preview-$COMPONENT-$SUBCOMPONENT-rhel8-container" \
+      name="openshift-serverless-1-tech-preview/$COMPONENT-$SUBCOMPONENT-rhel8" \
+      version="$VERSION" \
+      summary="Red Hat OpenShift Serverless 1 $CAPITALIZED_COMPONENT $CAPITALIZED_SUBCOMPONENT" \
+      maintainer="serverless-support@redhat.com" \
+      description="Red Hat OpenShift Serverless 1 $CAPITALIZED_COMPONENT $CAPITALIZED_SUBCOMPONENT" \
+      io.k8s.display-name="Red Hat OpenShift Serverless 1 $CAPITALIZED_COMPONENT $CAPITALIZED_SUBCOMPONENT"
+
+ENTRYPOINT ["/ko-app/$SUBCOMPONENT"]
