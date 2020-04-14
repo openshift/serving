@@ -1,14 +1,14 @@
 diff --git a/openshift/olm/knative-serving.catalogsource.yaml b/openshift/olm/knative-serving.catalogsource.yaml
-index 65d5c549a..f5160f665 100644
+index 05f7eb1d8..5b97819d5 100644
 --- a/openshift/olm/knative-serving.catalogsource.yaml
 +++ b/openshift/olm/knative-serving.catalogsource.yaml
-@@ -3812,12 +3812,24 @@ data:
+@@ -3811,12 +3811,24 @@ data:
                              fieldPath: metadata.namespace
                        - name: METRICS_DOMAIN
                          value: knative.dev/serving-operator
 +                      - name: KO_DATA_PATH
 +                        value: /tmp/
-                       image: registry.svc.ci.openshift.org/openshift/knative-v0.13.1:knative-serving-operator
+                       image: registry.svc.ci.openshift.org/openshift/knative-v0.13.2:knative-serving-operator
                        imagePullPolicy: IfNotPresent
                        name: knative-serving-operator
                        ports:
