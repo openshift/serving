@@ -2771,7 +2771,7 @@ data:
                         value: knative.dev/serving-operator
                       - name: KO_DATA_PATH
                         value: /tmp/
-                      image: registry.svc.ci.openshift.org/openshift/knative-v0.12.1:knative-serving-operator
+                      image: registry.svc.ci.openshift.org/openshift/knative-v0.13.2:knative-serving-operator
                       imagePullPolicy: IfNotPresent
                       name: knative-serving-operator
                       ports:

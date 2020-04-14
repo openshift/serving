@@ -184,15 +184,8 @@ function run_e2e_tests(){
     --imagetemplate "$TEST_IMAGE_TEMPLATE" \
     --resolvabledomain "$(ingress_class)" || failed=1
 
-  # Enable leader election
-  oc -n "$SERVING_NAMESPACE" patch configmap/config-leader-election --type=merge \
-    --patch='{"data":{"enabledComponents":"controller,hpaautoscaler"}}'
-  # Delete HPA to stabilize HA tests
-  oc -n "$SERVING_NAMESPACE" delete hpa activator
-  # Scale up components for HA tests
-  for deployment in controller autoscaler-hpa activator; do
-    kubectl -n "$SERVING_NAMESPACE" patch deployment "$deployment" --patch '{"spec":{"replicas":2}}'
-  done
+  # Prevent HPA from scaling to make the tests more stable
+  oc -n "$SERVING_NAMESPACE" patch hpa activator --patch '{"spec":{"maxReplicas":2}}' || return 1
 
   # Use sed as the -spoofinterval parameter is not available yet
   sed "s/\(.*requestInterval =\).*/\1 10 * time.Millisecond/" -i vendor/knative.dev/pkg/test/spoof/spoof.go
@@ -203,9 +196,6 @@ function run_e2e_tests(){
     --kubeconfig "$KUBECONFIG" \
     --imagetemplate "$TEST_IMAGE_TEMPLATE" \
     --resolvabledomain "$(ingress_class)"|| failed=1
-
-  # Disable leader election
-  oc get cm config-leader-election -n "$SERVING_NAMESPACE" -oyaml | sed '/.*enabledComponents.*/d' | oc replace -f -
 
   return $failed
 }
