@@ -46,7 +46,7 @@ func TestControllerHA(t *testing.T) {
 	test.CleanupOnInterrupt(func() { test.TearDown(clients, service1Names) })
 	defer test.TearDown(clients, service1Names)
 
-	clients.KubeClient.Kube.CoreV1().Pods(test.ServingFlags.SystemNamespace).Delete(leaderController, &metav1.DeleteOptions{})
+	clients.KubeClient.Kube.CoreV1().Pods(servingNamespace).Delete(leaderController, &metav1.DeleteOptions{})
 
 	if err := waitForPodDeleted(t, clients, leaderController); err != nil {
 		t.Fatalf("Did not observe %s to actually be deleted: %v", leaderController, err)
