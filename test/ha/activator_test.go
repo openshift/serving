@@ -89,7 +89,7 @@ func TestActivatorHA(t *testing.T) {
 		t.Fatal("Error creating spoofing client:", err)
 	}
 
-	pods, err := clients.KubeClient.Kube.CoreV1().Pods(test.ServingFlags.SystemNamespace).List(metav1.ListOptions{
+	pods, err := clients.KubeClient.Kube.CoreV1().Pods(servingNamespace).List(metav1.ListOptions{
 		LabelSelector: activatorLabel,
 	})
 	if err != nil {
@@ -102,7 +102,7 @@ func TestActivatorHA(t *testing.T) {
 		t.Fatalf("Unable to get public endpoints for revision %s: %v", resourcesScaleToZero.Revision.Name, err)
 	}
 
-	clients.KubeClient.Kube.CoreV1().Pods(test.ServingFlags.SystemNamespace).Delete(activatorPod, &metav1.DeleteOptions{
+	clients.KubeClient.Kube.CoreV1().Pods(servingNamespace).Delete(activatorPod, &metav1.DeleteOptions{
 		GracePeriodSeconds: ptr.Int64(0),
 	})
 
@@ -121,7 +121,7 @@ func TestActivatorHA(t *testing.T) {
 		t.Fatalf("Deployment %s failed to scale up: %v", activatorDeploymentName, err)
 	}
 
-	pods, err = clients.KubeClient.Kube.CoreV1().Pods(test.ServingFlags.SystemNamespace).List(metav1.ListOptions{
+	pods, err = clients.KubeClient.Kube.CoreV1().Pods(servingNamespace).List(metav1.ListOptions{
 		LabelSelector: activatorLabel,
 	})
 	if err != nil {
@@ -139,7 +139,7 @@ func TestActivatorHA(t *testing.T) {
 		t.Fatalf("Unable to get public endpoints for revision %s: %v", resourcesScaleToZero.Revision.Name, err)
 	}
 
-	clients.KubeClient.Kube.CoreV1().Pods(test.ServingFlags.SystemNamespace).Delete(activatorPod, &metav1.DeleteOptions{
+	clients.KubeClient.Kube.CoreV1().Pods(servingNamespace).Delete(activatorPod, &metav1.DeleteOptions{
 		GracePeriodSeconds: ptr.Int64(0),
 	})
 
