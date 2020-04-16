@@ -78,7 +78,7 @@ func autoscalerCM(clients *test.Clients) (*autoscalerconfig.Config, error) {
 		autoscalerconfig.ConfigName,
 		metav1.GetOptions{})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get configmap %s/%s: %w", system.Namespace(), autoscalerconfig.ConfigName, err)
 	}
 	return autoscalerconfig.NewConfigFromMap(autoscalerCM.Data)
 }
@@ -120,16 +120,17 @@ func WaitForScaleToZero(t *testing.T, deploymentName string, clients *test.Clien
 
 // waitForActivatorEndpoints waits for the Service endpoints to match that of activator.
 func waitForActivatorEndpoints(resources *v1test.ResourceObjects, clients *test.Clients) error {
-	return wait.Poll(250*time.Millisecond, time.Minute, func() (bool, error) {
+	var err error
+	pollErr := wait.Poll(250*time.Millisecond, time.Minute, func() (bool, error) {
 		// We need to fetch the activator endpoints at every check, since it can change.
 		aeps, err := clients.KubeClient.Kube.CoreV1().Endpoints(
 			system.Namespace()).Get(networking.ActivatorServiceName, metav1.GetOptions{})
 		if err != nil {
-			return false, nil
+			return false, fmt.Errorf("failed to get endpoint %s/%s: %w", system.Namespace(), networking.ActivatorServiceName, err)
 		}
 		sks, err := clients.NetworkingClient.ServerlessServices.Get(resources.Revision.Name, metav1.GetOptions{})
 		if err != nil {
-			return false, nil
+			return false, fmt.Errorf("failed to get SKS %s: %w", resources.Revision.Name, err)
 		}
 
 		svcEps, err := clients.KubeClient.Kube.CoreV1().Endpoints(test.ServingNamespace).Get(
@@ -162,4 +163,8 @@ func waitForActivatorEndpoints(resources *v1test.ResourceObjects, clients *test.
 		}
 		return false, nil
 	})
+	if pollErr != nil {
+		return fmt.Errorf("failed to get endpoint: %v; %w", pollErr, err)
+	}
+	return nil
 }
