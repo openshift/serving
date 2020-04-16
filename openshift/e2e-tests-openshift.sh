@@ -159,6 +159,7 @@ function run_e2e_tests(){
   header "Running tests"
   failed=0
 
+  export SYSTEM_NAMESPACE="knative-serving"
   export GATEWAY_OVERRIDE=kourier
   export GATEWAY_NAMESPACE_OVERRIDE="$SERVING_INGRESS_NAMESPACE"
   export INGRESS_CLASS=kourier.ingress.networking.knative.dev
