@@ -1,0 +1,20 @@
+diff --git a/test/e2e/autoscale_test.go b/test/e2e/autoscale_test.go
+index e385327ad..2b8edccd6 100644
+--- a/test/e2e/autoscale_test.go
++++ b/test/e2e/autoscale_test.go
+@@ -366,7 +366,6 @@ func TestAutoscaleUpCountPods(t *testing.T) {
+ 	t.Parallel()
+ 
+ 	classes := map[string]string{
+-		"hpa": autoscaling.HPA,
+ 		"kpa": autoscaling.KPA,
+ 	}
+ 
+@@ -399,7 +398,6 @@ func TestRPSBasedAutoscaleUpCountPods(t *testing.T) {
+ 	t.Parallel()
+ 
+ 	classes := map[string]string{
+-		"hpa": autoscaling.HPA,
+ 		"kpa": autoscaling.KPA,
+ 	}
+ 
