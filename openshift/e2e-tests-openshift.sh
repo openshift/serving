@@ -86,17 +86,19 @@ function install_knative(){
 
   oc new-project $SERVING_NAMESPACE
 
+  CATALOG_SOURCE="openshift/olm/knative-serving.catalogsource.yaml"
+
   # Install CatalogSource in OLM namespace
-  export IMAGE_QUEUE=${IMAGE_FORMAT//\$\{component\}/knative-serving-queue}
-  export IMAGE_activator=${IMAGE_FORMAT//\$\{component\}/knative-serving-activator}
-  export IMAGE_autoscaler=${IMAGE_FORMAT//\$\{component\}/knative-serving-autoscaler}
-  export IMAGE_autoscaler_hpa=${IMAGE_FORMAT//\$\{component\}/knative-serving-autoscaler-hpa}
-  export IMAGE_controller=${IMAGE_FORMAT//\$\{component\}/knative-serving-controller}
-  export IMAGE_webhook=${IMAGE_FORMAT//\$\{component\}/knative-serving-webhook}
-  # Kourier is not built in this project.
-  # export IMAGE_kourier=${IMAGE_FORMAT//\$\{component\}/kourier}
-  export IMAGE_kourier="quay.io/3scale/kourier:v0.3.11"
-  envsubst < openshift/olm/knative-serving.catalogsource.yaml | oc apply -n $OLM_NAMESPACE -f -
+  sed -i -e "s|registry.svc.ci.openshift.org/openshift/knative-.*:knative-serving-queue|${IMAGE_FORMAT//\$\{component\}/knative-serving-queue}|g"                   ${CATALOG_SOURCE}
+  sed -i -e "s|registry.svc.ci.openshift.org/openshift/knative-.*:knative-serving-activator|${IMAGE_FORMAT//\$\{component\}/knative-serving-activator}|g"           ${CATALOG_SOURCE}
+  sed -i -e "s|registry.svc.ci.openshift.org/openshift/knative-.*:knative-serving-autoscaler|${IMAGE_FORMAT//\$\{component\}/knative-serving-autoscaler}|g"         ${CATALOG_SOURCE}
+  sed -i -e "s|registry.svc.ci.openshift.org/openshift/knative-.*:knative-serving-autoscaler-hpa|${IMAGE_FORMAT//\$\{component\}/knative-serving-autoscaler-hpa}|g" ${CATALOG_SOURCE}
+  sed -i -e "s|registry.svc.ci.openshift.org/openshift/knative-.*:knative-serving-controller|${IMAGE_FORMAT//\$\{component\}/knative-serving-controller}|g"         ${CATALOG_SOURCE}
+  sed -i -e "s|registry.svc.ci.openshift.org/openshift/knative-.*:knative-serving-webhook|${IMAGE_FORMAT//\$\{component\}/knative-serving-webhook}|g"               ${CATALOG_SOURCE}
+
+  patch -u ${CATALOG_SOURCE} < openshift/olm/config_map.patch
+
+  oc apply -n $OLM_NAMESPACE -f ${CATALOG_SOURCE}
   timeout 900 '[[ $(oc get pods -n $OLM_NAMESPACE | grep -c serverless) -eq 0 ]]' || return 1
   wait_until_pods_running $OLM_NAMESPACE
 
@@ -143,7 +145,7 @@ spec:
   source: ${name}
   sourceNamespace: $OLM_NAMESPACE
   name: ${name}
-  channel: preview-4.3
+  channel: "preview-4.6"
 EOF
 }
 
