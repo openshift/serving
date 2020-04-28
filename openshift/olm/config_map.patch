@@ -1,16 +1,15 @@
-diff --git a/openshift/olm/knative-serving.catalogsource.yaml b/openshift/olm/knative-serving.catalogsource.yaml
-index 65d5c549a..f5160f665 100644
---- a/openshift/olm/knative-serving.catalogsource.yaml
-+++ b/openshift/olm/knative-serving.catalogsource.yaml
-@@ -3812,12 +3812,24 @@ data:
-                             fieldPath: metadata.namespace
-                       - name: METRICS_DOMAIN
-                         value: knative.dev/serving-operator
+--- knative-serving.catalogsource.yaml.org	2020-04-24 18:07:55.175291572 +0900
++++ knative-serving.catalogsource.yaml	2020-04-24 18:08:16.631512089 +0900
+@@ -506,6 +506,8 @@
+                         valueFrom:
+                           fieldRef:
+                             fieldPath: metadata.name
 +                      - name: KO_DATA_PATH
 +                        value: /tmp/
-                       image: registry.svc.ci.openshift.org/openshift/knative-v0.13.1:knative-serving-operator
-                       imagePullPolicy: IfNotPresent
-                       name: knative-serving-operator
+                       - name: OPERATOR_NAME
+                         value: knative-serving-operator
+                       - name: SYSTEM_NAMESPACE
+@@ -520,6 +522,16 @@
                        ports:
                        - containerPort: 9090
                          name: metrics
