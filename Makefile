@@ -2,7 +2,7 @@
 
 CGO_ENABLED=0
 GOOS=linux
-CORE_IMAGES=./cmd/activator ./cmd/autoscaler ./cmd/autoscaler-hpa ./cmd/controller ./cmd/queue ./cmd/webhook ./cmd/networking/certmanager ./cmd/networking/nscert
+CORE_IMAGES=./cmd/activator ./cmd/autoscaler ./cmd/autoscaler-hpa ./cmd/controller ./cmd/queue ./cmd/webhook ./cmd/networking/nscert
 TEST_IMAGES=$(shell find ./test/test_images -mindepth 1 -maxdepth 1 -type d) 
 
 install:
