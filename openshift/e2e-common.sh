@@ -4,18 +4,23 @@
 source "$(dirname "$0")/../test/e2e-common.sh"
 source "$(dirname "$0")/release/resolve.sh"
 
-set -x
-
 readonly SERVING_NAMESPACE=knative-serving
 readonly SERVING_INGRESS_NAMESPACE=knative-serving-ingress
-
-# A golang template to point the tests to the right image coordinates.
-# {{.Name}} is the name of the image, for example 'autoscale'.
-readonly TEST_IMAGE_TEMPLATE="${IMAGE_FORMAT//\$\{component\}/knative-serving-test-{{.Name}}}"
 
 # The OLM global namespace was moved to openshift-marketplace since v4.2
 # ref: https://jira.coreos.com/browse/OLM-1190
 readonly OLM_NAMESPACE="openshift-marketplace"
+
+# Determine if we're running locally or in CI.
+if [ -n "$OPENSHIFT_BUILD_NAMESPACE" ]; then
+  readonly TEST_IMAGE_TEMPLATE="${IMAGE_FORMAT//\$\{component\}/knative-serving-test-{{.Name}}}"
+elif [ -n "$DOCKER_REPO_OVERRIDE" ]; then
+  readonly TEST_IMAGE_TEMPLATE="${DOCKER_REPO_OVERRIDE}/{{.Name}}"
+elif [ -n "$BRANCH" ]; then
+  readonly TEST_IMAGE_TEMPLATE="registry.svc.ci.openshift.org/openshift/${BRANCH}:knative-serving-test-{{.Name}}"
+else
+  readonly TEST_IMAGE_TEMPLATE="registry.svc.ci.openshift.org/openshift/knative-nightly:knative-serving-test-{{.Name}}"
+fi
 
 env
 
@@ -152,53 +157,76 @@ spec:
 EOF
 }
 
-function run_e2e_tests(){
+function prepare_knative_serving_tests {
   echo ">> Creating test resources for OpenShift (test/config/)"
+
   oc apply -f test/config
 
   oc adm policy add-scc-to-user privileged -z default -n serving-tests
   oc adm policy add-scc-to-user privileged -z default -n serving-tests-alt
-  # adding scc for anyuid to test TestShouldRunAsUserContainerDefault.
+  # Adding scc for anyuid to test TestShouldRunAsUserContainerDefault.
   oc adm policy add-scc-to-user anyuid -z default -n serving-tests
 
-  header "Running tests"
-  failed=0
-
-  export SYSTEM_NAMESPACE="knative-serving"
+  export SYSTEM_NAMESPACE="$SERVING_NAMESPACE"
   export GATEWAY_OVERRIDE=kourier
   export GATEWAY_NAMESPACE_OVERRIDE="$SERVING_INGRESS_NAMESPACE"
   export INGRESS_CLASS=kourier.ingress.networking.knative.dev
+}
 
-  report_go_test \
-    -v -tags=e2e -count=1 -timeout=35m -short -parallel=3 \
-    ./test/e2e \
+function run_e2e_tests(){
+  header "Running tests"
+
+  local test_name=$1 
+  local failed=0
+
+  if [ -n "$test_name" ]; then
+    go_test_e2e -tags=e2e -timeout=15m -parallel=1 \
+    ./test/e2e ./test/conformance/api/... ./test/conformance/runtime/... \
+    -run "^(${test_name})$" \
     --kubeconfig "$KUBECONFIG" \
     --imagetemplate "$TEST_IMAGE_TEMPLATE" \
-    --resolvabledomain || failed=1
+    --resolvabledomain "$(ingress_class)" || failed=$?
 
-  report_go_test \
-    -v -tags=e2e -count=1 -timeout=35m -parallel=3 \
-    ./test/conformance/runtime/... \
+    return $failed
+  fi
+
+  local parallel=3
+
+  if [[ $(oc get infrastructure cluster -ojsonpath='{.status.platform}') = VSphere ]]; then
+    # Since we don't have LoadBalancers working, gRPC tests will always fail.
+    rm ./test/e2e/grpc_test.go
+    parallel=2
+  fi
+
+  go_test_e2e -tags=e2e -timeout=30m -parallel=$parallel \
+    ./test/e2e ./test/conformance/api/... ./test/conformance/runtime/... \
     --kubeconfig "$KUBECONFIG" \
     --imagetemplate "$TEST_IMAGE_TEMPLATE" \
     --resolvabledomain "$(ingress_class)" || failed=1
 
-  report_go_test \
-    -v -tags=e2e -count=1 -timeout=35m -parallel=3 \
-    ./test/conformance/api/... \
+ # Run the helloworld test with an image pulled into the internal registry.
+  local image_to_tag=$(echo "$TEST_IMAGE_TEMPLATE" | sed 's/\(.*\){{.Name}}\(.*\)/\1helloworld\2/')
+  oc tag -n serving-tests "$image_to_tag" "helloworld:latest" --reference-policy=local
+  go_test_e2e -tags=e2e -timeout=30m ./test/e2e -run "^(TestHelloWorld)$" \
+    --resolvabledomain --kubeconfig "$KUBECONFIG" \
+    --imagetemplate "image-registry.openshift-image-registry.svc:5000/serving-tests/{{.Name}}" || failed=2
+
+  # Prevent HPA from scaling to make the tests more stable
+  oc -n "$SERVING_NAMESPACE" patch hpa activator \
+  --type 'merge' \
+  --patch '{"spec": {"maxReplicas": '2', "minReplicas": '2'}}' || return 1
+
+  # Give the controller time to sync with the rest of the system components.
+  sleep 30
+
+  # Use sed as the -spoofinterval parameter is not available yet
+  sed "s/\(.*requestInterval =\).*/\1 10 * time.Millisecond/" -i vendor/knative.dev/pkg/test/spoof/spoof.go
+
+  go_test_e2e -tags=e2e -timeout=15m -failfast -parallel=1 \
+    ./test/ha \
     --kubeconfig "$KUBECONFIG" \
     --imagetemplate "$TEST_IMAGE_TEMPLATE" \
-    --resolvabledomain "$(ingress_class)" || failed=1
+    --resolvabledomain "$(ingress_class)"|| failed=3
 
   return $failed
 }
-
-scale_up_workers || exit 1
-
-failed=0
-(( !failed )) && install_knative || failed=1
-(( !failed )) && run_e2e_tests || failed=1
-(( failed )) && dump_cluster_state
-(( failed )) && exit 1
-
-success
