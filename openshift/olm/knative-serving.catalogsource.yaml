@@ -793,12 +793,9 @@ data:
         version: 1.8.0
   packages: |-
     - packageName: serverless-operator
-      defaultChannel: "4.3"
-      channels:
-      - name: "4.3"
-        currentCSV: serverless-operator.v1.7.0
-      - name: "4.4"
-        currentCSV: serverless-operator.v1.7.0
+      defaultChannel: "preview-4.6"
+      - name: "preview-4.6"
+        currentCSV: serverless-operator.v1.8.0
 ---
 apiVersion: operators.coreos.com/v1alpha1
 kind: CatalogSource

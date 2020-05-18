@@ -145,7 +145,7 @@ spec:
   source: ${name}
   sourceNamespace: $OLM_NAMESPACE
   name: ${name}
-  channel: "4.4"
+  channel: "preview-4.6"
 EOF
 }
 
