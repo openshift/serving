@@ -3,7 +3,7 @@
 OUTFILE="knative-serving.catalogsource.yaml"
 
 TMPDIR=$(mktemp -d)
-git clone -b add-version-filter --depth 1 https://github.com/nak3/serverless-operator.git ${TMPDIR}
+git clone --depth 1 https://github.com/openshift-knative/serverless-operator.git ${TMPDIR}
 VERSION=$(ls ${TMPDIR}/olm-catalog/serverless-operator/ |sort -n |tail -1)
 OLM_DIR=${TMPDIR}/olm-catalog/serverless-operator/${VERSION}
 
