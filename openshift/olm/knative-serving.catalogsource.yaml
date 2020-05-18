@@ -794,6 +794,7 @@ data:
   packages: |-
     - packageName: serverless-operator
       defaultChannel: "preview-4.6"
+      channels:
       - name: "preview-4.6"
         currentCSV: serverless-operator.v1.8.0
 ---
