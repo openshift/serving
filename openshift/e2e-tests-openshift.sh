@@ -96,6 +96,9 @@ function install_knative(){
   sed -i -e "s|registry.svc.ci.openshift.org/openshift/knative-.*:knative-serving-controller|${IMAGE_FORMAT//\$\{component\}/knative-serving-controller}|g"         ${CATALOG_SOURCE}
   sed -i -e "s|registry.svc.ci.openshift.org/openshift/knative-.*:knative-serving-webhook|${IMAGE_FORMAT//\$\{component\}/knative-serving-webhook}|g"               ${CATALOG_SOURCE}
 
+  # release-next branch keeps updating the latest manifest in knative-serving-ci.yaml for serving resources.
+  # see: https://github.com/openshift/knative-serving/blob/release-next/openshift/release/knative-serving-ci.yaml
+  # So mount the manifest and use it by KO_DATA_PATH env value.
   patch -u ${CATALOG_SOURCE} < openshift/olm/config_map.patch
 
   oc apply -n $OLM_NAMESPACE -f ${CATALOG_SOURCE}
