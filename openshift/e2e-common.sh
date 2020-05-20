@@ -179,7 +179,7 @@ function run_e2e_tests(){
     ./test/e2e ./test/conformance/api/... ./test/conformance/runtime/... \
     -run "^(${test_name})$" \
     --kubeconfig "$KUBECONFIG" \
-    --imagetemplate "$TEST_IMAGE_TEMPLATE"
+    --imagetemplate "$TEST_IMAGE_TEMPLATE" \
     --resolvabledomain "$(ingress_class)" || failed=$?
 
     return $failed
@@ -196,7 +196,7 @@ function run_e2e_tests(){
   go_test_e2e -tags=e2e -timeout=30m -parallel=$parallel \
     ./test/e2e ./test/conformance/api/... ./test/conformance/runtime/... \
     --kubeconfig "$KUBECONFIG" \
-    --imagetemplate "$TEST_IMAGE_TEMPLATE"
+    --imagetemplate "$TEST_IMAGE_TEMPLATE" \
     --resolvabledomain "$(ingress_class)" || failed=1
 
  # Run the helloworld test with an image pulled into the internal registry.
