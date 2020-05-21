@@ -207,7 +207,12 @@ function run_e2e_tests(){
     --imagetemplate "image-registry.openshift-image-registry.svc:5000/serving-tests/{{.Name}}" || failed=2
 
   # Prevent HPA from scaling to make the tests more stable
-  oc -n "$SERVING_NAMESPACE" patch hpa activator --patch '{"spec":{"maxReplicas":2}}' || return 1
+  oc -n "$SERVING_NAMESPACE" patch hpa activator \
+  --type 'merge' \
+  --patch '{"spec": {"maxReplicas": '2', "minReplicas": '2'}}' || return 1
+
+  # Give the controller time to sync with the rest of the system components.
+  sleep 30
 
   # Use sed as the -spoofinterval parameter is not available yet
   sed "s/\(.*requestInterval =\).*/\1 10 * time.Millisecond/" -i vendor/knative.dev/pkg/test/spoof/spoof.go
