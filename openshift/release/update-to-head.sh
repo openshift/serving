@@ -12,10 +12,10 @@ git checkout upstream/master -B release-next
 
 # Update openshift's master and take all needed files from there.
 git fetch openshift master
-git checkout openshift/master openshift OWNERS_ALIASES OWNERS Makefile content_sets.yml container.yaml
+git checkout openshift/master openshift OWNERS_ALIASES OWNERS Makefile
 make generate-dockerfiles
 make RELEASE=ci generate-release
-git add openshift OWNERS_ALIASES OWNERS Makefile content_sets.yml container.yaml
+git add openshift OWNERS_ALIASES OWNERS Makefile
 git commit -m ":open_file_folder: Update openshift specific files."
 
 # Apply patches .
