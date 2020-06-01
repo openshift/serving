@@ -13,4 +13,4 @@ else
     tag=$release
 fi
 
-resolve_resources config/ "$output_file" "$image_prefix" "$tag"
+resolve_resources config/core/ "$output_file" "$image_prefix" "$tag"
