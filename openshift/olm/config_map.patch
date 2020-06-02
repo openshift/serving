@@ -1,0 +1,28 @@
+--- knative-serving.catalogsource.yaml.org	2020-04-24 18:07:55.175291572 +0900
++++ knative-serving.catalogsource.yaml	2020-04-24 18:08:16.631512089 +0900
+@@ -506,6 +506,8 @@
+                         valueFrom:
+                           fieldRef:
+                             fieldPath: metadata.name
++                      - name: KO_DATA_PATH
++                        value: /tmp/
+                       - name: OPERATOR_NAME
+                         value: knative-serving-operator
+                       - name: SYSTEM_NAMESPACE
+@@ -520,6 +522,16 @@
+                       ports:
+                       - containerPort: 9090
+                         name: metrics
++                      volumeMounts:
++                      - mountPath: /tmp/knative-serving
++                        name: release-manifest
++                    volumes:
++                    - name: release-manifest
++                      configMap:
++                        name: ko-data
++                        items:
++                        - key: knative-serving-ci.yaml
++                          path: knative-serving-ci.yaml
+                     serviceAccountName: knative-serving-operator
+             - name: knative-eventing-operator
+               spec:
