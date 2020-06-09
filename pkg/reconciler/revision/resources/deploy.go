@@ -250,6 +250,9 @@ func MakeDeployment(rev *v1.Revision,
 				},
 				Spec: *podSpec,
 			},
+			Strategy: appsv1.DeploymentStrategy{
+				Type: appsv1.RecreateDeploymentStrategyType,
+			},
 		},
 	}, nil
 }
