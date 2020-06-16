@@ -18,6 +18,8 @@ elif [ -n "$DOCKER_REPO_OVERRIDE" ]; then
   readonly TEST_IMAGE_TEMPLATE="${DOCKER_REPO_OVERRIDE}/{{.Name}}"
 elif [ -n "$BRANCH" ]; then
   readonly TEST_IMAGE_TEMPLATE="registry.svc.ci.openshift.org/openshift/${BRANCH}:knative-serving-test-{{.Name}}"
+elif [ -n "$TEMPLATE" ]; then
+  readonly TEST_IMAGE_TEMPLATE="$TEMPLATE"
 else
   readonly TEST_IMAGE_TEMPLATE="registry.svc.ci.openshift.org/openshift/knative-nightly:knative-serving-test-{{.Name}}"
 fi
