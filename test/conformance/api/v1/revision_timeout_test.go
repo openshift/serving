@@ -136,8 +136,6 @@ func TestRevisionTimeout(t *testing.T) {
 				if err := e2e.WaitForScaleToZero(t, resourcenames.Deployment(resources.Revision), clients); err != nil {
 					t.Fatal("Could not scale to zero:", err)
 				}
-				// Make sure the pod is sclaed down.
-				time.Sleep(5 * time.Second)
 			} else {
 				t.Log("Probing to force at least one pod", serviceURL)
 				if _, err := pkgTest.WaitForEndpointState(

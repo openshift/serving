@@ -169,23 +169,31 @@ function run_e2e_tests(){
   export GATEWAY_NAMESPACE_OVERRIDE="$SERVING_INGRESS_NAMESPACE"
   export INGRESS_CLASS=kourier.ingress.networking.knative.dev
 
-  report_go_test \
-    -v -tags=e2e -count=1 -timeout=35m -short -parallel=3 \
-    ./test/e2e \
-    --kubeconfig "$KUBECONFIG" \
-    --imagetemplate "$TEST_IMAGE_TEMPLATE" \
-    --resolvabledomain || failed=1
+#  report_go_test \
+#    -v -tags=e2e -count=1 -timeout=35m -short -parallel=3 \
+#    ./test/e2e \
+#    --kubeconfig "$KUBECONFIG" \
+#    --imagetemplate "$TEST_IMAGE_TEMPLATE" \
+#    --resolvabledomain || failed=1
+#
+#  report_go_test \
+#    -v -tags=e2e -count=1 -timeout=35m -parallel=3 \
+#    ./test/conformance/runtime/... \
+#    --kubeconfig "$KUBECONFIG" \
+#    --imagetemplate "$TEST_IMAGE_TEMPLATE" \
+#    --resolvabledomain "$(ingress_class)" || failed=1
+
+#  report_go_test \
+#    -v -tags=e2e -count=1 -timeout=35m -parallel=3 \
+#    ./test/conformance/api/... \
+#    --kubeconfig "$KUBECONFIG" \
+#    --imagetemplate "$TEST_IMAGE_TEMPLATE" \
+#    --resolvabledomain "$(ingress_class)" || failed=1
 
   report_go_test \
     -v -tags=e2e -count=1 -timeout=35m -parallel=3 \
-    ./test/conformance/runtime/... \
-    --kubeconfig "$KUBECONFIG" \
-    --imagetemplate "$TEST_IMAGE_TEMPLATE" \
-    --resolvabledomain "$(ingress_class)" || failed=1
-
-  report_go_test \
-    -v -tags=e2e -count=1 -timeout=35m -parallel=3 \
-    ./test/conformance/api/... \
+    -run "TestRevisionTimeout/when_scaling_up_from_0_and_*"
+    ./test/conformance/api/v1/... \
     --kubeconfig "$KUBECONFIG" \
     --imagetemplate "$TEST_IMAGE_TEMPLATE" \
     --resolvabledomain "$(ingress_class)" || failed=1
