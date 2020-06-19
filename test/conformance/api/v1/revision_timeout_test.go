@@ -25,6 +25,7 @@ import (
 	"testing"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	pkgTest "knative.dev/pkg/test"
 	resourcenames "knative.dev/serving/pkg/reconciler/revision/resources/names"
 	"knative.dev/serving/test"
@@ -56,11 +57,12 @@ func sendRequest(t *testing.T, clients *test.Clients, endpoint *url.URL,
 	if err != nil {
 		return fmt.Errorf("failed to create new HTTP request: %w", err)
 	}
-
+	t.Logf("Sending request %v", time.Now())
 	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed roundtripping: %w", err)
 	}
+	t.Logf("Ending the request %v", time.Now())
 
 	t.Logf("Response status code: %v, expected: %v", resp.StatusCode, expectedResponseCode)
 	if expectedResponseCode != resp.StatusCode {
@@ -136,6 +138,20 @@ func TestRevisionTimeout(t *testing.T) {
 				if err := e2e.WaitForScaleToZero(t, resourcenames.Deployment(resources.Revision), clients); err != nil {
 					t.Fatal("Could not scale to zero:", err)
 				}
+
+				// This is for debuging //
+				t.Logf("Sleeping 30 seconds just in case. No pods should be exist. %v", time.Now())
+				time.Sleep(30 * time.Second)
+
+				pods, err := clients.KubeClient.Kube.CoreV1().Pods("serving-tests").List(metav1.ListOptions{})
+				if err != nil {
+					t.Fatal("Failed to list pod:", err)
+				}
+				t.Logf("The pod list should be empty: %v", pods)
+				for _, pod := range pods.Items {
+					t.Logf("existing: %v", pod.Name)
+				}
+				// --- END --- //
 			} else {
 				t.Log("Probing to force at least one pod", serviceURL)
 				if _, err := pkgTest.WaitForEndpointState(
