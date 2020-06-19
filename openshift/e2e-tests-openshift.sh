@@ -198,6 +198,8 @@ function run_e2e_tests(){
     --imagetemplate "$TEST_IMAGE_TEMPLATE" \
     --resolvabledomain "$(ingress_class)" || failed=1
 
+  oc get events --sort-by='.metadata.creationTimestamp' --all-namespaces
+
   return $failed
 }
 
