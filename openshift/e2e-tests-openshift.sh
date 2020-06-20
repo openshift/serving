@@ -192,7 +192,6 @@ function run_e2e_tests(){
 
   report_go_test \
     -v -tags=e2e -count=1 -timeout=35m -parallel=3 \
-    -run "TestRevisionTimeout/when_scaling_up_from_0_and_*"
     ./test/conformance/api/v1/... \
     --kubeconfig "$KUBECONFIG" \
     --imagetemplate "$TEST_IMAGE_TEMPLATE" \
