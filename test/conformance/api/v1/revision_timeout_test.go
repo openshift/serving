@@ -140,8 +140,8 @@ func TestRevisionTimeout(t *testing.T) {
 				}
 
 				// This is for debuging //
-				t.Logf("Sleeping 30 seconds just in case. No pods should be exist. %v", time.Now())
-				time.Sleep(30 * time.Second)
+				t.Logf("Sleeping 10 seconds just in case. No pods should be exist. %v", time.Now())
+				time.Sleep(10 * time.Second)
 
 				pods, err := clients.KubeClient.Kube.CoreV1().Pods("serving-tests").List(metav1.ListOptions{})
 				if err != nil {
