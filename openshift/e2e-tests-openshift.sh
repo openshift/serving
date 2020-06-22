@@ -96,6 +96,13 @@ function install_knative(){
   sed -i -e "s|registry.svc.ci.openshift.org/openshift/knative-.*:knative-serving-controller|${IMAGE_FORMAT//\$\{component\}/knative-serving-controller}|g"         ${CATALOG_SOURCE}
   sed -i -e "s|registry.svc.ci.openshift.org/openshift/knative-.*:knative-serving-webhook|${IMAGE_FORMAT//\$\{component\}/knative-serving-webhook}|g"               ${CATALOG_SOURCE}
 
+  # Replace kourier's image with the latest ones from third_party/kourier-latest
+  KOURIER_CONTROL=$(grep -w "gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier" third_party/kourier-latest/kourier.yaml  | awk '{print $NF}')
+  KOURIER_GATEWAY=$(grep -w "docker.io/maistra/proxyv2-ubi8" third_party/kourier-latest/kourier.yaml  | awk '{print $NF}')
+
+  sed -i -e "s|docker.io/maistra/proxyv2-ubi8:*|${KOURIER_GATEWAY}|g"                                         ${CATALOG_SOURCE}
+  sed -i -e "s|registry.svc.ci.openshift.org/openshift/knative-.*:kourier|${KOURIER_CONTROL}|g"               ${CATALOG_SOURCE}
+
   # release-next branch keeps updating the latest manifest in knative-serving-ci.yaml for serving resources.
   # see: https://github.com/openshift/knative-serving/blob/release-next/openshift/release/knative-serving-ci.yaml
   # So mount the manifest and use it by KO_DATA_PATH env value.
@@ -137,6 +144,9 @@ function deploy_serverless_operator(){
 
   # Create configmap to use the latest manifest.
   oc create configmap ko-data -n $operator_ns --from-file="openshift/release/knative-serving-ci.yaml"
+
+  # Create configmap to use the latest kourier.
+  oc create configmap kourier-cm -n $operator_ns --from-file="third_party/kourier-latest/kourier.yaml"
 
   cat <<-EOF | oc apply -f -
 apiVersion: operators.coreos.com/v1alpha1
