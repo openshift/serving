@@ -620,8 +620,8 @@ data:
                           - name: IMAGE_3scale-kourier-gateway
                             value: docker.io/maistra/proxyv2-ubi8:1.1.0
                           - name: IMAGE_3scale-kourier-control
-                            # Use image from https://github.com/knative/net-kourier/releases/download/v0.15.0/kourier.yaml to stop retrying 5xx error
-                            value: gcr.io/knative-releases/knative.dev/net-kourier/cmd/kourier@sha256:84d2926a4c3aa02ee45b94905db03a00d96106c777c5afbfd70b579d1165c928
+                            # Use image build v0.14 with stop retrying 5xx fix.
+                            value: quay.io/nak3/3scale-kourier:v0.14-noretry
                           - name: IMAGE_eventing-controller__eventing-controller
                             value: registry.svc.ci.openshift.org/openshift/knative-v0.14.2:knative-eventing-controller
                           - name: IMAGE_eventing-webhook__eventing-webhook
