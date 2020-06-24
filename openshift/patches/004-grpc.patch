@@ -1,0 +1,29 @@
+diff --git a/test/e2e/grpc_test.go b/test/e2e/grpc_test.go
+index ee9b45a6e..0aa1b9da5 100644
+--- a/test/e2e/grpc_test.go
++++ b/test/e2e/grpc_test.go
+@@ -323,6 +323,7 @@ func streamTest(t *testing.T, resources *v1test.ResourceObjects, clients *test.C
+ func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
+ 	t.Helper()
+ 	t.Parallel()
++	resolvable := false
+ 	cancel := logstream.Start(t)
+ 	defer cancel()
+ 
+@@ -352,14 +353,14 @@ func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
+ 		url,
+ 		v1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
+ 		"gRPCPingReadyToServe",
+-		test.ServingFlags.ResolvableDomain,
++		resolvable,
+ 		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https),
+ 	); err != nil {
+ 		t.Fatalf("The endpoint for Route %s at %s didn't return success: %v", names.Route, url, err)
+ 	}
+ 
+ 	host := url.Host
+-	if !test.ServingFlags.ResolvableDomain {
++	if !resolvable {
+ 		host = pkgTest.Flags.IngressEndpoint
+ 		if pkgTest.Flags.IngressEndpoint == "" {
+ 			host, err = ingress.GetIngressEndpoint(clients.KubeClient.Kube)
