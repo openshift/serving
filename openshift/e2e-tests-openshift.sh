@@ -100,7 +100,7 @@ function install_knative(){
   KOURIER_CONTROL=$(grep -w "gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier" third_party/kourier-latest/kourier.yaml  | awk '{print $NF}')
   KOURIER_GATEWAY=$(grep -w "docker.io/maistra/proxyv2-ubi8" third_party/kourier-latest/kourier.yaml  | awk '{print $NF}')
 
-  sed -i -e "s|docker.io/maistra/proxyv2-ubi8:*|${KOURIER_GATEWAY}|g"                                         ${CATALOG_SOURCE}
+  sed -i -e "s|docker.io/maistra/proxyv2-ubi8:.*|${KOURIER_GATEWAY}|g"                                         ${CATALOG_SOURCE}
   sed -i -e "s|registry.svc.ci.openshift.org/openshift/knative-.*:kourier|${KOURIER_CONTROL}|g"               ${CATALOG_SOURCE}
 
   # release-next branch keeps updating the latest manifest in knative-serving-ci.yaml for serving resources.
