@@ -191,6 +191,29 @@ function run_e2e_tests(){
   local test_name=$1 
   local failed=0
 
+  # Keep this in sync with test/ha/ha.go
+  readonly REPLICAS=2
+  readonly BUCKETS=10
+
+  # Keep the bucket count in sync with test/ha/ha.go
+  # TODO: configure it in KnativeServing when operator supports it.
+  kubectl -n "${SYSTEM_NAMESPACE}" patch configmap/config-leader-election --type=merge \
+    --patch='{"data":{"buckets": "'${BUCKETS}'"}}' || failed=1
+
+  # Changing the bucket count and cycling the controllers will leave around stale
+  # lease resources at the old sharding factor, so clean these up.
+  kubectl -n ${SYSTEM_NAMESPACE} delete leases --all
+
+  # Wait for a new leader Controller to prevent race conditions during service reconciliation
+  wait_for_leader_controller || failed=1
+
+  # Dump the leases post-setup.
+  header "Leaders"
+  kubectl get lease -n "${SYSTEM_NAMESPACE}"
+
+  # Give the controller time to sync with the rest of the system components.
+  sleep 30
+
   if [ -n "$test_name" ]; then
     go_test_e2e -tags=e2e -timeout=15m -parallel=1 \
     ./test/e2e ./test/conformance/api/... ./test/conformance/runtime/... \
@@ -226,19 +249,35 @@ function run_e2e_tests(){
   # Prevent HPA from scaling to make the tests more stable
   oc -n "$SERVING_NAMESPACE" patch hpa activator \
   --type 'merge' \
-  --patch '{"spec": {"maxReplicas": '2', "minReplicas": '2'}}' || return 1
-
-  # Give the controller time to sync with the rest of the system components.
-  sleep 30
+  --patch '{"spec": {"maxReplicas": '${REPLICAS}', "minReplicas": '${REPLICAS}'}}' || return 1
 
   # Use sed as the -spoofinterval parameter is not available yet
   sed "s/\(.*requestInterval =\).*/\1 10 * time.Millisecond/" -i vendor/knative.dev/pkg/test/spoof/spoof.go
 
+  # Run HA tests separately as they're stopping core Knative Serving pods
+  # Define short -spoofinterval to ensure frequent probing while stopping pods
   go_test_e2e -tags=e2e -timeout=15m -failfast -parallel=1 \
     ./test/ha \
+    -replicas="${REPLICAS:-1}" -buckets="${BUCKETS:-1}" -spoofinterval="10ms" \
     --kubeconfig "$KUBECONFIG" \
     --imagetemplate "$TEST_IMAGE_TEMPLATE" \
     --resolvabledomain "$(ingress_class)"|| failed=3
 
   return $failed
+}
+
+function wait_for_leader_controller() {
+  echo -n "Waiting for a leader Controller"
+  for i in {1..150}; do  # timeout after 5 minutes
+    local leader=$(kubectl get lease -n "${SYSTEM_NAMESPACE}" -ojsonpath='{.items[*].spec.holderIdentity}'  | cut -d"_" -f1 | grep "^controller-" | head -1)
+    # Make sure the leader pod exists.
+    if [ -n "${leader}" ] && kubectl get pod "${leader}" -n "${SYSTEM_NAMESPACE}"  >/dev/null 2>&1; then
+      echo -e "\nNew leader Controller has been elected"
+      return 0
+    fi
+    echo -n "."
+    sleep 2
+  done
+  echo -e "\n\nERROR: timeout waiting for leader controller"
+  return 1
 }
