@@ -193,7 +193,8 @@ function run_e2e_tests(){
 
   # Keep this in sync with test/ha/ha.go
   readonly REPLICAS=2
-  readonly BUCKETS=10
+  # TODO: increase the size of buckets when deployed chaosduck.
+  readonly BUCKETS=1
 
   # Keep the bucket count in sync with test/ha/ha.go
   # TODO: configure it in KnativeServing when operator supports it.
