@@ -11,15 +11,15 @@ data:
         name: knativeeventings.operator.knative.dev
       spec:
         additionalPrinterColumns:
-        - JSONPath: .status.version
-          name: Version
-          type: string
-        - JSONPath: .status.conditions[?(@.type=="Ready")].status
-          name: Ready
-          type: string
-        - JSONPath: .status.conditions[?(@.type=="Ready")].reason
-          name: Reason
-          type: string
+          - JSONPath: .status.version
+            name: Version
+            type: string
+          - JSONPath: .status.conditions[?(@.type=="Ready")].status
+            name: Ready
+            type: string
+          - JSONPath: .status.conditions[?(@.type=="Ready")].reason
+            name: Reason
+            type: string
         group: operator.knative.dev
         names:
           kind: KnativeEventing
@@ -47,6 +47,14 @@ data:
               spec:
                 description: Spec defines the desired state of KnativeEventing
                 properties:
+                  config:
+                    additionalProperties:
+                      additionalProperties:
+                        type: string
+                      type: object
+                    description: A means to override the corresponding entries in the upstream
+                      configmaps
+                    type: object
                   registry:
                     description: A means to override the corresponding deployment images in the upstream.
                       This affects both apps/v1.Deployment and caching.internal.knative.dev/v1alpha1.Image.
@@ -71,6 +79,10 @@ data:
                             name:
                               description: The name of the secret.
                               type: string
+                  defaultBrokerClass:
+                    description: The default broker type to use for the brokers Knative creates.
+                      If no value is provided, ChannelBasedBroker will be used.
+                    type: string
                 type: object
               status:
                 properties:
@@ -80,9 +92,9 @@ data:
                 type: object
         version: v1alpha1
         versions:
-        - name: v1alpha1
-          served: true
-          storage: true
+          - name: v1alpha1
+            served: true
+            storage: true
     - apiVersion: apiextensions.k8s.io/v1beta1
       kind: CustomResourceDefinition
       metadata:
@@ -95,7 +107,7 @@ data:
         - JSONPath: .status.conditions[?(@.type=="Ready")].status
           name: Ready
           type: string
-        - JSONPath: .status.conditions[?(@.type=="Ready")].reason
+        - JSONPath: ".status.conditions[?(@.type==\"Ready\")].reason"
           name: Reason
           type: string
         group: operator.knative.dev
@@ -130,15 +142,6 @@ data:
               spec:
                 description: Spec defines the desired state of KnativeServing
                 properties:
-                  cluster-local-gateway:
-                    description: A means to override the cluster-local-gateway
-                    properties:
-                      selector:
-                        additionalProperties:
-                          type: string
-                        description: The selector for the ingress-gateway.
-                        type: object
-                    type: object
                   config:
                     additionalProperties:
                       additionalProperties:
@@ -147,56 +150,62 @@ data:
                     description: A means to override the corresponding entries in the upstream
                       configmaps
                     type: object
-                  controller-custom-certs:
-                    description: Enabling the controller to trust registries with self-signed
-                      certificates
-                    properties:
-                      name:
-                        description: The name of the ConfigMap or Secret
-                        type: string
-                      type:
-                        description: One of ConfigMap or Secret
-                        enum:
-                        - ConfigMap
-                        - Secret
-                        - ""
-                        type: string
-                    type: object
                   knative-ingress-gateway:
                     description: A means to override the knative-ingress-gateway
+                    type: object
                     properties:
                       selector:
-                        additionalProperties:
-                          type: string
                         description: The selector for the ingress-gateway.
                         type: object
+                        additionalProperties:
+                          type: string
+                  cluster-local-gateway:
+                    description: A means to override the cluster-local-gateway
                     type: object
+                    properties:
+                      selector:
+                        description: The selector for the ingress-gateway.
+                        type: object
+                        additionalProperties:
+                          type: string
                   registry:
-                    description: A means to override the corresponding deployment images
-                      in the upstream. This affects both apps/v1.Deployment and caching.internal.knative.dev/v1alpha1.Image.
+                    description: A means to override the corresponding deployment images in the upstream.
+                      This affects both apps/v1.Deployment and caching.internal.knative.dev/v1alpha1.Image.
+                    type: object
                     properties:
                       default:
-                        description: The default image reference template to use for all
-                          knative images. Takes the form of example-registry.io/custom/path/${NAME}:custom-tag
+                        description: The default image reference template to use for all knative images.
+                          Takes the form of example-registry.io/custom/path/${NAME}:custom-tag
                         type: string
+                      override:
+                        description: A map of a container name or image name to the full image location of the individual knative image.
+                        type: object
+                        additionalProperties:
+                          type: string
                       imagePullSecrets:
-                        description: A list of secrets to be used when pulling the knative
-                          images. The secret must be created in the same namespace as the
-                          knative-serving deployments, and not the namespace of this resource.
+                        description: A list of secrets to be used when pulling the knative images. The secret must be created in the
+                          same namespace as the knative-serving deployments, and not the namespace of this resource.
+                        type: array
                         items:
+                          type: object
                           properties:
                             name:
                               description: The name of the secret.
                               type: string
-                          type: object
-                        type: array
-                      override:
-                        additionalProperties:
-                          type: string
-                        description: A map of a container name or image name to the full
-                          image location of the individual knative image.
-                        type: object
+                  controller-custom-certs:
+                    description: Enabling the controller to trust registries with self-signed certificates
                     type: object
+                    properties:
+                      type:
+                        description: One of ConfigMap or Secret
+                        type: string
+                        enum:
+                        - ConfigMap
+                        - Secret
+                        - ""
+                      name:
+                        description: The name of the ConfigMap or Secret
+                        type: string
                   high-availability:
                     description: Allows specification of HA control plane
                     type: object
@@ -205,6 +214,45 @@ data:
                         description: The number of replicas that HA parts of the control plane will be scaled to
                         type: integer
                         minimum: 1
+                  resources:
+                    description: A mapping of deployment name to resource requirements
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        container:
+                          description: The name of the container
+                          type: string
+                        requests:
+                          type: object
+                          properties:
+                            memory:
+                              type: string
+                              pattern: ^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$
+                            cpu:
+                              type: string
+                              pattern: ^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$
+                            storage:
+                              type: string
+                              pattern: ^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$
+                            ephemeral-storage:
+                              type: string
+                              pattern: ^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$
+                        limits:
+                          type: object
+                          properties:
+                            memory:
+                              type: string
+                              pattern: ^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$
+                            cpu:
+                              type: string
+                              pattern: ^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$
+                            storage:
+                              type: string
+                              pattern: ^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$
+                            ephemeral-storage:
+                              type: string
+                              pattern: ^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$
                 type: object
               status:
                 description: Status defines the observed state of KnativeServing
@@ -256,6 +304,8 @@ data:
       kind: ClusterServiceVersion
       metadata:
         annotations:
+          operatorframework.io/suggested-namespace: "openshift-serverless"
+          operatorframework.io/cluster-monitoring: "true"
           alm-examples: |-
             [
               {
@@ -514,7 +564,7 @@ data:
                             fieldPath: metadata.namespace
                       - name: METRICS_DOMAIN
                         value: knative.dev/serving-operator
-                      image: registry.svc.ci.openshift.org/openshift/knative-v0.13.3:knative-serving-operator
+                      image: registry.svc.ci.openshift.org/openshift/knative-v0.14.2:knative-serving-operator
                       imagePullPolicy: IfNotPresent
                       name: knative-serving-operator
                       ports:
@@ -548,7 +598,7 @@ data:
                             fieldPath: metadata.namespace
                       - name: METRICS_DOMAIN
                         value: knative.dev/eventing-operator
-                      image: registry.svc.ci.openshift.org/openshift/knative-v0.13.3:knative-eventing-operator
+                      image: registry.svc.ci.openshift.org/openshift/knative-v0.14.2:knative-eventing-operator
                       imagePullPolicy: IfNotPresent
                       name: knative-eventing-operator
                       ports:
@@ -594,45 +644,53 @@ data:
                           - name: CONSOLECLIDOWNLOAD_MANIFEST_PATH
                             value: deploy/resources/console_cli_download_kn_resources.yaml
                           - name: IMAGE_queue-proxy
-                            value: registry.svc.ci.openshift.org/openshift/knative-v0.13.3:knative-serving-queue
+                            value: registry.svc.ci.openshift.org/openshift/knative-v0.14.1:knative-serving-queue
                           - name: IMAGE_activator
-                            value: registry.svc.ci.openshift.org/openshift/knative-v0.13.3:knative-serving-activator
+                            value: registry.svc.ci.openshift.org/openshift/knative-v0.14.1:knative-serving-activator
                           - name: IMAGE_autoscaler
-                            value: registry.svc.ci.openshift.org/openshift/knative-v0.13.3:knative-serving-autoscaler
+                            value: registry.svc.ci.openshift.org/openshift/knative-v0.14.1:knative-serving-autoscaler
                           - name: IMAGE_autoscaler-hpa
-                            value: registry.svc.ci.openshift.org/openshift/knative-v0.13.3:knative-serving-autoscaler-hpa
+                            value: registry.svc.ci.openshift.org/openshift/knative-v0.14.1:knative-serving-autoscaler-hpa
                           - name: IMAGE_controller
-                            value: registry.svc.ci.openshift.org/openshift/knative-v0.13.3:knative-serving-controller
+                            value: registry.svc.ci.openshift.org/openshift/knative-v0.14.1:knative-serving-controller
                           - name: IMAGE_webhook
-                            value: registry.svc.ci.openshift.org/openshift/knative-v0.13.3:knative-serving-webhook
+                            value: registry.svc.ci.openshift.org/openshift/knative-v0.14.1:knative-serving-webhook
                           - name: IMAGE_3scale-kourier-gateway
-                            value: docker.io/maistra/proxyv2-ubi8:1.0.8
+                            value: docker.io/maistra/proxyv2-ubi8:1.1.0
                           - name: IMAGE_3scale-kourier-control
-                            value: registry.svc.ci.openshift.org/openshift/knative-v0.13.3:kourier
-                          - name: IMAGE_eventing-controller
-                            value: registry.svc.ci.openshift.org/openshift/knative-v0.13.0:knative-eventing-controller
-                          - name: IMAGE_eventing-webhook
-                            value: registry.svc.ci.openshift.org/openshift/knative-v0.13.0:knative-eventing-webhook
-                          - name: IMAGE_broker-controller
-                            value: registry.svc.ci.openshift.org/openshift/knative-v0.13.0:knative-eventing-channel-broker
-                          - name: IMAGE_imc-controller
-                            value: registry.svc.ci.openshift.org/openshift/knative-v0.13.0:knative-eventing-channel-controller
-                          - name: IMAGE_imc-dispatcher
-                            value: registry.svc.ci.openshift.org/openshift/knative-v0.13.0:knative-eventing-channel-dispatcher
-                          - name: IMAGE_CRONJOB_RA_IMAGE
-                            value: registry.svc.ci.openshift.org/openshift/knative-v0.13.0:knative-eventing-cronjob-receive-adapter
+                            value: registry.svc.ci.openshift.org/openshift/knative-v0.14.1:kourier
+                          - name: IMAGE_eventing-controller__eventing-controller
+                            value: registry.svc.ci.openshift.org/openshift/knative-v0.14.2:knative-eventing-controller
+                          - name: IMAGE_eventing-webhook__eventing-webhook
+                            value: registry.svc.ci.openshift.org/openshift/knative-v0.14.2:knative-eventing-webhook
+                          - name: IMAGE_broker-controller__eventing-controller
+                            value: registry.svc.ci.openshift.org/openshift/knative-v0.14.2:knative-eventing-channel-broker
+                          - name: IMAGE_broker-filter__filter
+                            value: registry.svc.ci.openshift.org/openshift/knative-v0.14.2:knative-eventing-mtbroker-filter
+                          - name: IMAGE_broker-ingress__ingress
+                            value: registry.svc.ci.openshift.org/openshift/knative-v0.14.2:knative-eventing-mtbroker-ingress
+                          - name: IMAGE_mt-broker-controller__eventing-controller
+                            value: registry.svc.ci.openshift.org/openshift/knative-v0.14.2:knative-eventing-mtchannel-broker
+                          - name: IMAGE_imc-controller__controller
+                            value: registry.svc.ci.openshift.org/openshift/knative-v0.14.2:knative-eventing-channel-controller
+                          - name: IMAGE_imc-dispatcher__dispatcher
+                            value: registry.svc.ci.openshift.org/openshift/knative-v0.14.2:knative-eventing-channel-dispatcher
+                          - name: IMAGE_v0.14.0-upgrade__upgrade-brokers
+                            value: registry.svc.ci.openshift.org/openshift/knative-v0.14.2:knative-eventing-upgrade-v0-14-0
                           - name: IMAGE_PING_IMAGE
-                            value: registry.svc.ci.openshift.org/openshift/knative-v0.13.0:knative-eventing-ping
+                            value: registry.svc.ci.openshift.org/openshift/knative-v0.14.2:knative-eventing-adapter
+                          - name: IMAGE_JOB_RUNNER_IMAGE
+                            value: registry.svc.ci.openshift.org/openshift/knative-v0.14.2:knative-eventing-jobrunner
                           - name: IMAGE_APISERVER_RA_IMAGE
-                            value: registry.svc.ci.openshift.org/openshift/knative-v0.13.0:knative-eventing-apiserver-receive-adapter
+                            value: registry.svc.ci.openshift.org/openshift/knative-v0.14.2:knative-eventing-apiserver-receive-adapter
                           - name: IMAGE_BROKER_INGRESS_IMAGE
-                            value: registry.svc.ci.openshift.org/openshift/knative-v0.13.0:knative-eventing-ingress
+                            value: registry.svc.ci.openshift.org/openshift/knative-v0.14.2:knative-eventing-broker-ingress
                           - name: IMAGE_BROKER_FILTER_IMAGE
-                            value: registry.svc.ci.openshift.org/openshift/knative-v0.13.0:knative-eventing-filter
+                            value: registry.svc.ci.openshift.org/openshift/knative-v0.14.2:knative-eventing-broker-filter
                           - name: IMAGE_DISPATCHER_IMAGE
-                            value: registry.svc.ci.openshift.org/openshift/knative-v0.13.0:knative-eventing-channel-dispatcher
+                            value: registry.svc.ci.openshift.org/openshift/knative-v0.14.2:knative-eventing-channel-dispatcher
                           - name: IMAGE_KN_CLI_ARTIFACTS
-                            value: registry.svc.ci.openshift.org/openshift/knative-v0.13.2:kn-cli-artifacts
+                            value: registry.svc.ci.openshift.org/openshift/knative-v0.14.0:kn-cli-artifacts
             - name: knative-openshift-ingress
               spec:
                 replicas: 1
@@ -743,53 +801,61 @@ data:
           name: Red Hat, Inc.
         relatedImages:
           - name: IMAGE_QUEUE
-            image: registry.svc.ci.openshift.org/openshift/knative-v0.13.3:knative-serving-queue
+            image: registry.svc.ci.openshift.org/openshift/knative-v0.14.1:knative-serving-queue
           - name: IMAGE_activator
-            image: registry.svc.ci.openshift.org/openshift/knative-v0.13.3:knative-serving-activator
+            image: registry.svc.ci.openshift.org/openshift/knative-v0.14.1:knative-serving-activator
           - name: IMAGE_autoscaler
-            image: registry.svc.ci.openshift.org/openshift/knative-v0.13.3:knative-serving-autoscaler
+            image: registry.svc.ci.openshift.org/openshift/knative-v0.14.1:knative-serving-autoscaler
           - name: IMAGE_autoscaler-hpa
-            image: registry.svc.ci.openshift.org/openshift/knative-v0.13.3:knative-serving-autoscaler-hpa
+            image: registry.svc.ci.openshift.org/openshift/knative-v0.14.1:knative-serving-autoscaler-hpa
           - name: IMAGE_controller
-            image: registry.svc.ci.openshift.org/openshift/knative-v0.13.3:knative-serving-controller
+            image: registry.svc.ci.openshift.org/openshift/knative-v0.14.1:knative-serving-controller
           - name: IMAGE_webhook
-            image: registry.svc.ci.openshift.org/openshift/knative-v0.13.3:knative-serving-webhook
+            image: registry.svc.ci.openshift.org/openshift/knative-v0.14.1:knative-serving-webhook
           - name: IMAGE_3scale-kourier-control
-            image: registry.svc.ci.openshift.org/openshift/knative-v0.13.3:kourier
+            image: registry.svc.ci.openshift.org/openshift/knative-v0.14.1:kourier
           - name: IMAGE_3scale-kourier-gateway
-            image: docker.io/maistra/proxyv2-ubi8:1.0.8
+            image: docker.io/maistra/proxyv2-ubi8:1.1.0
           - name: knative-serving-operator
-            image: registry.svc.ci.openshift.org/openshift/knative-v0.13.3:knative-serving-operator
+            image: registry.svc.ci.openshift.org/openshift/knative-v0.14.2:knative-serving-operator
           - name: knative-operator
             image: registry.svc.ci.openshift.org/openshift/openshift-serverless-nightly:knative-operator
           - name: knative-openshift-ingress
             image: registry.svc.ci.openshift.org/openshift/openshift-serverless-nightly:knative-openshift-ingress
           - name: knative-eventing-operator
-            image: registry.svc.ci.openshift.org/openshift/knative-v0.13.3:knative-eventing-operator
-          - name: IMAGE_eventing-controller
-            image: registry.svc.ci.openshift.org/openshift/knative-v0.13.0:knative-eventing-controller
-          - name: IMAGE_eventing-webhook
-            image: registry.svc.ci.openshift.org/openshift/knative-v0.13.0:knative-eventing-webhook
-          - name: IMAGE_broker-controller
-            image: registry.svc.ci.openshift.org/openshift/knative-v0.13.0:knative-eventing-channel-broker
-          - name: IMAGE_imc-controller
-            image: registry.svc.ci.openshift.org/openshift/knative-v0.13.0:knative-eventing-channel-controller
-          - name: IMAGE_imc-dispatcher
-            image: registry.svc.ci.openshift.org/openshift/knative-v0.13.0:knative-eventing-channel-dispatcher
-          - name: IMAGE_CRONJOB_RA_IMAGE
-            image: registry.svc.ci.openshift.org/openshift/knative-v0.13.0:knative-eventing-cronjob-receive-adapter
+            image: registry.svc.ci.openshift.org/openshift/knative-v0.14.2:knative-eventing-operator
+          - name: IMAGE_eventing-controller__eventing-controller
+            image: registry.svc.ci.openshift.org/openshift/knative-v0.14.2:knative-eventing-controller
+          - name: IMAGE_eventing-webhook__eventing-webhook
+            image: registry.svc.ci.openshift.org/openshift/knative-v0.14.2:knative-eventing-webhook
+          - name: IMAGE_broker-controller__eventing-controller
+            image: registry.svc.ci.openshift.org/openshift/knative-v0.14.2:knative-eventing-channel-broker
+          - name: IMAGE_broker-filter__filter
+            image: registry.svc.ci.openshift.org/openshift/knative-v0.14.2:knative-eventing-mtbroker-filter
+          - name: IMAGE_broker-ingress__ingress
+            image: registry.svc.ci.openshift.org/openshift/knative-v0.14.2:knative-eventing-mtbroker-ingress
+          - name: IMAGE_mt-broker-controller__eventing-controller
+            image: registry.svc.ci.openshift.org/openshift/knative-v0.14.2:knative-eventing-mtchannel-broker
+          - name: IMAGE_imc-controller__controller
+            image: registry.svc.ci.openshift.org/openshift/knative-v0.14.2:knative-eventing-channel-controller
+          - name: IMAGE_imc-dispatcher__dispatcher
+            image: registry.svc.ci.openshift.org/openshift/knative-v0.14.2:knative-eventing-channel-dispatcher
+          - name: IMAGE_v0.14.0-upgrade__upgrade-brokers
+            image: registry.svc.ci.openshift.org/openshift/knative-v0.14.2:knative-eventing-upgrade-v0-14-0
           - name: IMAGE_PING_IMAGE
-            image: registry.svc.ci.openshift.org/openshift/knative-v0.13.0:knative-eventing-ping
+            image: registry.svc.ci.openshift.org/openshift/knative-v0.14.2:knative-eventing-adapter
+          - name: IMAGE_JOB_RUNNER_IMAGE
+            image: registry.svc.ci.openshift.org/openshift/knative-v0.14.2:knative-eventing-jobrunner
           - name: IMAGE_APISERVER_RA_IMAGE
-            image: registry.svc.ci.openshift.org/openshift/knative-v0.13.0:knative-eventing-apiserver-receive-adapter
+            image: registry.svc.ci.openshift.org/openshift/knative-v0.14.2:knative-eventing-apiserver-receive-adapter
           - name: IMAGE_BROKER_INGRESS_IMAGE
-            image: registry.svc.ci.openshift.org/openshift/knative-v0.13.0:knative-eventing-ingress
+            image: registry.svc.ci.openshift.org/openshift/knative-v0.14.2:knative-eventing-broker-ingress
           - name: IMAGE_BROKER_FILTER_IMAGE
-            image: registry.svc.ci.openshift.org/openshift/knative-v0.13.0:knative-eventing-filter
+            image: registry.svc.ci.openshift.org/openshift/knative-v0.14.2:knative-eventing-broker-filter
           - name: IMAGE_DISPATCHER_IMAGE
-            image: registry.svc.ci.openshift.org/openshift/knative-v0.13.0:knative-eventing-channel-dispatcher
+            image: registry.svc.ci.openshift.org/openshift/knative-v0.14.2:knative-eventing-channel-dispatcher
           - name: IMAGE_KN_CLI_ARTIFACTS
-            image: registry.svc.ci.openshift.org/openshift/knative-v0.13.2:kn-cli-artifacts
+            image: registry.svc.ci.openshift.org/openshift/knative-v0.14.0:kn-cli-artifacts
         version: 1.8.0
   packages: |-
     - packageName: serverless-operator
