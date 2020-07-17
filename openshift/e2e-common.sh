@@ -193,13 +193,21 @@ function run_e2e_tests(){
 
   # Keep this in sync with test/ha/ha.go
   readonly REPLICAS=2
-  # TODO: increase the size of buckets when deployed chaosduck.
-  readonly BUCKETS=1
+  readonly BUCKETS=10
 
   # Keep the bucket count in sync with test/ha/ha.go
   # TODO: configure it in KnativeServing when operator supports it.
   kubectl -n "${SYSTEM_NAMESPACE}" patch configmap/config-leader-election --type=merge \
     --patch='{"data":{"buckets": "'${BUCKETS}'"}}' || failed=1
+
+  for deployment in controller autoscaler-hpa webhook; do
+    # Make sure all pods run in leader-elected mode.
+    kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "$deployment" --replicas=0 || failed=1
+    # Give it time to kill the pods.
+    sleep 5
+    # Scale up components for HA tests
+    kubectl -n "${SYSTEM_NAMESPACE}" scale deployment "$deployment" --replicas="${REPLICAS}" || failed=1
+  done
 
   # Changing the bucket count and cycling the controllers will leave around stale
   # lease resources at the old sharding factor, so clean these up.
