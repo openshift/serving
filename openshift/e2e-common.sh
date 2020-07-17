@@ -268,7 +268,7 @@ function run_e2e_tests(){
   # Define short -spoofinterval to ensure frequent probing while stopping pods
   go_test_e2e -tags=e2e -timeout=15m -failfast -parallel=1 \
     ./test/ha \
-    -replicas="${REPLICAS:-1}" -buckets="${BUCKETS:-1}" -spoofinterval="10ms" \
+    -replicas="${REPLICAS}" -buckets="${BUCKETS}" -spoofinterval="10ms" \
     --kubeconfig "$KUBECONFIG" \
     --imagetemplate "$TEST_IMAGE_TEMPLATE" \
     --resolvabledomain "$(ingress_class)"|| failed=3
