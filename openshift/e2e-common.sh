@@ -192,9 +192,9 @@ function run_e2e_tests(){
   local failed=0
 
   # Keep this in sync with test/ha/ha.go
-  readonly REPLICAS=2
+  readonly OPENSHIFT_REPLICAS=2
   # TODO: Increase BUCKETS size more than 1 when operator supports configmap/config-leader-election setting.
-  readonly BUCKETS=1
+  readonly OPENSHIFT_BUCKETS=1
 
   # Changing the bucket count and cycling the controllers will leave around stale
   # lease resources at the old sharding factor, so clean these up.
@@ -245,7 +245,7 @@ function run_e2e_tests(){
   # Prevent HPA from scaling to make the tests more stable
   oc -n "$SERVING_NAMESPACE" patch hpa activator \
   --type 'merge' \
-  --patch '{"spec": {"maxReplicas": '${REPLICAS}', "minReplicas": '${REPLICAS}'}}' || return 1
+  --patch '{"spec": {"maxReplicas": '${OPENSHIFT_REPLICAS}', "minReplicas": '${OPENSHIFT_REPLICAS}'}}' || return 1
 
   # Use sed as the -spoofinterval parameter is not available yet
   sed "s/\(.*requestInterval =\).*/\1 10 * time.Millisecond/" -i vendor/knative.dev/pkg/test/spoof/spoof.go
@@ -254,7 +254,7 @@ function run_e2e_tests(){
   # Define short -spoofinterval to ensure frequent probing while stopping pods
   go_test_e2e -tags=e2e -timeout=15m -failfast -parallel=1 \
     ./test/ha \
-    -replicas="${REPLICAS}" -buckets="${BUCKETS}" -spoofinterval="10ms" \
+    -replicas="${OPENSHIFT_REPLICAS}" -buckets="${OPENSHIFT_BUCKETS}" -spoofinterval="10ms" \
     --kubeconfig "$KUBECONFIG" \
     --imagetemplate "$TEST_IMAGE_TEMPLATE" \
     --resolvabledomain "$(ingress_class)"|| failed=3
