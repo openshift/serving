@@ -185,6 +185,22 @@ function prepare_knative_serving_tests {
   export INGRESS_CLASS=kourier.ingress.networking.knative.dev
 }
 
+function wait_for_leader_controller() {
+  echo -n "Waiting for a leader Controller"
+  for i in {1..150}; do  # timeout after 5 minutes
+    local leader=$(kubectl get lease controller -n "${SYSTEM_NAMESPACE}" -ojsonpath='{.spec.holderIdentity}' | cut -d"_" -f1)
+    # Make sure the leader pod exists.
+    if [ -n "${leader}" ] && kubectl get pod "${leader}" -n "${SYSTEM_NAMESPACE}"  >/dev/null 2>&1; then
+      echo -e "\nNew leader Controller has been elected"
+      return 0
+    fi
+    echo -n "."
+    sleep 2
+  done
+  echo -e "\n\nERROR: timeout waiting for leader controller"
+  return 1
+}
+
 function run_e2e_tests(){
   header "Running tests"
 
@@ -201,7 +217,7 @@ function run_e2e_tests(){
   kubectl -n ${SYSTEM_NAMESPACE} delete leases --all
 
   # Wait for a new leader Controller to prevent race conditions during service reconciliation
-  wait_for_leader_controller || failed=1
+  wait_for_leader_controller || return 1
 
   # Dump the leases post-setup.
   header "Leaders"
