@@ -606,21 +606,21 @@ data:
                           - name: CONSOLECLIDOWNLOAD_MANIFEST_PATH
                             value: deploy/resources/console_cli_download_kn_resources.yaml
                           - name: IMAGE_queue-proxy
-                            value: registry.svc.ci.openshift.org/openshift/knative-v0.14.1:knative-serving-queue
+                            value: registry.svc.ci.openshift.org/openshift/knative-nightly:knative-serving-queue
                           - name: IMAGE_activator
-                            value: registry.svc.ci.openshift.org/openshift/knative-v0.14.1:knative-serving-activator
+                            value: registry.svc.ci.openshift.org/openshift/knative-nightly:knative-serving-activator
                           - name: IMAGE_autoscaler
-                            value: registry.svc.ci.openshift.org/openshift/knative-v0.14.1:knative-serving-autoscaler
+                            value: registry.svc.ci.openshift.org/openshift/knative-nightly:knative-serving-autoscaler
                           - name: IMAGE_autoscaler-hpa
-                            value: registry.svc.ci.openshift.org/openshift/knative-v0.14.1:knative-serving-autoscaler-hpa
+                            value: registry.svc.ci.openshift.org/openshift/knative-nightly:knative-serving-autoscaler-hpa
                           - name: IMAGE_controller
-                            value: registry.svc.ci.openshift.org/openshift/knative-v0.14.1:knative-serving-controller
+                            value: registry.svc.ci.openshift.org/openshift/knative-nightly:knative-serving-controller
                           - name: IMAGE_webhook
-                            value: registry.svc.ci.openshift.org/openshift/knative-v0.14.1:knative-serving-webhook
+                            value: registry.svc.ci.openshift.org/openshift/knative-nightly:knative-serving-webhook
                           - name: IMAGE_3scale-kourier-gateway
                             value: docker.io/maistra/proxyv2-ubi8:1.1.0
                           - name: IMAGE_3scale-kourier-control
-                            value: registry.svc.ci.openshift.org/openshift/knative-v0.14.1:kourier
+                            value: registry.svc.ci.openshift.org/openshift/knative-nightly:kourier
                           - name: IMAGE_eventing-controller__eventing-controller
                             value: registry.svc.ci.openshift.org/openshift/knative-v0.14.2:knative-eventing-controller
                           - name: IMAGE_eventing-webhook__eventing-webhook
@@ -763,19 +763,19 @@ data:
           name: Red Hat, Inc.
         relatedImages:
           - name: IMAGE_QUEUE
-            image: registry.svc.ci.openshift.org/openshift/knative-v0.14.1:knative-serving-queue
+            image: registry.svc.ci.openshift.org/openshift/knative-nightly:knative-serving-queue
           - name: IMAGE_activator
-            image: registry.svc.ci.openshift.org/openshift/knative-v0.14.1:knative-serving-activator
+            image: registry.svc.ci.openshift.org/openshift/knative-nightly:knative-serving-activator
           - name: IMAGE_autoscaler
-            image: registry.svc.ci.openshift.org/openshift/knative-v0.14.1:knative-serving-autoscaler
+            image: registry.svc.ci.openshift.org/openshift/knative-nightly:knative-serving-autoscaler
           - name: IMAGE_autoscaler-hpa
-            image: registry.svc.ci.openshift.org/openshift/knative-v0.14.1:knative-serving-autoscaler-hpa
+            image: registry.svc.ci.openshift.org/openshift/knative-nightly:knative-serving-autoscaler-hpa
           - name: IMAGE_controller
-            image: registry.svc.ci.openshift.org/openshift/knative-v0.14.1:knative-serving-controller
+            image: registry.svc.ci.openshift.org/openshift/knative-nightly:knative-serving-controller
           - name: IMAGE_webhook
-            image: registry.svc.ci.openshift.org/openshift/knative-v0.14.1:knative-serving-webhook
+            image: registry.svc.ci.openshift.org/openshift/knative-nightly:knative-serving-webhook
           - name: IMAGE_3scale-kourier-control
-            image: registry.svc.ci.openshift.org/openshift/knative-v0.14.1:kourier
+            image: registry.svc.ci.openshift.org/openshift/knative-nightly:kourier
           - name: IMAGE_3scale-kourier-gateway
             image: docker.io/maistra/proxyv2-ubi8:1.1.0
           - name: knative-serving-operator
