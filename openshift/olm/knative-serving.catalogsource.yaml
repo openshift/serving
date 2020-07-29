@@ -606,17 +606,19 @@ data:
                           - name: CONSOLECLIDOWNLOAD_MANIFEST_PATH
                             value: deploy/resources/console_cli_download_kn_resources.yaml
                           - name: IMAGE_queue-proxy
-                            value: registry.svc.ci.openshift.org/openshift/knative-v0.14.1:knative-serving-queue
+                            value: registry.svc.ci.openshift.org/openshift/knative-foo:knative-serving-queue
                           - name: IMAGE_activator
-                            value: registry.svc.ci.openshift.org/openshift/knative-v0.14.1:knative-serving-activator
+                            value: registry.svc.ci.openshift.org/openshift/knative-foo:knative-serving-activator
                           - name: IMAGE_autoscaler
-                            value: registry.svc.ci.openshift.org/openshift/knative-v0.14.1:knative-serving-autoscaler
+                            value: registry.svc.ci.openshift.org/openshift/knative-foo:knative-serving-autoscaler
                           - name: IMAGE_autoscaler-hpa
-                            value: registry.svc.ci.openshift.org/openshift/knative-v0.14.1:knative-serving-autoscaler-hpa
+                            value: registry.svc.ci.openshift.org/openshift/knative-foo:knative-serving-autoscaler-hpa
                           - name: IMAGE_controller
-                            value: registry.svc.ci.openshift.org/openshift/knative-v0.14.1:knative-serving-controller
+                            value: registry.svc.ci.openshift.org/openshift/knative-foo:knative-serving-controller
                           - name: IMAGE_webhook
-                            value: registry.svc.ci.openshift.org/openshift/knative-v0.14.1:knative-serving-webhook
+                            value: registry.svc.ci.openshift.org/openshift/knative-foo:knative-serving-webhook
+                          - name: IMAGE_storage-version-migration
+                            value: registry.svc.ci.openshift.org/openshift/knative-foo:knative-serving-storage-version-migration
                           - name: IMAGE_3scale-kourier-gateway
                             value: docker.io/maistra/proxyv2-ubi8:1.1.0
                           - name: IMAGE_3scale-kourier-control
