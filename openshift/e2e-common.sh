@@ -212,6 +212,10 @@ function run_e2e_tests(){
   # Enable allow-zero-initial-scale before running e2e tests (for test/e2e/initial_scale_test.go)
   oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "autoscaler": {"allow-zero-initial-scale": "true"}}}}' || fail_test
 
+  # Set SideEffects to None. Currently it does not have the SideEffects setting so Knative's dryrun does not work.
+  # see: https://github.com/openshift/cloud-credential-operator/issues/230
+  oc patch mutatingwebhookconfigurations pod-identity-webhook -p '{"webhooks": [{"name": "sidecar-injector.istio.io", "sideEffects": "None"}]}' || true
+
   # Give the controller time to sync with the rest of the system components.
   sleep 30
 
