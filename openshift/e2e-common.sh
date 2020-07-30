@@ -210,7 +210,7 @@ function run_e2e_tests(){
   kubectl get lease -n "${SYSTEM_NAMESPACE}"
 
   # Enable allow-zero-initial-scale before running e2e tests (for test/e2e/initial_scale_test.go)
-  oc annotate  -n knative-serving configmaps config-autoscaler  knative.dev/example-checksum-
+  oc annotate  -n ${SYSTEM_NAMESPACE} configmaps config-autoscaler  knative.dev/example-checksum-
   oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "autoscaler": {"allow-zero-initial-scale": "true"}}}}' || fail_test
 
   # Set SideEffects to None. Currently it does not have the SideEffects setting so Knative's dryrun does not work.
