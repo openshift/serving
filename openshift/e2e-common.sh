@@ -210,8 +210,7 @@ function run_e2e_tests(){
   kubectl get lease -n "${SYSTEM_NAMESPACE}"
 
   # Enable allow-zero-initial-scale before running e2e tests (for test/e2e/initial_scale_test.go)
-  # oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "autoscaler": {"allow-zero-initial-scale": "true"}}}}' || fail_test
-  oc -n ${SYSTEM_NAMESPACE} patch configmap/config-autoscaler --type=merge --patch='{"data":{"allow-zero-initial-scale":"true"}}' || fail_test
+  oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "autoscaler": {"allow-zero-initial-scale": "true"}}}}' || fail_test
 
   # Set SideEffects to None. Currently it does not have the SideEffects setting so Knative's dryrun does not work.
   # see: https://github.com/openshift/cloud-credential-operator/issues/230
@@ -219,6 +218,10 @@ function run_e2e_tests(){
 
   # Give the controller time to sync with the rest of the system components.
   sleep 30
+
+  # dump for debug
+  oc get -n ${SYSTEM_NAMESPACE}  knativeserving/knative-serving -o yaml
+  oc get -n ${SYSTEM_NAMESPACE}  configmap/config-autoscaler -o yaml
 
   if [ -n "$test_name" ]; then
     go_test_e2e -tags=e2e -timeout=15m -parallel=1 \
