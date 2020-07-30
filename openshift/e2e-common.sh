@@ -209,6 +209,9 @@ function run_e2e_tests(){
   header "Leaders"
   kubectl get lease -n "${SYSTEM_NAMESPACE}"
 
+  # Enable allow-zero-initial-scale before running e2e tests (for test/e2e/initial_scale_test.go)
+  oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "autoscaler": {"allow-zero-initial-scale": "true"}}}}' || fail_test
+
   # Give the controller time to sync with the rest of the system components.
   sleep 30
 

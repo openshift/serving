@@ -41,11 +41,7 @@ function resolve_file() {
   echo "---" >> "$to"
   # 1. Rewrite image references
   # 2. Update config map entry
-  # 3. Remove comment lines
-  # 4. Remove empty lines
   sed -e "s+\(.* image: \)\(knative.dev\)\(.*/\)\(.*\)+\1${image_prefix}\4${image_tag}+g" \
       -e "s+\(.* queueSidecarImage: \)\(knative.dev\)\(.*/\)\(.*\)+\1${image_prefix}\4${image_tag}+g" \
-      -e '/^[ \t]*#/d' \
-      -e '/^[ \t]*$/d' \
       "$file" >> "$to"
 }
