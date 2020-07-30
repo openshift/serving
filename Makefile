@@ -2,11 +2,7 @@
 
 CGO_ENABLED=0
 GOOS=linux
-<<<<<<< HEAD
 CORE_IMAGES=./cmd/activator ./cmd/autoscaler ./cmd/autoscaler-hpa ./cmd/controller ./cmd/queue ./cmd/webhook ./cmd/networking/nscert ./vendor/knative.dev/pkg/apiextensions/storageversion/cmd/migrate
-=======
-CORE_IMAGES=./cmd/activator ./cmd/autoscaler ./cmd/autoscaler-hpa ./cmd/controller ./cmd/queue ./cmd/webhook ./cmd/networking/nscert
->>>>>>> :open_file_folder: Update openshift specific files.
 TEST_IMAGES=$(shell find ./test/test_images -mindepth 1 -maxdepth 1 -type d)
 DOCKER_REPO_OVERRIDE=
 BRANCH=
