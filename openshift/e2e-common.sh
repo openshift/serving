@@ -127,13 +127,23 @@ function install_knative(){
   # Wait for the CRD to appear
   timeout 900 '[[ $(oc get crd | grep -c knativeservings) -eq 0 ]]' || return 1
 
-  # Install Knative Serving
+  # Install Knative Serving with initial values in test/config/config-observability.yaml.
   cat <<-EOF | oc apply -f -
 apiVersion: operator.knative.dev/v1alpha1
 kind: KnativeServing
 metadata:
   name: knative-serving
   namespace: ${SERVING_NAMESPACE}
+spec:
+  config:
+    observability:
+      logging.request-log-template: '{"httpRequest": {"requestMethod": "{{.Request.Method}}",
+        "requestUrl": "{{js .Request.RequestURI}}", "requestSize": "{{.Request.ContentLength}}",
+        "status": {{.Response.Code}}, "responseSize": "{{.Response.Size}}", "userAgent":
+        "{{js .Request.UserAgent}}", "remoteIp": "{{js .Request.RemoteAddr}}", "serverIp":
+        "{{.Revision.PodIP}}", "referer": "{{js .Request.Referer}}", "latency": "{{.Response.Latency}}s",
+        "protocol": "{{.Request.Proto}}"}, "traceId": "{{index .Request.Header "X-B3-Traceid"}}"}'
+      logging.enable-probe-request-log: "true"
 EOF
 
   # Wait for 4 pods to appear first
