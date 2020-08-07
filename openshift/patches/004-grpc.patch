@@ -1,20 +1,19 @@
 diff --git a/test/e2e/grpc_test.go b/test/e2e/grpc_test.go
-index ee9b45a6e..0aa1b9da5 100644
+index 6d0baf6cb..c4bc1807e 100644
 --- a/test/e2e/grpc_test.go
 +++ b/test/e2e/grpc_test.go
-@@ -323,6 +323,7 @@ func streamTest(t *testing.T, resources *v1test.ResourceObjects, clients *test.C
+@@ -321,6 +321,7 @@ func streamTest(t *testing.T, resources *v1test.ResourceObjects, clients *test.C
  func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
  	t.Helper()
  	t.Parallel()
 +	resolvable := false
- 	cancel := logstream.Start(t)
- 	defer cancel()
  
-@@ -352,14 +353,14 @@ func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
- 		url,
+ 	// Setup
+ 	clients := Setup(t)
+@@ -348,13 +349,14 @@ func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
  		v1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
  		"gRPCPingReadyToServe",
--		test.ServingFlags.ResolvableDomain,
+ 		test.ServingFlags.ResolvableDomain,
 +		resolvable,
  		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https),
  	); err != nil {
