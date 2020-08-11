@@ -1,0 +1,59 @@
+diff --git a/openshift/olm/knative-serving.catalogsource.yaml b/openshift/olm/knative-serving.catalogsource.yaml
+index 129615a3f..744375b50 100644
+--- a/openshift/olm/knative-serving.catalogsource.yaml
++++ b/openshift/olm/knative-serving.catalogsource.yaml
+@@ -518,6 +518,8 @@ data:
+                         valueFrom:
+                           fieldRef:
+                             fieldPath: metadata.name
++                      - name: KO_DATA_PATH
++                        value: /tmp/
+                       - name: OPERATOR_NAME
+                         value: knative-serving-operator
+                       - name: SYSTEM_NAMESPACE
+@@ -532,6 +534,16 @@ data:
+                       ports:
+                       - containerPort: 9090
+                         name: metrics
++                      volumeMounts:
++                      - mountPath: /tmp/knative-serving
++                        name: release-manifest
++                    volumes:
++                    - name: release-manifest
++                      configMap:
++                        name: ko-data
++                        items:
++                        - key: knative-serving-ci.yaml
++                          path: knative-serving-ci.yaml
+                     serviceAccountName: knative-serving-operator
+             - name: knative-eventing-operator
+               spec:
+@@ -579,9 +591,19 @@ data:
+                       name: knative-openshift
+                       app: openshift-admission-server
+                   spec:
++                    volumes:
++                    - name: kourier-manifest
++                      configMap:
++                        name: kourier-cm
++                        items:
++                        - key: kourier.yaml
++                          path: kourier.yaml
+                     serviceAccountName: knative-serving-operator
+                     containers:
+                       - name: knative-openshift
++                        volumeMounts:
++                        - mountPath: /tmp/kourier
++                          name: kourier-manifest
+                         image: registry.svc.ci.openshift.org/openshift/openshift-serverless-nightly:knative-operator
+                         command:
+                         - knative-openshift
+@@ -602,7 +624,7 @@ data:
+                           - name: REQUIRED_EVENTING_NAMESPACE
+                             value: "knative-eventing"
+                           - name: KOURIER_MANIFEST_PATH
+-                            value: deploy/resources/kourier/kourier-latest.yaml
++                            value: /tmp/kourier/kourier.yaml
+                           - name: CONSOLECLIDOWNLOAD_MANIFEST_PATH
+                             value: deploy/resources/console_cli_download_kn_resources.yaml
+                           - name: IMAGE_queue-proxy
