@@ -111,6 +111,7 @@ function install_knative(){
 
   # Add env variable manually until operator implments it. See SRVKS-610
   sed -i -e 's/value: "kourier-system"/value: "knative-serving-ingress"/g'  third_party/kourier-latest/kourier.yaml
+  sed -i -e 's/kourier-control.knative-serving/kourier-control.knative-serving-ingress/g'  third_party/kourier-latest/kourier.yaml
 
   sed -i -e "s|docker.io/maistra/proxyv2-ubi8:.*|${KOURIER_GATEWAY}|g"                                         ${CATALOG_SOURCE}
   sed -i -e "s|registry.svc.ci.openshift.org/openshift/knative-.*:kourier|${KOURIER_CONTROL}|g"               ${CATALOG_SOURCE}
