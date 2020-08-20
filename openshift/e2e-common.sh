@@ -154,7 +154,7 @@ EOF
   wait_until_hostname_resolves "$(kubectl get svc -n $SERVING_INGRESS_NAMESPACE kourier -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')"
 
   # Add env variable manually until operator implments it. See SRVKS-610
-  oc set env deployment -n knative-serving-ingress 3scale-kourier-control KOURIER_GATEWAY_NAMESPACE=knative-serving-ingress || return 1
+  sed -i 's/value: "kourier-system"/value: "knative-serving-ingress"/g'  third_party/kourier-latest/kourier.yaml
 
   header "Knative Installed successfully"
 }
