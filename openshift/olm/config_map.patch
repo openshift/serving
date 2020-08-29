@@ -1,34 +1,42 @@
 diff --git a/openshift/olm/knative-serving.catalogsource.yaml b/openshift/olm/knative-serving.catalogsource.yaml
-index 129615a3f..744375b50 100644
+index 21f7bc46b..62b0e28c8 100644
 --- a/openshift/olm/knative-serving.catalogsource.yaml
 +++ b/openshift/olm/knative-serving.catalogsource.yaml
-@@ -518,6 +518,8 @@ data:
+@@ -629,6 +629,8 @@ data:
                          valueFrom:
                            fieldRef:
                              fieldPath: metadata.name
 +                      - name: KO_DATA_PATH
 +                        value: /tmp/
                        - name: OPERATOR_NAME
-                         value: knative-serving-operator
+                         value: knative-operator
                        - name: SYSTEM_NAMESPACE
-@@ -532,6 +534,16 @@ data:
+@@ -643,6 +645,24 @@ data:
                        ports:
                        - containerPort: 9090
                          name: metrics
 +                      volumeMounts:
-+                      - mountPath: /tmp/knative-serving
-+                        name: release-manifest
++                      - mountPath: /tmp/knative-serving/0.15.2
++                        name: serving-manifest
++                      - mountPath: /tmp/knative-eventing/0.15.2
++                        name: eventing-manifest
 +                    volumes:
-+                    - name: release-manifest
++                    - name: serving-manifest
 +                      configMap:
-+                        name: ko-data
++                        name: ko-data-serving
 +                        items:
 +                        - key: knative-serving-ci.yaml
 +                          path: knative-serving-ci.yaml
-                     serviceAccountName: knative-serving-operator
-             - name: knative-eventing-operator
++                    - name: eventing-manifest
++                      configMap:
++                        name: ko-data-eventing
++                        items:
++                        - key: knative-eventing-ci.yaml
++                          path: knative-eventing-ci.yaml
+                     serviceAccountName: knative-operator
+             - name: knative-openshift
                spec:
-@@ -579,9 +591,19 @@ data:
+@@ -656,9 +676,19 @@ data:
                        name: knative-openshift
                        app: openshift-admission-server
                    spec:
@@ -39,7 +47,7 @@ index 129615a3f..744375b50 100644
 +                        items:
 +                        - key: kourier.yaml
 +                          path: kourier.yaml
-                     serviceAccountName: knative-serving-operator
+                     serviceAccountName: knative-operator
                      containers:
                        - name: knative-openshift
 +                        volumeMounts:
@@ -48,7 +56,7 @@ index 129615a3f..744375b50 100644
                          image: registry.svc.ci.openshift.org/openshift/openshift-serverless-nightly:knative-operator
                          command:
                          - knative-openshift
-@@ -602,7 +624,7 @@ data:
+@@ -679,7 +709,7 @@ data:
                            - name: REQUIRED_EVENTING_NAMESPACE
                              value: "knative-eventing"
                            - name: KOURIER_MANIFEST_PATH

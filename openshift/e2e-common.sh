@@ -122,7 +122,7 @@ function install_knative(){
   patch -u ${CATALOG_SOURCE} < openshift/olm/config_map.patch
 
   oc apply -n $OLM_NAMESPACE -f ${CATALOG_SOURCE}
-  timeout 900 '[[ $(oc get pods -n $OLM_NAMESPACE | grep -c serverless) -eq 0 ]]' || return 1
+  timeout 600 '[[ $(oc get pods -n $OLM_NAMESPACE | grep -c serverless) -eq 0 ]]' || return 1
   wait_until_pods_running $OLM_NAMESPACE
 
   # Deploy Serverless Operator
@@ -151,7 +151,7 @@ spec:
 EOF
 
   # Wait for 4 pods to appear first
-  timeout 900 '[[ $(oc get pods -n $SERVING_NAMESPACE --no-headers | wc -l) -lt 4 ]]' || return 1
+  timeout 600 '[[ $(oc get pods -n $SERVING_NAMESPACE --no-headers | wc -l) -lt 4 ]]' || return 1
   wait_until_pods_running $SERVING_NAMESPACE || return 1
 
   wait_until_service_has_external_ip $SERVING_INGRESS_NAMESPACE kourier || fail_test "Ingress has no external IP"
@@ -166,7 +166,11 @@ function deploy_serverless_operator(){
   operator_ns=$(kubectl get og --all-namespaces | grep global-operators | awk '{print $1}')
 
   # Create configmap to use the latest manifest.
-  oc create configmap ko-data -n $operator_ns --from-file="openshift/release/knative-serving-ci.yaml"
+  oc create configmap ko-data-serving -n $operator_ns --from-file="openshift/release/knative-serving-ci.yaml"
+
+  # Create eventing manifest. We don't want to do this, but upstream designed that knative-eventing dir is mandatory
+  # when KO_DATA_PATH was overwritten.
+  oc create configmap ko-data-eventing -n $operator_ns --from-file="openshift/release/knative-eventing-ci.yaml"
 
   # Create configmap to use the latest kourier.
   oc create configmap kourier-cm -n $operator_ns --from-file="third_party/kourier-latest/kourier.yaml"
