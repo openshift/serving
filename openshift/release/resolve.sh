@@ -12,7 +12,7 @@ function resolve_resources(){
 
   > "$resolved_file_name"
 
-  for yaml in `find $dir -name "*.yaml"`; do
+  for yaml in `find $dir -name "*.yaml" | sort`; do
     resolve_file "$yaml" "$resolved_file_name" "$image_prefix" "$image_tag"
   done
 }
