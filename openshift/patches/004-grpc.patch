@@ -1,8 +1,8 @@
 diff --git a/test/e2e/grpc_test.go b/test/e2e/grpc_test.go
-index 6d0baf6cb..c4bc1807e 100644
+index 9cfe307e5..6d9ea1d80 100644
 --- a/test/e2e/grpc_test.go
 +++ b/test/e2e/grpc_test.go
-@@ -321,6 +321,7 @@ func streamTest(t *testing.T, resources *v1test.ResourceObjects, clients *test.C
+@@ -316,6 +316,7 @@ func streamTest(tc *testContext, host, domain string) {
  func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
  	t.Helper()
  	t.Parallel()
@@ -10,12 +10,12 @@ index 6d0baf6cb..c4bc1807e 100644
  
  	// Setup
  	clients := Setup(t)
-@@ -348,13 +349,14 @@ func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
+@@ -344,13 +345,14 @@ func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
  		v1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
  		"gRPCPingReadyToServe",
  		test.ServingFlags.ResolvableDomain,
 +		resolvable,
- 		test.AddRootCAtoTransport(t.Logf, clients, test.ServingFlags.Https),
+ 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.Https),
  	); err != nil {
  		t.Fatalf("The endpoint for Route %s at %s didn't return success: %v", names.Route, url, err)
  	}
@@ -25,4 +25,4 @@ index 6d0baf6cb..c4bc1807e 100644
 +	if !resolvable {
  		host = pkgTest.Flags.IngressEndpoint
  		if pkgTest.Flags.IngressEndpoint == "" {
- 			host, err = ingress.GetIngressEndpoint(clients.KubeClient.Kube)
+ 			host, err = ingress.GetIngressEndpoint(context.Background(), clients.KubeClient.Kube)
