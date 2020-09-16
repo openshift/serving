@@ -1,5 +1,5 @@
 diff --git a/test/e2e/grpc_test.go b/test/e2e/grpc_test.go
-index 9cfe307e5..6d9ea1d80 100644
+index 0c1ca6ad3..eada6baa3 100644
 --- a/test/e2e/grpc_test.go
 +++ b/test/e2e/grpc_test.go
 @@ -316,6 +316,7 @@ func streamTest(tc *testContext, host, domain string) {
@@ -10,10 +10,11 @@ index 9cfe307e5..6d9ea1d80 100644
  
  	// Setup
  	clients := Setup(t)
-@@ -344,13 +345,14 @@ func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
+@@ -343,14 +344,14 @@ func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
+ 		url,
  		v1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
  		"gRPCPingReadyToServe",
- 		test.ServingFlags.ResolvableDomain,
+-		test.ServingFlags.ResolvableDomain,
 +		resolvable,
  		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.Https),
  	); err != nil {
@@ -23,6 +24,6 @@ index 9cfe307e5..6d9ea1d80 100644
  	host := url.Host
 -	if !test.ServingFlags.ResolvableDomain {
 +	if !resolvable {
- 		host = pkgTest.Flags.IngressEndpoint
- 		if pkgTest.Flags.IngressEndpoint == "" {
- 			host, err = ingress.GetIngressEndpoint(context.Background(), clients.KubeClient.Kube)
+ 		addr, mapper, err := ingress.GetIngressEndpoint(context.Background(), clients.KubeClient.Kube, pkgTest.Flags.IngressEndpoint)
+ 		if err != nil {
+ 			t.Fatal("Could not get service endpoint:", err)
