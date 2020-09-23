@@ -316,7 +316,6 @@ func streamTest(tc *testContext, host, domain string) {
 func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
 	t.Helper()
 	t.Parallel()
-	resolvable := false
 
 	// Setup
 	clients := Setup(t)
@@ -344,14 +343,14 @@ func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
 		url,
 		v1test.RetryingRouteInconsistency(pkgTest.IsStatusOK),
 		"gRPCPingReadyToServe",
-		resolvable,
+		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.Https),
 	); err != nil {
 		t.Fatalf("The endpoint for Route %s at %s didn't return success: %v", names.Route, url, err)
 	}
 
 	host := url.Host
-	if !resolvable {
+	if true {
 		addr, mapper, err := ingress.GetIngressEndpoint(context.Background(), clients.KubeClient.Kube, pkgTest.Flags.IngressEndpoint)
 		if err != nil {
 			t.Fatal("Could not get service endpoint:", err)
