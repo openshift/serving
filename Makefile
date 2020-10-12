@@ -18,7 +18,7 @@ install:
 .PHONY: install
 
 test-install:
-	for img in $(TEST_IMAGES); do \
+	for img in $(TEST_IMAGES_BINARIES); do \
 		go install $$img ; \
 	done
 .PHONY: test-install
