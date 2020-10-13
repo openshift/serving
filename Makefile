@@ -4,8 +4,8 @@ CGO_ENABLED=0
 GOOS=linux
 CORE_IMAGES=./cmd/activator ./cmd/autoscaler ./cmd/autoscaler-hpa ./cmd/controller ./cmd/queue ./cmd/webhook ./cmd/networking/nscert ./vendor/knative.dev/pkg/apiextensions/storageversion/cmd/migrate
 TEST_IMAGES=$(shell find ./test/test_images -mindepth 1 -maxdepth 1 -type d)
-TEST_IMAGES_BINARIES=$(shell find ./test/test_images -mindepth 1 -maxdepth 1 -type d)
-TEST_IMAGES_BINARIES+=$(shell find ./test/test_images/multicontainer -mindepth 1 -maxdepth 1 -type d)
+TEST_IMAGE_BINARIES=$(shell find ./test/test_images -mindepth 1 -maxdepth 1 -type d)
+TEST_IMAGE_BINARIES+=$(shell find ./test/test_images/multicontainer -mindepth 1 -maxdepth 1 -type d)
 DOCKER_REPO_OVERRIDE=
 BRANCH=
 TEST=
@@ -18,7 +18,7 @@ install:
 .PHONY: install
 
 test-install:
-	for img in $(TEST_IMAGES_BINARIES); do \
+	for img in $(TEST_IMAGE_BINARIES); do \
 		go install $$img ; \
 	done
 .PHONY: test-install
@@ -51,7 +51,7 @@ test-e2e-local:
 # Generate Dockerfiles for core and test images used by ci-operator. The files need to be committed manually.
 generate-dockerfiles:
 	./openshift/ci-operator/generate-dockerfiles.sh openshift/ci-operator/knative-images $(CORE_IMAGES)
-	./openshift/ci-operator/generate-dockerfiles.sh openshift/ci-operator/knative-test-images $(TEST_IMAGES_BINARIES)
+	./openshift/ci-operator/generate-dockerfiles.sh openshift/ci-operator/knative-test-images $(TEST_IMAGE_BINARIES)
 .PHONY: generate-dockerfiles
 
 # Generates a ci-operator configuration for a specific branch.
