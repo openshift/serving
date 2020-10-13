@@ -183,7 +183,10 @@ func (pas *PodAutoscalerStatus) IsInactive() bool {
 // IsScaleTargetInitialized returns true if the PodAutoscaler's scale target has been
 // initialized successfully.
 func (pas *PodAutoscalerStatus) IsScaleTargetInitialized() bool {
-	return pas.GetCondition(PodAutoscalerConditionScaleTargetInitialized).IsTrue()
+	if pas.GetCondition(PodAutoscalerConditionScaleTargetInitialized).IsTrue() {
+		return true
+	}
+	return pas.GetCondition(PodAutoscalerConditionActive).GetReason() == "NoTraffic"
 }
 
 // MarkScaleTargetInitialized marks the PA's PodAutoscalerConditionScaleTargetInitialized
