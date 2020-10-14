@@ -88,45 +88,62 @@ function timeout() {
   return 0
 }
 
-function install_knative(){
-  header "Installing Knative"
-
-  oc new-project $SERVING_NAMESPACE
-
-  CATALOG_SOURCE="openshift/olm/knative-serving.catalogsource.yaml"
+function update_csv(){
+  local SERVING_DIR=$1
+  local KOURIER_CONTROL=$(grep -w "gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier" $SERVING_DIR/third_party/kourier-latest/kourier.yaml  | awk '{print $NF}')
+  local KOURIER_GATEWAY=$(grep -w "docker.io/maistra/proxyv2-ubi8" $SERVING_DIR/third_party/kourier-latest/kourier.yaml  | awk '{print $NF}')
+  local CSV="olm-catalog/serverless-operator/manifests/serverless-operator.clusterserviceversion.yaml"
 
   # Install CatalogSource in OLM namespace
   # TODO: Rework this into a loop
-  sed -i -e "s|registry.svc.ci.openshift.org/openshift/knative-.*:knative-serving-queue|${IMAGE_FORMAT//\$\{component\}/knative-serving-queue}|g"                   ${CATALOG_SOURCE}
-  sed -i -e "s|registry.svc.ci.openshift.org/openshift/knative-.*:knative-serving-activator|${IMAGE_FORMAT//\$\{component\}/knative-serving-activator}|g"           ${CATALOG_SOURCE}
-  sed -i -e "s|registry.svc.ci.openshift.org/openshift/knative-.*:knative-serving-autoscaler|${IMAGE_FORMAT//\$\{component\}/knative-serving-autoscaler}|g"         ${CATALOG_SOURCE}
-  sed -i -e "s|registry.svc.ci.openshift.org/openshift/knative-.*:knative-serving-autoscaler-hpa|${IMAGE_FORMAT//\$\{component\}/knative-serving-autoscaler-hpa}|g" ${CATALOG_SOURCE}
-  sed -i -e "s|registry.svc.ci.openshift.org/openshift/knative-.*:knative-serving-controller|${IMAGE_FORMAT//\$\{component\}/knative-serving-controller}|g"         ${CATALOG_SOURCE}
-  sed -i -e "s|registry.svc.ci.openshift.org/openshift/knative-.*:knative-serving-webhook|${IMAGE_FORMAT//\$\{component\}/knative-serving-webhook}|g"               ${CATALOG_SOURCE}
-  sed -i -e "s|registry.svc.ci.openshift.org/openshift/knative-.*:knative-serving-storage-version-migration|${IMAGE_FORMAT//\$\{component\}/knative-serving-storage-version-migration}|g" ${CATALOG_SOURCE}
+  sed -i -e "s|\"registry.svc.ci.openshift.org/openshift/knative-.*:knative-serving-queue\"|\"${IMAGE_FORMAT//\$\{component\}/knative-serving-queue}\"|g"                   ${CSV}
+  sed -i -e "s|\"registry.svc.ci.openshift.org/openshift/knative-.*:knative-serving-activator\"|\"${IMAGE_FORMAT//\$\{component\}/knative-serving-activator}\"|g"           ${CSV}
+  sed -i -e "s|\"registry.svc.ci.openshift.org/openshift/knative-.*:knative-serving-autoscaler\"|\"${IMAGE_FORMAT//\$\{component\}/knative-serving-autoscaler}\"|g"         ${CSV}
+  sed -i -e "s|\"registry.svc.ci.openshift.org/openshift/knative-.*:knative-serving-autoscaler-hpa\"|\"${IMAGE_FORMAT//\$\{component\}/knative-serving-autoscaler-hpa}\"|g" ${CSV}
+  sed -i -e "s|\"registry.svc.ci.openshift.org/openshift/knative-.*:knative-serving-controller\"|\"${IMAGE_FORMAT//\$\{component\}/knative-serving-controller}\"|g"         ${CSV}
+  sed -i -e "s|\"registry.svc.ci.openshift.org/openshift/knative-.*:knative-serving-webhook\"|\"${IMAGE_FORMAT//\$\{component\}/knative-serving-webhook}\"|g"               ${CSV}
+  sed -i -e "s|\"registry.svc.ci.openshift.org/openshift/knative-.*:knative-serving-storage-version-migration\"|\"${IMAGE_FORMAT//\$\{component\}/knative-serving-storage-version-migration}\"|g" ${CSV}
 
   # Replace kourier's image with the latest ones from third_party/kourier-latest
-  KOURIER_CONTROL=$(grep -w "gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier" third_party/kourier-latest/kourier.yaml  | awk '{print $NF}')
-  KOURIER_GATEWAY=$(grep -w "docker.io/maistra/proxyv2-ubi8" third_party/kourier-latest/kourier.yaml  | awk '{print $NF}')
-
-  # Add these variable manually until operator implements it. See SRVKS-610
-  sed -i -e 's/value: "kourier-system"/value: "knative-serving-ingress"/g'  third_party/kourier-latest/kourier.yaml
-  sed -i -e 's/kourier-control.knative-serving/kourier-control.knative-serving-ingress/g'  third_party/kourier-latest/kourier.yaml
-
-  sed -i -e "s|docker.io/maistra/proxyv2-ubi8:.*|${KOURIER_GATEWAY}|g"                                         ${CATALOG_SOURCE}
-  sed -i -e "s|registry.svc.ci.openshift.org/openshift/knative-.*:kourier|${KOURIER_CONTROL}|g"               ${CATALOG_SOURCE}
+  sed -i -e "s|\"docker.io/maistra/proxyv2-ubi8:.*\"|\"${KOURIER_GATEWAY}\"|g"                                        ${CSV}
+  sed -i -e "s|\"registry.svc.ci.openshift.org/openshift/knative-.*:kourier\"|\"${KOURIER_CONTROL}\"|g"               ${CSV}
 
   # release-next branch keeps updating the latest manifest in knative-serving-ci.yaml for serving resources.
   # see: https://github.com/openshift/knative-serving/blob/release-next/openshift/release/knative-serving-ci.yaml
   # So mount the manifest and use it by KO_DATA_PATH env value.
-  patch -u ${CATALOG_SOURCE} < openshift/olm/config_map.patch
+  cp $SERVING_DIR/openshift/config_map.patch ./config_map.patch
+  patch -u ${CSV} < config_map.patch
+}
 
-  oc apply -n $OLM_NAMESPACE -f ${CATALOG_SOURCE}
-  timeout 600 '[[ $(oc get pods -n $OLM_NAMESPACE | grep -c serverless) -eq 0 ]]' || return 1
-  wait_until_pods_running $OLM_NAMESPACE
+function install_catalogsource(){
 
-  # Deploy Serverless Operator
-  deploy_serverless_operator
+  # stick commit otherwise we need to update patch file very often.
+  local SERVERLESS_COMMIT=24090bfbf30b3a0b1749c0fdc9dcbea2a18ed5fc
+
+  # And checkout the setup script based on that commit.
+  local SERVERLESS_DIR=$(mktemp -d)
+  local CURRENT_DIR=$(pwd)
+  pushd ${SERVERLESS_DIR}
+
+  git init
+  git remote add origin https://github.com/openshift-knative/serverless-operator.git
+  git fetch --depth 1 origin $SERVERLESS_COMMIT
+  git checkout FETCH_HEAD
+
+  CSV_TARGET="olm-catalog/serverless-operator/manifests/serverless-operator.clusterserviceversion.yaml"
+  update_csv $CURRENT_DIR
+
+  source ./test/lib.bash
+  create_namespaces || exit $?
+  ensure_catalogsource_installed || exit $?
+  popd
+}
+
+function install_knative(){
+  header "Installing Knative"
+  install_catalogsource
+  create_configmaps
+  deploy_serverless_operator "$CURRENT_CSV"
 
   # Wait for the CRD to appear
   timeout 900 '[[ $(oc get crd | grep -c knativeservings) -eq 0 ]]' || return 1
@@ -161,36 +178,20 @@ EOF
   header "Knative Installed successfully"
 }
 
-function deploy_serverless_operator(){
-  local name="serverless-operator"
-  local operator_ns
-  operator_ns=$(kubectl get og --all-namespaces | grep global-operators | awk '{print $1}')
-
+function create_configmaps(){
   # Create configmap to use the latest manifest.
-  oc create configmap ko-data-serving -n $operator_ns --from-file="openshift/release/knative-serving-ci.yaml"
+  oc create configmap ko-data-serving -n $OPERATORS_NAMESPACE --from-file="openshift/release/knative-serving-ci.yaml"
 
   # Create eventing manifest. We don't want to do this, but upstream designed that knative-eventing dir is mandatory
   # when KO_DATA_PATH was overwritten.
-  oc create configmap ko-data-eventing -n $operator_ns --from-file="openshift/release/knative-eventing-ci.yaml"
+  oc create configmap ko-data-eventing -n $OPERATORS_NAMESPACE --from-file="openshift/release/knative-eventing-ci.yaml"
 
   # Create configmap to use the latest kourier.
-  oc create configmap kourier-cm -n $operator_ns --from-file="third_party/kourier-latest/kourier.yaml"
-
-  cat <<-EOF | oc apply -f -
-apiVersion: operators.coreos.com/v1alpha1
-kind: Subscription
-metadata:
-  name: ${name}-subscription
-  namespace: ${operator_ns}
-spec:
-  source: ${name}
-  sourceNamespace: $OLM_NAMESPACE
-  name: ${name}
-  channel: "preview-4.6"
-EOF
+  sed -i -e 's/kourier-control.knative-serving/kourier-control.knative-serving-ingress/g' third_party/kourier-latest/kourier.yaml
+  oc create configmap kourier-cm -n $OPERATORS_NAMESPACE --from-file="third_party/kourier-latest/kourier.yaml"
 }
 
-function prepare_knative_serving_tests {
+function prepare_knative_serving_tests_nightly {
   echo ">> Creating test resources for OpenShift (test/config/)"
 
   oc apply -f test/config
