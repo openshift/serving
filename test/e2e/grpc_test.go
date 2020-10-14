@@ -351,11 +351,7 @@ func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
 
 	host := url.Host
 	if true {
-<<<<<<< HEAD
 		addr, mapper, err := ingress.GetIngressEndpoint(context.Background(), clients.KubeClient, pkgTest.Flags.IngressEndpoint)
-=======
-		addr, mapper, err := ingress.GetIngressEndpoint(context.Background(), clients.KubeClient.Kube, pkgTest.Flags.IngressEndpoint)
->>>>>>> :fire: Apply carried patches.
 		if err != nil {
 			t.Fatal("Could not get service endpoint:", err)
 		}

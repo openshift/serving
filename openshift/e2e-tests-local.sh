@@ -9,7 +9,7 @@ env
 
 failed=0
 
-(( !failed )) && prepare_knative_serving_tests || failed=1
+(( !failed )) && prepare_knative_serving_tests_nightly || failed=1
 (( !failed )) && run_e2e_tests "$TEST" || failed=2
 (( failed )) && gather_knative_state
 (( failed )) && exit $failed
