@@ -1,5 +1,5 @@
 diff --git a/test/e2e/grpc_test.go b/test/e2e/grpc_test.go
-index c7814cb54..0a7a4c636 100644
+index 2ee2b76ab..59e37500a 100644
 --- a/test/e2e/grpc_test.go
 +++ b/test/e2e/grpc_test.go
 @@ -350,7 +350,7 @@ func testGRPC(t *testing.T, f grpcTest, fopts ...rtesting.ServiceOption) {
@@ -8,6 +8,6 @@ index c7814cb54..0a7a4c636 100644
  	host := url.Host
 -	if !test.ServingFlags.ResolvableDomain {
 +	if true {
- 		addr, mapper, err := ingress.GetIngressEndpoint(context.Background(), clients.KubeClient.Kube, pkgTest.Flags.IngressEndpoint)
+ 		addr, mapper, err := ingress.GetIngressEndpoint(context.Background(), clients.KubeClient, pkgTest.Flags.IngressEndpoint)
  		if err != nil {
  			t.Fatal("Could not get service endpoint:", err)
