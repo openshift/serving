@@ -1,5 +1,5 @@
 diff --git a/test/v1/route.go b/test/v1/route.go
-index a9530c129..b1e62298f 100644
+index 170a7b2a9..c794fd586 100644
 --- a/test/v1/route.go
 +++ b/test/v1/route.go
 @@ -19,6 +19,7 @@ package v1
@@ -7,9 +7,9 @@ index a9530c129..b1e62298f 100644
  	"context"
  	"fmt"
 +	"net/http"
+ 	"testing"
  
  	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
- 	"k8s.io/apimachinery/pkg/util/wait"
 @@ -125,8 +126,20 @@ func IsRouteFailed(r *v1.Route) (bool, error) {
  }
  
