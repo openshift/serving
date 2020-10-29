@@ -273,7 +273,8 @@ function run_e2e_tests(){
   --patch '{"spec": {"maxReplicas": '${OPENSHIFT_REPLICAS}', "minReplicas": '${OPENSHIFT_REPLICAS}'}}' || return 1
 
   # Scale up all of the HA components in knative-serving.
-  scale_controlplane "${HA_COMPONENTS[@]}"
+  # TODO: use scale_controlplane once domainmapping-webhook is deployed.
+  kubectl -n "${SYSTEM_NAMESPACE}" scale deployment autoscaler --replicas="${OPENSHIFT_REPLICAS}"
 
   # Use sed as the -spoofinterval parameter is not available yet
   sed "s/\(.*requestInterval =\).*/\1 10 * time.Millisecond/" -i vendor/knative.dev/pkg/test/spoof/spoof.go
