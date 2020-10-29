@@ -229,9 +229,6 @@ function run_e2e_tests(){
   header "Leaders"
   kubectl get lease -n "${SYSTEM_NAMESPACE}"
 
-  # Enable allow-zero-initial-scale before running e2e tests (for test/e2e/initial_scale_test.go)
-  oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "autoscaler": {"allow-zero-initial-scale": "true"}}}}' || fail_test
-
   # Give the controller time to sync with the rest of the system components.
   sleep 30
 
@@ -259,6 +256,39 @@ function run_e2e_tests(){
     --kubeconfig "$KUBECONFIG" \
     --imagetemplate "$TEST_IMAGE_TEMPLATE" \
     --resolvabledomain "$(ingress_class)" || failed=1
+
+#  tag-header-based-routing is not available yet.
+#  oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"tag-header-based-routing": "enabled"}}}}' || fail_test
+#  go_test_e2e -timeout=2m ./test/e2e/tagheader \
+#    --kubeconfig "$KUBECONFIG" \
+#    --imagetemplate "$TEST_IMAGE_TEMPLATE" \
+#    --resolvabledomain "$(ingress_class)" || failed=1
+#  oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"tag-header-based-routing": "disabled"}}}}' || fail_test
+
+  oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"multi-container": "enabled"}}}}' || fail_test
+  go_test_e2e -timeout=2m ./test/e2e/multicontainer \
+    --kubeconfig "$KUBECONFIG" \
+    --imagetemplate "$TEST_IMAGE_TEMPLATE" \
+    --resolvabledomain "$(ingress_class)" || failed=1
+  oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"multi-container": "disabled"}}}}' || fail_test
+
+  oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "autoscaler": {"allow-zero-initial-scale": "true"}}}}' || fail_test
+  # wait 10 sec until sync.
+  sleep 10
+  go_test_e2e -timeout=2m ./test/e2e/initscale \
+    --kubeconfig "$KUBECONFIG" \
+    --imagetemplate "$TEST_IMAGE_TEMPLATE" \
+    --resolvabledomain "$(ingress_class)" || failed=1
+  oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "autoscaler": {"allow-zero-initial-scale": "false"}}}}' || fail_test
+
+  oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"responsive-revision-gc": "enabled"}}}}' || fail_test
+  # immediate_gc
+  oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "gc": {"retain-since-create-time":"disabled","retain-since-last-active-time":"disabled","min-non-active-revisions":"0","max-non-active-revisions":"0"}}}}' || fail_test
+  go_test_e2e -timeout=2m ./test/e2e/gc \
+    --kubeconfig "$KUBECONFIG" \
+    --imagetemplate "$TEST_IMAGE_TEMPLATE" \
+    --resolvabledomain "$(ingress_class)" || failed=1
+  oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"responsive-revision-gc": "disabled"}}}}' || fail_test
 
  # Run the helloworld test with an image pulled into the internal registry.
   local image_to_tag=$(echo "$TEST_IMAGE_TEMPLATE" | sed 's/\(.*\){{.Name}}\(.*\)/\1helloworld\2/')
