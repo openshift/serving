@@ -257,13 +257,12 @@ function run_e2e_tests(){
     --imagetemplate "$TEST_IMAGE_TEMPLATE" \
     --resolvabledomain "$(ingress_class)" || failed=1
 
-#  tag-header-based-routing is not available yet.
-#  oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"tag-header-based-routing": "enabled"}}}}' || fail_test
-#  go_test_e2e -timeout=2m ./test/e2e/tagheader \
-#    --kubeconfig "$KUBECONFIG" \
-#    --imagetemplate "$TEST_IMAGE_TEMPLATE" \
-#    --resolvabledomain "$(ingress_class)" || failed=1
-#  oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"tag-header-based-routing": "disabled"}}}}' || fail_test
+  oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"tag-header-based-routing": "enabled"}}}}' || fail_test
+  go_test_e2e -timeout=2m ./test/e2e/tagheader \
+    --kubeconfig "$KUBECONFIG" \
+    --imagetemplate "$TEST_IMAGE_TEMPLATE" \
+    --resolvabledomain "$(ingress_class)" || failed=1
+  oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"tag-header-based-routing": "disabled"}}}}' || fail_test
 
   oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"multi-container": "enabled"}}}}' || fail_test
   go_test_e2e -timeout=2m ./test/e2e/multicontainer \
