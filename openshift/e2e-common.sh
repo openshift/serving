@@ -135,7 +135,8 @@ function install_catalogsource(){
 
   source ./test/lib.bash
   create_namespaces || exit $?
-  ensure_catalogsource_installed || exit $?
+  # Make OPENSHIFT_CI empty to use nightly build images.
+  OPENSHIFT_CI="" ensure_catalogsource_installed || exit $?
   popd
 }
 
