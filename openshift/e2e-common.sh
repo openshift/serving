@@ -117,20 +117,13 @@ function update_csv(){
 
 function install_catalogsource(){
 
-  # stick commit otherwise we need to update patch file very often.
-  local SERVERLESS_COMMIT=24090bfbf30b3a0b1749c0fdc9dcbea2a18ed5fc
-
   # And checkout the setup script based on that commit.
   local SERVERLESS_DIR=$(mktemp -d)
   local CURRENT_DIR=$(pwd)
   pushd ${SERVERLESS_DIR}
 
-  git init
-  git remote add origin https://github.com/openshift-knative/serverless-operator.git
-  git fetch --depth 1 origin $SERVERLESS_COMMIT
-  git checkout FETCH_HEAD
+  git clone --depth 1 https://github.com/openshift-knative/serverless-operator.git
 
-  CSV_TARGET="olm-catalog/serverless-operator/manifests/serverless-operator.clusterserviceversion.yaml"
   update_csv $CURRENT_DIR
 
   source ./test/lib.bash
