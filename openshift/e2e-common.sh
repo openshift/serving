@@ -111,8 +111,36 @@ function update_csv(){
   # release-next branch keeps updating the latest manifest in knative-serving-ci.yaml for serving resources.
   # see: https://github.com/openshift/knative-serving/blob/release-next/openshift/release/knative-serving-ci.yaml
   # So mount the manifest and use it by KO_DATA_PATH env value.
-  cp $SERVING_DIR/openshift/config_map.patch ./config_map.patch
-  patch -u ${CSV} < config_map.patch
+
+  # serving env
+  yq  write -i ${CSV}  "spec.install.spec.deployments.(name==knative-operator).spec.template.spec.containers.(name==knative-operator).env[+].name" "KO_DATA_PATH"
+  yq  write -i ${CSV}  "spec.install.spec.deployments.(name==knative-operator).spec.template.spec.containers.(name==knative-operator).env.(name==KO_DATA_PATH).value" "/tmp/knative/"
+  # volumeMounts(serving)
+  yq  write -i ${CSV}  "spec.install.spec.deployments.(name==knative-operator).spec.template.spec.containers[0].volumeMounts[+].name" "serving-manifest"
+  yq  write -i ${CSV}  "spec.install.spec.deployments.(name==knative-operator).spec.template.spec.containers[0].volumeMounts.(name==serving-manifest).mountPath" "/tmp/knative/knative-serving/0.17.2"
+  # volumeMounts(evevnting)
+  yq  write -i ${CSV}  "spec.install.spec.deployments.(name==knative-operator).spec.template.spec.containers[0].volumeMounts[+].name" "eventing-manifest"
+  yq  write -i ${CSV}  "spec.install.spec.deployments.(name==knative-operator).spec.template.spec.containers[0].volumeMounts.(name==eventing-manifest).mountPath" "/tmp/knative/knative-eventing/0.17.2"
+  # volume (serving)
+  yq  write -i ${CSV}  "spec.install.spec.deployments.(name==knative-operator).spec.template.spec.volumes[+].name" "serving-manifest"
+  yq  write -i ${CSV}  "spec.install.spec.deployments.(name==knative-operator).spec.template.spec.volumes.(name==serving-manifest).configMap[+].name" "ko-data-serving"
+  yq  write -i ${CSV}  "spec.install.spec.deployments.(name==knative-operator).spec.template.spec.volumes.(name==serving-manifest).configMap.items.key" "knative-serving-ci.yaml"
+  yq  write -i ${CSV}  "spec.install.spec.deployments.(name==knative-operator).spec.template.spec.volumes.(name==serving-manifest).configMap.items.(key==knative-serving-ci.yaml).path" "knative-serving-ci.yaml"
+  # volume (eventing)
+  yq  write -i ${CSV}  "spec.install.spec.deployments.(name==knative-operator).spec.template.spec.volumes[+].name" "eventing-manifest"
+  yq  write -i ${CSV}  "spec.install.spec.deployments.(name==knative-operator).spec.template.spec.volumes.(name==eventing-manifest).configMap.name" "ko-data-eventing"
+  yq  write -i ${CSV}  "spec.install.spec.deployments.(name==knative-operator).spec.template.spec.volumes.(name==eventing-manifest).configMap.items.key" "knative-eventing-ci.yaml"
+  yq  write -i ${CSV}  "spec.install.spec.deployments.(name==knative-operator).spec.template.spec.volumes.(name==eventing-manifest).configMap.items.(key==knative-eventing-ci.yaml).path" "knative-eventing-ci.yaml"
+  # volumeMounts(evevnting)
+  yq  write -i ${CSV}  "spec.install.spec.deployments.(name==knative-openshift).spec.template.spec.containers[0].volumeMounts.name" "kourier-manifest"
+  yq  write -i ${CSV}  "spec.install.spec.deployments.(name==knative-openshift).spec.template.spec.containers[0].volumeMounts.mountPath" "/tmp/kourier"
+  # volume (kourier)
+  yq  write -i ${CSV}  "spec.install.spec.deployments.(name==knative-openshift).spec.template.spec.volumes[+].name" "kourier-manifest"
+  yq  write -i ${CSV}  "spec.install.spec.deployments.(name==knative-openshift).spec.template.spec.volumes.(name==kourier-manifest).configMap.name" "kourier-cm"
+  yq  write -i ${CSV}  "spec.install.spec.deployments.(name==knative-openshift).spec.template.spec.volumes.(name==kourier-manifest).configMap.items[+].key" "kourier.yaml"
+  yq  write -i ${CSV}  "spec.install.spec.deployments.(name==knative-openshift).spec.template.spec.volumes.(name==kourier-manifest).configMap.items.(key==kourier.yaml).path" "kourier.yaml"
+  # kourer env
+  yq  write -i ${CSV}  "spec.install.spec.deployments.(name==knative-openshift).spec.template.spec.containers.(name==knative-openshift).env.(name==KOURIER_MANIFEST_PATH).value" "/tmp/kourier/kourier.yaml"
 }
 
 function install_catalogsource(){
@@ -120,14 +148,12 @@ function install_catalogsource(){
   # And checkout the setup script based on that commit.
   local SERVERLESS_DIR=$(mktemp -d)
   local CURRENT_DIR=$(pwd)
+  git clone --depth 1 https://github.com/openshift-knative/serverless-operator.git ${SERVERLESS_DIR}
   pushd ${SERVERLESS_DIR}
-
-  git clone --depth 1 https://github.com/openshift-knative/serverless-operator.git
 
   update_csv $CURRENT_DIR
 
   source ./test/lib.bash
-  create_namespaces || exit $?
   # Make OPENSHIFT_CI empty to use nightly build images.
   OPENSHIFT_CI="" ensure_catalogsource_installed || exit $?
   popd
