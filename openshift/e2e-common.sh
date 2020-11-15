@@ -123,17 +123,17 @@ function update_csv(){
   yq  write -i ${CSV}  "spec.install.spec.deployments.(name==knative-operator).spec.template.spec.containers[0].volumeMounts.(name==eventing-manifest).mountPath" "/tmp/knative/knative-eventing/0.17.2"
   # volume (serving)
   yq  write -i ${CSV}  "spec.install.spec.deployments.(name==knative-operator).spec.template.spec.volumes[+].name" "serving-manifest"
-  yq  write -i ${CSV}  "spec.install.spec.deployments.(name==knative-operator).spec.template.spec.volumes.(name==serving-manifest).configMap[+].name" "ko-data-serving"
-  yq  write -i ${CSV}  "spec.install.spec.deployments.(name==knative-operator).spec.template.spec.volumes.(name==serving-manifest).configMap.items.key" "knative-serving-ci.yaml"
+  yq  write -i ${CSV}  "spec.install.spec.deployments.(name==knative-operator).spec.template.spec.volumes.(name==serving-manifest).configMap.name" "ko-data-serving"
+  yq  write -i ${CSV}  "spec.install.spec.deployments.(name==knative-operator).spec.template.spec.volumes.(name==serving-manifest).configMap.items[+].key" "knative-serving-ci.yaml"
   yq  write -i ${CSV}  "spec.install.spec.deployments.(name==knative-operator).spec.template.spec.volumes.(name==serving-manifest).configMap.items.(key==knative-serving-ci.yaml).path" "knative-serving-ci.yaml"
   # volume (eventing)
   yq  write -i ${CSV}  "spec.install.spec.deployments.(name==knative-operator).spec.template.spec.volumes[+].name" "eventing-manifest"
   yq  write -i ${CSV}  "spec.install.spec.deployments.(name==knative-operator).spec.template.spec.volumes.(name==eventing-manifest).configMap.name" "ko-data-eventing"
-  yq  write -i ${CSV}  "spec.install.spec.deployments.(name==knative-operator).spec.template.spec.volumes.(name==eventing-manifest).configMap.items.key" "knative-eventing-ci.yaml"
+  yq  write -i ${CSV}  "spec.install.spec.deployments.(name==knative-operator).spec.template.spec.volumes.(name==eventing-manifest).configMap.items[+].key" "knative-eventing-ci.yaml"
   yq  write -i ${CSV}  "spec.install.spec.deployments.(name==knative-operator).spec.template.spec.volumes.(name==eventing-manifest).configMap.items.(key==knative-eventing-ci.yaml).path" "knative-eventing-ci.yaml"
-  # volumeMounts(evevnting)
-  yq  write -i ${CSV}  "spec.install.spec.deployments.(name==knative-openshift).spec.template.spec.containers[0].volumeMounts.name" "kourier-manifest"
-  yq  write -i ${CSV}  "spec.install.spec.deployments.(name==knative-openshift).spec.template.spec.containers[0].volumeMounts.mountPath" "/tmp/kourier"
+  # volumeMounts(kourier)
+  yq  write -i ${CSV} 'spec.install.spec.deployments.(name==knative-openshift).spec.template.spec.containers[0].volumeMounts[+].name' kourier-manifest
+  yq  write -i ${CSV} 'spec.install.spec.deployments.(name==knative-openshift).spec.template.spec.containers[0].volumeMounts.(name==kourier-manifest).mountPath' /tmp/kourier
   # volume (kourier)
   yq  write -i ${CSV}  "spec.install.spec.deployments.(name==knative-openshift).spec.template.spec.volumes[+].name" "kourier-manifest"
   yq  write -i ${CSV}  "spec.install.spec.deployments.(name==knative-openshift).spec.template.spec.volumes.(name==kourier-manifest).configMap.name" "kourier-cm"
