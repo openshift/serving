@@ -154,6 +154,7 @@ function install_catalogsource(){
   update_csv $CURRENT_DIR
 
   source ./test/lib.bash
+  create_namespaces
   # Make OPENSHIFT_CI empty to use nightly build images.
   OPENSHIFT_CI="" ensure_catalogsource_installed || exit $?
   popd
