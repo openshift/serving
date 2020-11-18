@@ -118,7 +118,6 @@ function update_csv(){
   value:
     name: "KO_DATA_PATH"
     value: "/tmp/knative/"
-# serving
 - command: update
   path: spec.install.spec.deployments.(name==knative-operator).spec.template.spec.containers.(name==knative-operator).volumeMounts[+]
   value:
@@ -131,8 +130,8 @@ function update_csv(){
     configMap:
       name: "ko-data-serving"
       items:
-        key: "knative-serving-ci.yaml"
-        path: "knative-serving-ci.yaml"
+        - key: "knative-serving-ci.yaml"
+          path: "knative-serving-ci.yaml"
 # eventing
 - command: update
   path: spec.install.spec.deployments.(name==knative-operator).spec.template.spec.containers.(name==knative-operator).volumeMounts[+]
@@ -146,8 +145,8 @@ function update_csv(){
     configMap:
       name: "ko-data-eventing"
       items:
-        key: "knative-eventing-ci.yaml"
-        path: "knative-eventing-ci.yaml"
+        - key: "knative-eventing-ci.yaml"
+          path: "knative-eventing-ci.yaml"
 # kourier
 - command: update
   path: spec.install.spec.deployments.(name==knative-openshift).spec.template.spec.containers.(name==knative-openshift).env.(name==KOURIER_MANIFEST_PATH)
@@ -166,8 +165,8 @@ function update_csv(){
     configMap:
       name: "kourier-cm"
       items:
-        key: "kourier.yaml"
-        path: "/tmp/kourier/kourier.yaml"
+        - key: "kourier.yaml"
+          path: "/tmp/kourier/kourier.yaml"
 EOF
 
 }
