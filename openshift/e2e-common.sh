@@ -122,7 +122,7 @@ function update_csv(){
   path: spec.install.spec.deployments.(name==knative-operator).spec.template.spec.containers.(name==knative-operator).volumeMounts[+]
   value:
     name: "serving-manifest"
-    mountPath: "/tmp/knative/knative-serving/0.17.2"
+    mountPath: "/tmp/knative/knative-serving/0.18.2"
 - command: update
   path: spec.install.spec.deployments.(name==knative-operator).spec.template.spec.volumes[+]
   value:
@@ -137,7 +137,7 @@ function update_csv(){
   path: spec.install.spec.deployments.(name==knative-operator).spec.template.spec.containers.(name==knative-operator).volumeMounts[+]
   value:
     name: "eventing-manifest"
-    mountPath: "/tmp/knative/knative-eventing/0.17.2"
+    mountPath: "/tmp/knative/knative-eventing/0.18.2"
 - command: update
   path: spec.install.spec.deployments.(name==knative-operator).spec.template.spec.volumes[+]
   value:
