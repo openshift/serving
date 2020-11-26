@@ -166,7 +166,7 @@ function update_csv(){
       name: "kourier-cm"
       items:
         - key: "kourier.yaml"
-          path: "/tmp/kourier/kourier.yaml"
+          path: "kourier.yaml"
 EOF
 
 }
