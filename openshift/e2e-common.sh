@@ -112,7 +112,7 @@ function update_csv(){
   # see: https://github.com/openshift/knative-serving/blob/release-next/openshift/release/knative-serving-ci.yaml
   # So mount the manifest and use it by KO_DATA_PATH env value.
 
-  cat << EOF | yq write --inplace --script - $CSV
+  cat << EOF | yq write --inplace --script - $CSV || return $?
 - command: update
   path: spec.install.spec.deployments.(name==knative-operator).spec.template.spec.containers.(name==knative-operator).env[+]
   value:
@@ -198,7 +198,7 @@ function install_knative(){
   timeout 900 '[[ $(oc get crd | grep -c knativeservings) -eq 0 ]]' || return 1
 
   # Install Knative Serving with initial values in test/config/config-observability.yaml.
-  cat <<-EOF | oc apply -f -
+  cat <<-EOF | oc apply -f - || return $?
 apiVersion: operator.knative.dev/v1alpha1
 kind: KnativeServing
 metadata:
@@ -229,15 +229,15 @@ EOF
 
 function create_configmaps(){
   # Create configmap to use the latest manifest.
-  oc create configmap ko-data-serving -n $OPERATORS_NAMESPACE --from-file="openshift/release/knative-serving-ci.yaml"
+  oc create configmap ko-data-serving -n $OPERATORS_NAMESPACE --from-file="openshift/release/knative-serving-ci.yaml" || return $?
 
   # Create eventing manifest. We don't want to do this, but upstream designed that knative-eventing dir is mandatory
   # when KO_DATA_PATH was overwritten.
-  oc create configmap ko-data-eventing -n $OPERATORS_NAMESPACE --from-file="openshift/release/knative-eventing-ci.yaml"
+  oc create configmap ko-data-eventing -n $OPERATORS_NAMESPACE --from-file="openshift/release/knative-eventing-ci.yaml" || return $?
 
   # Create configmap to use the latest kourier.
-  sed -i -e 's/kourier-control.knative-serving/kourier-control.knative-serving-ingress/g' third_party/kourier-latest/kourier.yaml
-  oc create configmap kourier-cm -n $OPERATORS_NAMESPACE --from-file="third_party/kourier-latest/kourier.yaml"
+  sed -i -e 's/kourier-control.knative-serving/kourier-control.knative-serving-ingress/g' third_party/kourier-latest/kourier.yaml || return $?
+  oc create configmap kourier-cm -n $OPERATORS_NAMESPACE --from-file="third_party/kourier-latest/kourier.yaml" || return $?
 }
 
 function prepare_knative_serving_tests_nightly {
