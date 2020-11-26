@@ -179,20 +179,20 @@ function install_catalogsource(){
   git clone --depth 1 https://github.com/openshift-knative/serverless-operator.git ${SERVERLESS_DIR}
   pushd ${SERVERLESS_DIR}
 
-  update_csv $CURRENT_DIR
+  update_csv $CURRENT_DIR || return $?
 
   source ./test/lib.bash
   create_namespaces
   # Make OPENSHIFT_CI empty to use nightly build images.
-  OPENSHIFT_CI="" ensure_catalogsource_installed || exit $?
+  OPENSHIFT_CI="" ensure_catalogsource_installed || return $?
   popd
 }
 
 function install_knative(){
   header "Installing Knative"
-  install_catalogsource
-  create_configmaps
-  deploy_serverless_operator "$CURRENT_CSV"
+  install_catalogsource || return $?
+  create_configmaps || return $?
+  deploy_serverless_operator "$CURRENT_CSV" || return $?
 
   # Wait for the CRD to appear
   timeout 900 '[[ $(oc get crd | grep -c knativeservings) -eq 0 ]]' || return 1
