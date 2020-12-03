@@ -130,12 +130,12 @@ function install_catalogsource(){
   git fetch --depth 1 origin $SERVERLESS_COMMIT
   git checkout FETCH_HEAD
 
-  CSV_TARGET="olm-catalog/serverless-operator/manifests/serverless-operator.clusterserviceversion.yaml"
-  update_csv $CURRENT_DIR
+  update_csv $CURRENT_DIR || return $?
 
   source ./test/lib.bash
-  create_namespaces || exit $?
-  ensure_catalogsource_installed || exit $?
+  create_namespaces
+   # Make OPENSHIFT_CI empty to use nightly build images.
+  OPENSHIFT_CI="" ensure_catalogsource_installed || exit $?
   popd
 }
 
