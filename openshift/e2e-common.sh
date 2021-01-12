@@ -90,7 +90,7 @@ function timeout() {
 
 function update_csv(){
   local SERVING_DIR=$1
-  local KOURIER_CONTROL=$(grep -w "gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier" $SERVING_DIR/third_party/kourier-latest/kourier.yaml  | awk '{print $NF}')
+  local KOURIER_CONTROL="registry.svc.ci.openshift.org/openshift/knative-v0.20.0:kourier"
   local KOURIER_GATEWAY=$(grep -w "docker.io/maistra/proxyv2-ubi8" $SERVING_DIR/third_party/kourier-latest/kourier.yaml  | awk '{print $NF}')
   local CSV="olm-catalog/serverless-operator/manifests/serverless-operator.clusterserviceversion.yaml"
 
