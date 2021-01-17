@@ -243,6 +243,7 @@ function create_configmaps(){
 function prepare_knative_serving_tests_nightly {
   echo ">> Creating test resources for OpenShift (test/config/)"
 
+  rm -f test/config/config-deployment.yaml
   oc apply -f test/config
 
   oc adm policy add-scc-to-user privileged -z default -n serving-tests
