@@ -206,6 +206,8 @@ metadata:
   namespace: ${SERVING_NAMESPACE}
 spec:
   config:
+    deployment:
+      progressDeadline: "120s"
     observability:
       logging.request-log-template: '{"httpRequest": {"requestMethod": "{{.Request.Method}}",
         "requestUrl": "{{js .Request.RequestURI}}", "requestSize": "{{.Request.ContentLength}}",
