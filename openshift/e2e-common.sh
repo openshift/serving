@@ -206,6 +206,8 @@ metadata:
   namespace: ${SERVING_NAMESPACE}
 spec:
   config:
+    deployment:
+      progressDeadline: "120s"
     observability:
       logging.request-log-template: '{"httpRequest": {"requestMethod": "{{.Request.Method}}",
         "requestUrl": "{{js .Request.RequestURI}}", "requestSize": "{{.Request.ContentLength}}",
@@ -242,6 +244,9 @@ function create_configmaps(){
 
 function prepare_knative_serving_tests_nightly {
   echo ">> Creating test resources for OpenShift (test/config/)"
+
+  # workaround until https://github.com/knative/operator/issues/431 was fixed.
+  rm -f test/config/config-deployment.yaml
 
   oc apply -f test/config
 
