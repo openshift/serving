@@ -13,4 +13,4 @@ else
     tag=$release
 fi
 
-resolve_resources "config/core/ config/hpa-autoscaling/" "$output_file" "$image_prefix" "$tag"
+resolve_resources "config/core/ config/hpa-autoscaling/ config/domain-mapping/" "$output_file" "$image_prefix" "$tag"
