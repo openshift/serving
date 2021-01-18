@@ -245,6 +245,7 @@ function create_configmaps(){
 function prepare_knative_serving_tests_nightly {
   echo ">> Creating test resources for OpenShift (test/config/)"
 
+  # workaround until https://github.com/knative/operator/issues/431 was fixed.
   rm -f test/config/config-deployment.yaml
   oc apply -f test/config
 
@@ -308,8 +309,6 @@ function run_e2e_tests(){
     --kubeconfig "$KUBECONFIG" \
     --imagetemplate "$TEST_IMAGE_TEMPLATE" \
     --resolvabledomain "$(ingress_class)" || failed=1
-  # TODO: remove
-  return failed
 
   oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"tag-header-based-routing": "enabled"}}}}' || fail_test
   go_test_e2e -timeout=2m ./test/e2e/tagheader \
