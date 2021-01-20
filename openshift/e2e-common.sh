@@ -102,6 +102,8 @@ function update_csv(){
   sed -i -e "s|\"registry.svc.ci.openshift.org/openshift/knative-.*:knative-serving-autoscaler-hpa\"|\"${IMAGE_FORMAT//\$\{component\}/knative-serving-autoscaler-hpa}\"|g" ${CSV}
   sed -i -e "s|\"registry.svc.ci.openshift.org/openshift/knative-.*:knative-serving-controller\"|\"${IMAGE_FORMAT//\$\{component\}/knative-serving-controller}\"|g"         ${CSV}
   sed -i -e "s|\"registry.svc.ci.openshift.org/openshift/knative-.*:knative-serving-webhook\"|\"${IMAGE_FORMAT//\$\{component\}/knative-serving-webhook}\"|g"               ${CSV}
+  sed -i -e "s|\"registry.svc.ci.openshift.org/openshift/knative-.*:knative-serving-domain-mapping\"|\"${IMAGE_FORMAT//\$\{component\}/knative-serving-domain-mapping}\"|g"                       ${CSV}
+  sed -i -e "s|\"registry.svc.ci.openshift.org/openshift/knative-.*:knative-serving-domain-mapping-webhook\"|\"${IMAGE_FORMAT//\$\{component\}/knative-serving-domain-mapping-webhook}\"|g"       ${CSV}
   sed -i -e "s|\"registry.svc.ci.openshift.org/openshift/knative-.*:knative-serving-storage-version-migration\"|\"${IMAGE_FORMAT//\$\{component\}/knative-serving-storage-version-migration}\"|g" ${CSV}
 
   # Replace kourier's image with the latest ones from third_party/kourier-latest
