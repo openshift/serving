@@ -90,7 +90,7 @@ function timeout() {
 
 function update_csv(){
   local SERVING_DIR=$1
-  local KOURIER_CONTROL=$(grep -w "gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier" $SERVING_DIR/third_party/kourier-latest/kourier.yaml  | awk '{print $NF}')
+  local KOURIER_CONTROL="registry.svc.ci.openshift.org/openshift/knative-v0.19.1:kourier"
   local KOURIER_GATEWAY=$(grep -w "docker.io/maistra/proxyv2-ubi8" $SERVING_DIR/third_party/kourier-latest/kourier.yaml  | awk '{print $NF}')
   local CSV="olm-catalog/serverless-operator/manifests/serverless-operator.clusterserviceversion.yaml"
 
@@ -102,6 +102,8 @@ function update_csv(){
   sed -i -e "s|\"registry.svc.ci.openshift.org/openshift/knative-.*:knative-serving-autoscaler-hpa\"|\"${IMAGE_FORMAT//\$\{component\}/knative-serving-autoscaler-hpa}\"|g" ${CSV}
   sed -i -e "s|\"registry.svc.ci.openshift.org/openshift/knative-.*:knative-serving-controller\"|\"${IMAGE_FORMAT//\$\{component\}/knative-serving-controller}\"|g"         ${CSV}
   sed -i -e "s|\"registry.svc.ci.openshift.org/openshift/knative-.*:knative-serving-webhook\"|\"${IMAGE_FORMAT//\$\{component\}/knative-serving-webhook}\"|g"               ${CSV}
+  sed -i -e "s|\"registry.svc.ci.openshift.org/openshift/knative-.*:knative-serving-domain-mapping\"|\"${IMAGE_FORMAT//\$\{component\}/knative-serving-domain-mapping}\"|g"                       ${CSV}
+  sed -i -e "s|\"registry.svc.ci.openshift.org/openshift/knative-.*:knative-serving-domain-mapping-webhook\"|\"${IMAGE_FORMAT//\$\{component\}/knative-serving-domain-mapping-webhook}\"|g"       ${CSV}
   sed -i -e "s|\"registry.svc.ci.openshift.org/openshift/knative-.*:knative-serving-storage-version-migration\"|\"${IMAGE_FORMAT//\$\{component\}/knative-serving-storage-version-migration}\"|g" ${CSV}
 
   # Replace kourier's image with the latest ones from third_party/kourier-latest
@@ -176,7 +178,7 @@ function install_catalogsource(){
   # And checkout the setup script based on that commit.
   local SERVERLESS_DIR=$(mktemp -d)
   local CURRENT_DIR=$(pwd)
-  git clone --depth 1 https://github.com/openshift-knative/serverless-operator.git ${SERVERLESS_DIR}
+  git clone --branch release-1.13 --depth 1 https://github.com/openshift-knative/serverless-operator.git ${SERVERLESS_DIR}
   pushd ${SERVERLESS_DIR}
 
   update_csv $CURRENT_DIR || return $?
