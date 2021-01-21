@@ -306,6 +306,15 @@ function run_e2e_tests(){
     --imagetemplate "$TEST_IMAGE_TEMPLATE" \
     --resolvabledomain "$(ingress_class)" || failed=1
 
+  # Test new features especially DomainMapping without resolvabledomain.
+  go_test_e2e -tags=e2e -timeout=30m -parallel=$parallel \
+    ./test/conformance/api/v1alpha1/... \
+    --kubeconfig "$KUBECONFIG" \
+    --imagetemplate "$TEST_IMAGE_TEMPLATE" \
+    --enable-beta \
+    --enable-alpha \
+    "$(ingress_class)" || failed=1
+
   oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"tag-header-based-routing": "enabled"}}}}' || fail_test
   go_test_e2e -timeout=2m ./test/e2e/tagheader \
     --kubeconfig "$KUBECONFIG" \
