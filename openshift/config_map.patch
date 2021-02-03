@@ -1,0 +1,67 @@
+diff --git a/olm-catalog/serverless-operator/manifests/serverless-operator.clusterserviceversion.yaml b/olm-catalog/serverless-operator/manifests/serverless-operator.clusterserviceversion.yaml
+index f892676..1d1e8bb 100644
+--- a/olm-catalog/serverless-operator/manifests/serverless-operator.clusterserviceversion.yaml
++++ b/olm-catalog/serverless-operator/manifests/serverless-operator.clusterserviceversion.yaml
+@@ -293,6 +293,8 @@ spec:
+                             fieldPath: metadata.name
+                       - name: OPERATOR_NAME
+                         value: knative-operator
++                      - name: KO_DATA_PATH
++                        value: /tmp/knative/
+                       - name: SYSTEM_NAMESPACE
+                         valueFrom:
+                           fieldRef:
+@@ -357,6 +359,24 @@ spec:
+                     ports:
+                       - containerPort: 9090
+                         name: metrics
++                    volumeMounts:
++                    - mountPath: /tmp/knative/knative-serving/0.17.2
++                      name: serving-manifest
++                    - mountPath: /tmp/knative/knative-eventing/0.17.2
++                      name: eventing-manifest
++                volumes:
++                - name: serving-manifest
++                  configMap:
++                    name: ko-data-serving
++                    items:
++                    - key: knative-serving-ci.yaml
++                      path: knative-serving-ci.yaml
++                - name: eventing-manifest
++                  configMap:
++                    name: ko-data-eventing
++                    items:
++                    - key: knative-eventing-ci.yaml
++                      path: knative-eventing-ci.yaml
+                 serviceAccountName: knative-operator
+         - name: knative-openshift
+           spec:
+@@ -370,9 +390,19 @@ spec:
+                   name: knative-openshift
+                   app: openshift-admission-server
+               spec:
++                volumes:
++                - name: kourier-manifest
++                  configMap:
++                    name: kourier-cm
++                    items:
++                    - key: kourier.yaml
++                      path: kourier.yaml
+                 serviceAccountName: knative-operator
+                 containers:
+                   - name: knative-openshift
++                    volumeMounts:
++                    - mountPath: /tmp/kourier
++                      name: kourier-manifest
+                     # This reference will be replaced in local builds and CI via hack/lib/catalogsource.bash.
+                     image: registry.svc.ci.openshift.org/openshift/openshift-serverless-nightly:knative-operator
+                     command:
+@@ -406,7 +436,7 @@ spec:
+                       - name: EVENTING_BROKER_DASHBOARD_MANIFEST_PATH
+                         value: "deploy/resources/dashboards/grafana-dash-knative-eventing-broker.yaml"
+                       - name: KOURIER_MANIFEST_PATH
+-                        value: deploy/resources/kourier/kourier-latest.yaml
++                        value: /tmp/kourier/kourier.yaml
+                       - name: KAFKACHANNEL_MANIFEST_PATH
+                         value: deploy/resources/knativekafka/kafkachannel-latest.yaml
+                       - name: KAFKASOURCE_MANIFEST_PATH
