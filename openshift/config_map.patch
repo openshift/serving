@@ -54,7 +54,7 @@ index f892676..1d1e8bb 100644
 +                    - mountPath: /tmp/kourier
 +                      name: kourier-manifest
                      # This reference will be replaced in local builds and CI via hack/lib/catalogsource.bash.
-                     image: registry.svc.ci.openshift.org/openshift/openshift-serverless-nightly:knative-operator
+                     image: registry.ci.openshift.org/openshift/openshift-serverless-nightly:knative-operator
                      command:
 @@ -406,7 +436,7 @@ spec:
                        - name: EVENTING_BROKER_DASHBOARD_MANIFEST_PATH
