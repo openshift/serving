@@ -17,11 +17,11 @@ if [ -n "$OPENSHIFT_BUILD_NAMESPACE" ]; then
 elif [ -n "$DOCKER_REPO_OVERRIDE" ]; then
   readonly TEST_IMAGE_TEMPLATE="${DOCKER_REPO_OVERRIDE}/{{.Name}}"
 elif [ -n "$BRANCH" ]; then
-  readonly TEST_IMAGE_TEMPLATE="registry.svc.ci.openshift.org/openshift/${BRANCH}:knative-serving-test-{{.Name}}"
+  readonly TEST_IMAGE_TEMPLATE="registry.ci.openshift.org/openshift/${BRANCH}:knative-serving-test-{{.Name}}"
 elif [ -n "$TEMPLATE" ]; then
   readonly TEST_IMAGE_TEMPLATE="$TEMPLATE"
 else
-  readonly TEST_IMAGE_TEMPLATE="registry.svc.ci.openshift.org/openshift/knative-nightly:knative-serving-test-{{.Name}}"
+  readonly TEST_IMAGE_TEMPLATE="registry.ci.openshift.org/openshift/knative-nightly:knative-serving-test-{{.Name}}"
 fi
 
 env
@@ -90,25 +90,31 @@ function timeout() {
 
 function update_csv(){
   local SERVING_DIR=$1
-  local KOURIER_CONTROL="registry.svc.ci.openshift.org/openshift/knative-v0.20.0:kourier"
+
+  source ./hack/lib/metadata.bash
+  local SERVING_VERSION=$(metadata.get dependencies.serving)
+  local EVENTING_VERSION=$(metadata.get dependencies.eventing)
+  local KOURIER_VERSION=$(metadata.get dependencies.kourier)
+
+  local KOURIER_CONTROL="registry.ci.openshift.org/openshift/knative-v${KOURIER_VERSION}:kourier"
   local KOURIER_GATEWAY=$(grep -w "docker.io/maistra/proxyv2-ubi8" $SERVING_DIR/third_party/kourier-latest/kourier.yaml  | awk '{print $NF}')
   local CSV="olm-catalog/serverless-operator/manifests/serverless-operator.clusterserviceversion.yaml"
 
   # Install CatalogSource in OLM namespace
   # TODO: Rework this into a loop
-  sed -i -e "s|\"registry.svc.ci.openshift.org/openshift/knative-.*:knative-serving-queue\"|\"${IMAGE_FORMAT//\$\{component\}/knative-serving-queue}\"|g"                   ${CSV}
-  sed -i -e "s|\"registry.svc.ci.openshift.org/openshift/knative-.*:knative-serving-activator\"|\"${IMAGE_FORMAT//\$\{component\}/knative-serving-activator}\"|g"           ${CSV}
-  sed -i -e "s|\"registry.svc.ci.openshift.org/openshift/knative-.*:knative-serving-autoscaler\"|\"${IMAGE_FORMAT//\$\{component\}/knative-serving-autoscaler}\"|g"         ${CSV}
-  sed -i -e "s|\"registry.svc.ci.openshift.org/openshift/knative-.*:knative-serving-autoscaler-hpa\"|\"${IMAGE_FORMAT//\$\{component\}/knative-serving-autoscaler-hpa}\"|g" ${CSV}
-  sed -i -e "s|\"registry.svc.ci.openshift.org/openshift/knative-.*:knative-serving-controller\"|\"${IMAGE_FORMAT//\$\{component\}/knative-serving-controller}\"|g"         ${CSV}
-  sed -i -e "s|\"registry.svc.ci.openshift.org/openshift/knative-.*:knative-serving-webhook\"|\"${IMAGE_FORMAT//\$\{component\}/knative-serving-webhook}\"|g"               ${CSV}
-  sed -i -e "s|\"registry.svc.ci.openshift.org/openshift/knative-.*:knative-serving-domain-mapping\"|\"${IMAGE_FORMAT//\$\{component\}/knative-serving-domain-mapping}\"|g"                       ${CSV}
-  sed -i -e "s|\"registry.svc.ci.openshift.org/openshift/knative-.*:knative-serving-domain-mapping-webhook\"|\"${IMAGE_FORMAT//\$\{component\}/knative-serving-domain-mapping-webhook}\"|g"       ${CSV}
-  sed -i -e "s|\"registry.svc.ci.openshift.org/openshift/knative-.*:knative-serving-storage-version-migration\"|\"${IMAGE_FORMAT//\$\{component\}/knative-serving-storage-version-migration}\"|g" ${CSV}
+  sed -i -e "s|\"registry.ci.openshift.org/openshift/knative-.*:knative-serving-queue\"|\"${IMAGE_FORMAT//\$\{component\}/knative-serving-queue}\"|g"                   ${CSV}
+  sed -i -e "s|\"registry.ci.openshift.org/openshift/knative-.*:knative-serving-activator\"|\"${IMAGE_FORMAT//\$\{component\}/knative-serving-activator}\"|g"           ${CSV}
+  sed -i -e "s|\"registry.ci.openshift.org/openshift/knative-.*:knative-serving-autoscaler\"|\"${IMAGE_FORMAT//\$\{component\}/knative-serving-autoscaler}\"|g"         ${CSV}
+  sed -i -e "s|\"registry.ci.openshift.org/openshift/knative-.*:knative-serving-autoscaler-hpa\"|\"${IMAGE_FORMAT//\$\{component\}/knative-serving-autoscaler-hpa}\"|g" ${CSV}
+  sed -i -e "s|\"registry.ci.openshift.org/openshift/knative-.*:knative-serving-controller\"|\"${IMAGE_FORMAT//\$\{component\}/knative-serving-controller}\"|g"         ${CSV}
+  sed -i -e "s|\"registry.ci.openshift.org/openshift/knative-.*:knative-serving-webhook\"|\"${IMAGE_FORMAT//\$\{component\}/knative-serving-webhook}\"|g"               ${CSV}
+  sed -i -e "s|\"registry.ci.openshift.org/openshift/knative-.*:knative-serving-domain-mapping\"|\"${IMAGE_FORMAT//\$\{component\}/knative-serving-domain-mapping}\"|g"                       ${CSV}
+  sed -i -e "s|\"registry.ci.openshift.org/openshift/knative-.*:knative-serving-domain-mapping-webhook\"|\"${IMAGE_FORMAT//\$\{component\}/knative-serving-domain-mapping-webhook}\"|g"       ${CSV}
+  sed -i -e "s|\"registry.ci.openshift.org/openshift/knative-.*:knative-serving-storage-version-migration\"|\"${IMAGE_FORMAT//\$\{component\}/knative-serving-storage-version-migration}\"|g" ${CSV}
 
   # Replace kourier's image with the latest ones from third_party/kourier-latest
   sed -i -e "s|\"docker.io/maistra/proxyv2-ubi8:.*\"|\"${KOURIER_GATEWAY}\"|g"                                        ${CSV}
-  sed -i -e "s|\"registry.svc.ci.openshift.org/openshift/knative-.*:kourier\"|\"${KOURIER_CONTROL}\"|g"               ${CSV}
+  sed -i -e "s|\"registry.ci.openshift.org/openshift/knative-.*:kourier\"|\"${KOURIER_CONTROL}\"|g"               ${CSV}
 
   # release-next branch keeps updating the latest manifest in knative-serving-ci.yaml for serving resources.
   # see: https://github.com/openshift/knative-serving/blob/release-next/openshift/release/knative-serving-ci.yaml
@@ -124,7 +130,7 @@ function update_csv(){
   path: spec.install.spec.deployments.(name==knative-operator).spec.template.spec.containers.(name==knative-operator).volumeMounts[+]
   value:
     name: "serving-manifest"
-    mountPath: "/tmp/knative/knative-serving/0.18.2"
+    mountPath: "/tmp/knative/knative-serving/${SERVING_VERSION}"
 - command: update
   path: spec.install.spec.deployments.(name==knative-operator).spec.template.spec.volumes[+]
   value:
@@ -139,7 +145,7 @@ function update_csv(){
   path: spec.install.spec.deployments.(name==knative-operator).spec.template.spec.containers.(name==knative-operator).volumeMounts[+]
   value:
     name: "eventing-manifest"
-    mountPath: "/tmp/knative/knative-eventing/0.18.2"
+    mountPath: "/tmp/knative/knative-eventing/${EVENTING_VERSION}"
 - command: update
   path: spec.install.spec.deployments.(name==knative-operator).spec.template.spec.volumes[+]
   value:
