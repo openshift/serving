@@ -90,7 +90,13 @@ function timeout() {
 
 function update_csv(){
   local SERVING_DIR=$1
-  local KOURIER_CONTROL="registry.ci.openshift.org/openshift/knative-v0.20.0:kourier"
+
+  source ./hack/lib/metadata.bash
+  local SERVING_VERSION=$(metadata.get dependencies.serving)
+  local EVENTING_VERSION=$(metadata.get dependencies.eventing)
+  local KOURIER_VERSION=$(metadata.get dependencies.kourier)
+
+  local KOURIER_CONTROL="registry.ci.openshift.org/openshift/knative-v${KOURIER_VERSION}:kourier"
   local KOURIER_GATEWAY=$(grep -w "docker.io/maistra/proxyv2-ubi8" $SERVING_DIR/third_party/kourier-latest/kourier.yaml  | awk '{print $NF}')
   local CSV="olm-catalog/serverless-operator/manifests/serverless-operator.clusterserviceversion.yaml"
 
@@ -124,7 +130,7 @@ function update_csv(){
   path: spec.install.spec.deployments.(name==knative-operator).spec.template.spec.containers.(name==knative-operator).volumeMounts[+]
   value:
     name: "serving-manifest"
-    mountPath: "/tmp/knative/knative-serving/0.18.2"
+    mountPath: "/tmp/knative/knative-serving/${SERVING_VERSION}"
 - command: update
   path: spec.install.spec.deployments.(name==knative-operator).spec.template.spec.volumes[+]
   value:
@@ -139,7 +145,7 @@ function update_csv(){
   path: spec.install.spec.deployments.(name==knative-operator).spec.template.spec.containers.(name==knative-operator).volumeMounts[+]
   value:
     name: "eventing-manifest"
-    mountPath: "/tmp/knative/knative-eventing/0.18.2"
+    mountPath: "/tmp/knative/knative-eventing/${EVENTING_VERSION}"
 - command: update
   path: spec.install.spec.deployments.(name==knative-operator).spec.template.spec.volumes[+]
   value:
