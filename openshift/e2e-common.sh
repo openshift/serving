@@ -92,8 +92,8 @@ function update_csv(){
   local SERVING_DIR=$1
 
   source ./hack/lib/metadata.bash
-  local SERVING_VERSION=$(metadata.get dependencies.serving)
-  local EVENTING_VERSION=$(metadata.get dependencies.eventing)
+  local SERVING_VERSION="latest"
+  local EVENTING_VERSION="latest"
   local KOURIER_VERSION=$(metadata.get dependencies.kourier)
 
   local KOURIER_CONTROL="registry.ci.openshift.org/openshift/knative-v${KOURIER_VERSION}:kourier"
