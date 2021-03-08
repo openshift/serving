@@ -15,9 +15,9 @@ fi
 git fetch upstream --tags
 git checkout -b "$target" "$release"
 
-# Update openshift's master and take all needed files from there.
-git fetch openshift master
-git checkout openshift/master -- openshift OWNERS_ALIASES OWNERS Makefile
+# Update openshift's main and take all needed files from there.
+git fetch openshift main
+git checkout openshift/main -- openshift OWNERS_ALIASES OWNERS Makefile
 make generate-dockerfiles
 make RELEASE=$release generate-release
 make RELEASE=ci generate-release

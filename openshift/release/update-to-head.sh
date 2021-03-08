@@ -10,9 +10,9 @@ REPO_NAME=`basename $(git rev-parse --show-toplevel)`
 git fetch upstream master
 git checkout upstream/master -B release-next
 
-# Update openshift's master and take all needed files from there.
-git fetch openshift master
-git checkout openshift/master openshift OWNERS_ALIASES OWNERS Makefile
+# Update openshift's main and take all needed files from there.
+git fetch openshift main
+git checkout openshift/main openshift OWNERS_ALIASES OWNERS Makefile
 make generate-dockerfiles
 make RELEASE=ci generate-release
 git add openshift OWNERS_ALIASES OWNERS Makefile

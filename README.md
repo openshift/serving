@@ -6,7 +6,7 @@ fixes needed only for the OpenShift side of things.
 
 ## How this repository works ?
 
-The `master` branch holds up-to-date specific [openshift files](./openshift) 
+The default branch holds up-to-date specific [openshift files](./openshift) 
 that are necessary for CI setups and maintaining it. This includes:
 
 - Scripts to create a new release branch from `upstream`
@@ -57,7 +57,7 @@ Once the file is generated, it must be committed to the
 [openshift/release](https://github.com/openshift/release) repository, as the other manifests linked above. The
 naming schema is `openshift-knative-serving-BRANCH.yaml`, thus the
 files existing already correspond to our existing releases and the
-master branch itself.
+default branch itself.
 
 After the file has been added to the folder as mentioned above, the
 job manifests itself will need to be generated as is described in the
