@@ -31,5 +31,5 @@ To update a branch to the latest HEAD of upstream use the `update-to-head.sh` sc
 $ ./openshift/release/update-to-head.sh
 ```
 
-That will pull the latest master from upstream, rebase the current fixes on the release-next branch
+That will pull the latest main from upstream, rebase the current fixes on the release-next branch
 on top of it, update the Openshift specific files if necessary, and then trigger CI.
