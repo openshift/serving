@@ -37,7 +37,7 @@ var (
 
 // GetServiceHostname returns the fully qualified service hostname
 func GetServiceHostname(name, namespace string) string {
-	return fmt.Sprintf("%s.%s.svc.%s", name, namespace, GetClusterDomainName())
+	return fmt.Sprintf("%s.%s.svc.%s.", name, namespace, GetClusterDomainName())
 }
 
 // GetClusterDomainName returns cluster's domain name or an error
