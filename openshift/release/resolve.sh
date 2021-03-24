@@ -3,8 +3,7 @@
 function resolve_resources(){
   local dir=$1
   local resolved_file_name=$2
-  local image_prefix=$3
-  local image_tag=$4
+  local image_tag=$3
 
   [[ -n $image_tag ]] && image_tag=":$image_tag"
 
@@ -13,14 +12,13 @@ function resolve_resources(){
   > "$resolved_file_name"
 
   for yaml in `find $dir -name "*.yaml" | sort`; do
-    resolve_file "$yaml" "$resolved_file_name" "$image_prefix" "$image_tag"
+    resolve_file "$yaml" "$resolved_file_name" "$image_tag"
   done
 }
 
 function resolve_file() {
   local file=$1
   local to=$2
-  local image_prefix=$3
   local image_tag=$4
 
   # Skip cert-manager, it's not part of upstream's release YAML either.
@@ -38,12 +36,14 @@ function resolve_file() {
     return
   fi
 
+  # TODO:
+  # If image_tag is empty (=nigthly CI), use fixed version v0.20.0 for now.
+  # Once operator v0.21 was available in downstream, use the default "devel" label with "latest" version.
+  # see: https://github.com/knative/operator/commit/cf938baa174e108121624eef353c1794e247cc1b
+  [[ -z $image_tag ]] && image_tag="v0.20.0"
+
   echo "---" >> "$to"
-  # 1. Rewrite image references
-  # 2. Update config map entry
-  # 3. Replace serving.knative.dev/release label.
-  sed -e "s+\(.* image: \)\(knative.dev\)\(.*/\)\(.*\)+\1${image_prefix}\4${image_tag}+g" \
-      -e "s+\(.* queueSidecarImage: \)\(knative.dev\)\(.*/\)\(.*\)+\1${image_prefix}\4${image_tag}+g" \
-      -e "s+serving.knative.dev/release: devel+serving.knative.dev/release: \"v0.20.0\"+" \
+  # Replace serving.knative.dev/release label.
+  sed -e "s+serving.knative.dev/release: devel+serving.knative.dev/release: \"${image_tag}\"+" \
       "$file" >> "$to"
 }

@@ -3,14 +3,12 @@
 source $(dirname $0)/resolve.sh
 
 release=$1
-output_file="openshift/release/knative-serving-${release}.yaml"
+output_file="openshift/release/knative-serving-released.yaml"
 
 if [ "$release" = "ci" ]; then
-    image_prefix="image-registry.openshift-image-registry.svc:5000/knative-serving/knative-serving-"
     tag=""
 else
-    image_prefix="quay.io/openshift-knative/knative-serving-"
     tag=$release
 fi
 
-resolve_resources "config/core/ config/hpa-autoscaling/ config/domain-mapping/" "$output_file" "$image_prefix" "$tag"
+resolve_resources "config/core/ config/hpa-autoscaling/ config/domain-mapping/" "$output_file" "$tag"
