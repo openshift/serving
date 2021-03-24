@@ -138,8 +138,8 @@ function update_csv(){
     configMap:
       name: "ko-data-serving"
       items:
-        - key: "knative-serving-ci.yaml"
-          path: "knative-serving-ci.yaml"
+        - key: "knative-serving-v0.20.0.yaml"
+          path: "knative-serving-v0.20.0.yaml"
 # eventing
 - command: update
   path: spec.install.spec.deployments.(name==knative-operator).spec.template.spec.containers.(name==knative-operator).volumeMounts[+]
@@ -239,7 +239,7 @@ EOF
 
 function create_configmaps(){
   # Create configmap to use the latest manifest.
-  oc create configmap ko-data-serving -n $OPERATORS_NAMESPACE --from-file="openshift/release/knative-serving-ci.yaml" || return $?
+  oc create configmap ko-data-serving -n $OPERATORS_NAMESPACE --from-file="openshift/release/knative-serving-v0.20.0.yaml" || return $?
 
   # Create eventing manifest. We don't want to do this, but upstream designed that knative-eventing dir is mandatory
   # when KO_DATA_PATH was overwritten.
