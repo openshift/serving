@@ -116,8 +116,8 @@ function update_csv(){
   sed -i -e "s|\"docker.io/maistra/proxyv2-ubi8:.*\"|\"${KOURIER_GATEWAY}\"|g"                                        ${CSV}
   sed -i -e "s|\"registry.ci.openshift.org/openshift/knative-.*:kourier\"|\"${KOURIER_CONTROL}\"|g"               ${CSV}
 
-  # release-next branch keeps updating the latest manifest in knative-serving-ci.yaml for serving resources.
-  # see: https://github.com/openshift/knative-serving/blob/release-next/openshift/release/knative-serving-ci.yaml
+  # release-next branch keeps updating the latest manifest in knative-serving-released.yaml for serving resources.
+  # see: https://github.com/openshift/knative-serving/blob/release-next/openshift/release/knative-serving-released.yaml
   # So mount the manifest and use it by KO_DATA_PATH env value.
 
   cat << EOF | yq write --inplace --script - $CSV || return $?
@@ -138,8 +138,8 @@ function update_csv(){
     configMap:
       name: "ko-data-serving"
       items:
-        - key: "knative-serving-ci.yaml"
-          path: "knative-serving-ci.yaml"
+        - key: "knative-serving-released.yaml"
+          path: "knative-serving-released.yaml"
 # eventing
 - command: update
   path: spec.install.spec.deployments.(name==knative-operator).spec.template.spec.containers.(name==knative-operator).volumeMounts[+]
@@ -239,7 +239,7 @@ EOF
 
 function create_configmaps(){
   # Create configmap to use the latest manifest.
-  oc create configmap ko-data-serving -n $OPERATORS_NAMESPACE --from-file="openshift/release/knative-serving-ci.yaml" || return $?
+  oc create configmap ko-data-serving -n $OPERATORS_NAMESPACE --from-file="openshift/release/knative-serving-released.yaml" || return $?
 
   # Create eventing manifest. We don't want to do this, but upstream designed that knative-eventing dir is mandatory
   # when KO_DATA_PATH was overwritten.
