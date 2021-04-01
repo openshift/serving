@@ -1,85 +1,148 @@
 aliases:
+  serving-approvers:
+  - alanfx
+  - mgencur
+  - mvinkler
+  - jcrossley3
+  - bobmcwhirter
+  - markusthoemmes
+  - evanchooly
+  - arilivigni
+  - skonto
+  serving-reviewers:
+  - alanfx
+  - mgencur
+  - mvinkler
+  - jcrossley3
+  - bobmcwhirter
+  - markusthoemmes
+  - evanchooly
+  - arilivigni
+  - skonto
+
   serving-api-approvers:
-  - dprotaso
+  - alanfx
+  - mgencur
+  - mvinkler
+  - jcrossley3
+  - bobmcwhirter
   - markusthoemmes
-  - tcnghia
-  - vagababov
+  - evanchooly
+  - arilivigni
+  - skonto
   serving-api-reviewers:
-  - dprotaso
+  - alanfx
+  - mgencur
+  - mvinkler
+  - jcrossley3
+  - bobmcwhirter
   - markusthoemmes
-  - tcnghia
-  - vagababov
-  - whaught
-  - julz
-
-  toc:
-  - evankanderson
-  - grantr
-  - markusthoemmes
-  - tcnghia
-
-  wg-leads:
-  - dprotaso        # API
-  - markusthoemmes  # Scaling
-  - tcnghia         # Network
-  - vagababov       # Scaling
-
-  # TOC + WG leads
-  serving-wg-leads:
-  - dprotaso        # API
-  - evankanderson   # TOC
-  - grantr          # TOC
-  - markusthoemmes  # Scaling/TOC
-  - nak3            # Network
-  - tcnghia         # Network/TOC
-  - ZhiminXiang     # Network
-  - vagababov       # Scaling
+  - evanchooly
+  - arilivigni
+  - skonto
 
   autoscaling-approvers:
-  - julz
+  - alanfx
+  - mgencur
+  - mvinkler
+  - jcrossley3
+  - bobmcwhirter
   - markusthoemmes
-  - vagababov
-  - yanweiguo
+  - evanchooly
+  - arilivigni
+  - skonto
   autoscaling-reviewers:
-  - julz
+  - alanfx
+  - mgencur
+  - mvinkler
+  - jcrossley3
+  - bobmcwhirter
   - markusthoemmes
-  - taragu
-  - vagababov
-  - yanweiguo
+  - evanchooly
+  - arilivigni
+  - skonto
 
   monitoring-approvers:
-  - mdemirhan
-  - yanweiguo
+  - alanfx
+  - mgencur
+  - mvinkler
+  - jcrossley3
+  - bobmcwhirter
+  - markusthoemmes
+  - evanchooly
+  - arilivigni
+  - skonto
   monitoring-reviewers:
-  - mdemirhan
-  - yanweiguo
+  - alanfx
+  - mgencur
+  - mvinkler
+  - jcrossley3
+  - bobmcwhirter
+  - markusthoemmes
+  - evanchooly
+  - arilivigni
   - skonto
 
   productivity-approvers:
-  - chaodaiG
-  - chizhg
+  - alanfx
+  - mgencur
+  - mvinkler
+  - jcrossley3
+  - bobmcwhirter
+  - markusthoemmes
+  - evanchooly
+  - arilivigni
+  - skonto
   productivity-reviewers:
-  - chaodaiG
-  - coryrc
-  - chizhg
-  - steuhs
-  - yt3liu
+  - alanfx
+  - mgencur
+  - mvinkler
+  - jcrossley3
+  - bobmcwhirter
+  - markusthoemmes
+  - evanchooly
+  - arilivigni
+  - skonto
 
   networking-approvers:
-  - JRBANCEL
+  - alanfx
+  - mgencur
+  - mvinkler
+  - jcrossley3
+  - bobmcwhirter
   - markusthoemmes
-  - nak3
-  - tcnghia
-  - vagababov
-  - ZhiminXiang
+  - evanchooly
+  - arilivigni
+  - skonto
   networking-reviewers:
-  - andrew-su
-  - arturenault
-  - JRBANCEL
+  - alanfx
+  - mgencur
+  - mvinkler
+  - jcrossley3
+  - bobmcwhirter
   - markusthoemmes
-  - nak3
-  - shashwathi
-  - tcnghia
-  - vagababov
-  - yanweiguo
-  - ZhiminXiang
+  - evanchooly
+  - arilivigni
+  - skonto
+
+  build-approvers:
+  - alanfx
+  - mgencur
+  - mvinkler
+  - jcrossley3
+  - bobmcwhirter
+  - markusthoemmes
+  - evanchooly
+  - arilivigni
+  - skonto
+  build-reviewers:
+  - alanfx
+  - mgencur
+  - mvinkler
+  - jcrossley3
+  - bobmcwhirter
+  - markusthoemmes
+  - evanchooly
+  - arilivigni
+  - skonto
+
