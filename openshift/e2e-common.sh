@@ -114,7 +114,9 @@ function install_knative(){
   sed -i -e 's/kourier-control.knative-serving/kourier-control.knative-serving-ingress/g'  third_party/kourier-latest/kourier.yaml
 
   sed -i -e "s|docker.io/maistra/proxyv2-ubi8:.*|${KOURIER_GATEWAY}|g"                                         ${CATALOG_SOURCE}
-  sed -i -e "s|registry.ci.openshift.org/openshift/knative-.*:kourier|${KOURIER_CONTROL}|g"               ${CATALOG_SOURCE}
+
+  # TODO: Upstream kourier build doesn't run on current OCP 4.5, https://bugzilla.redhat.com/show_bug.cgi?id=1934177
+  #sed -i -e "s|registry.ci.openshift.org/openshift/knative-.*:kourier|${KOURIER_CONTROL}|g"               ${CATALOG_SOURCE}
 
   # release-next branch keeps updating the latest manifest in knative-serving-ci.yaml for serving resources.
   # see: https://github.com/openshift/knative-serving/blob/release-next/openshift/release/knative-serving-ci.yaml
