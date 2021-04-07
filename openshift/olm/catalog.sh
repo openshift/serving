@@ -13,8 +13,8 @@ indent() {
   sed "s/^/$INDENT/" | sed "s/^${INDENT}\($1\)/${ENDASH}\1/"
 }
 
-export IMAGE_KNATIVE_OPERATOR="registry.svc.ci.openshift.org/openshift/openshift-serverless-nightly:knative-operator"
-export IMAGE_KNATIVE_OPENSHIFT_INGRESS="registry.svc.ci.openshift.org/openshift/openshift-serverless-nightly:knative-openshift-ingress"
+export IMAGE_KNATIVE_OPERATOR="registry.ci.openshift.org/openshift/openshift-serverless-nightly:knative-operator"
+export IMAGE_KNATIVE_OPENSHIFT_INGRESS="registry.ci.openshift.org/openshift/openshift-serverless-nightly:knative-openshift-ingress"
 
 CRD=$(cat $(ls $OLM_DIR/*_crd.yaml) | grep -v -- "---" | indent apiVersion)
 CSV=$(cat $(find $OLM_DIR -name '*version.yaml' | grep "${VERSION}" | sort -n) | envsubst '$IMAGE_KNATIVE_OPERATOR $IMAGE_KNATIVE_OPENSHIFT_INGRESS' | indent apiVersion)

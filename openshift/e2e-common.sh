@@ -17,11 +17,11 @@ if [ -n "$OPENSHIFT_BUILD_NAMESPACE" ]; then
 elif [ -n "$DOCKER_REPO_OVERRIDE" ]; then
   readonly TEST_IMAGE_TEMPLATE="${DOCKER_REPO_OVERRIDE}/{{.Name}}"
 elif [ -n "$BRANCH" ]; then
-  readonly TEST_IMAGE_TEMPLATE="registry.svc.ci.openshift.org/openshift/${BRANCH}:knative-serving-test-{{.Name}}"
+  readonly TEST_IMAGE_TEMPLATE="registry.ci.openshift.org/openshift/${BRANCH}:knative-serving-test-{{.Name}}"
 elif [ -n "$TEMPLATE" ]; then
   readonly TEST_IMAGE_TEMPLATE="$TEMPLATE"
 else
-  readonly TEST_IMAGE_TEMPLATE="registry.svc.ci.openshift.org/openshift/knative-nightly:knative-serving-test-{{.Name}}"
+  readonly TEST_IMAGE_TEMPLATE="registry.ci.openshift.org/openshift/knative-nightly:knative-serving-test-{{.Name}}"
 fi
 
 env
@@ -97,13 +97,13 @@ function install_knative(){
 
   # Install CatalogSource in OLM namespace
   # TODO: Rework this into a loop
-  sed -i -e "s|registry.svc.ci.openshift.org/openshift/knative-.*:knative-serving-queue|${IMAGE_FORMAT//\$\{component\}/knative-serving-queue}|g"                   ${CATALOG_SOURCE}
-  sed -i -e "s|registry.svc.ci.openshift.org/openshift/knative-.*:knative-serving-activator|${IMAGE_FORMAT//\$\{component\}/knative-serving-activator}|g"           ${CATALOG_SOURCE}
-  sed -i -e "s|registry.svc.ci.openshift.org/openshift/knative-.*:knative-serving-autoscaler|${IMAGE_FORMAT//\$\{component\}/knative-serving-autoscaler}|g"         ${CATALOG_SOURCE}
-  sed -i -e "s|registry.svc.ci.openshift.org/openshift/knative-.*:knative-serving-autoscaler-hpa|${IMAGE_FORMAT//\$\{component\}/knative-serving-autoscaler-hpa}|g" ${CATALOG_SOURCE}
-  sed -i -e "s|registry.svc.ci.openshift.org/openshift/knative-.*:knative-serving-controller|${IMAGE_FORMAT//\$\{component\}/knative-serving-controller}|g"         ${CATALOG_SOURCE}
-  sed -i -e "s|registry.svc.ci.openshift.org/openshift/knative-.*:knative-serving-webhook|${IMAGE_FORMAT//\$\{component\}/knative-serving-webhook}|g"               ${CATALOG_SOURCE}
-  sed -i -e "s|registry.svc.ci.openshift.org/openshift/knative-.*:knative-serving-storage-version-migration|${IMAGE_FORMAT//\$\{component\}/knative-serving-storage-version-migration}|g" ${CATALOG_SOURCE}
+  sed -i -e "s|registry.ci.openshift.org/openshift/knative-.*:knative-serving-queue|${IMAGE_FORMAT//\$\{component\}/knative-serving-queue}|g"                   ${CATALOG_SOURCE}
+  sed -i -e "s|registry.ci.openshift.org/openshift/knative-.*:knative-serving-activator|${IMAGE_FORMAT//\$\{component\}/knative-serving-activator}|g"           ${CATALOG_SOURCE}
+  sed -i -e "s|registry.ci.openshift.org/openshift/knative-.*:knative-serving-autoscaler|${IMAGE_FORMAT//\$\{component\}/knative-serving-autoscaler}|g"         ${CATALOG_SOURCE}
+  sed -i -e "s|registry.ci.openshift.org/openshift/knative-.*:knative-serving-autoscaler-hpa|${IMAGE_FORMAT//\$\{component\}/knative-serving-autoscaler-hpa}|g" ${CATALOG_SOURCE}
+  sed -i -e "s|registry.ci.openshift.org/openshift/knative-.*:knative-serving-controller|${IMAGE_FORMAT//\$\{component\}/knative-serving-controller}|g"         ${CATALOG_SOURCE}
+  sed -i -e "s|registry.ci.openshift.org/openshift/knative-.*:knative-serving-webhook|${IMAGE_FORMAT//\$\{component\}/knative-serving-webhook}|g"               ${CATALOG_SOURCE}
+  sed -i -e "s|registry.ci.openshift.org/openshift/knative-.*:knative-serving-storage-version-migration|${IMAGE_FORMAT//\$\{component\}/knative-serving-storage-version-migration}|g" ${CATALOG_SOURCE}
 
   # Replace kourier's image with the latest ones from third_party/kourier-latest
   KOURIER_CONTROL=$(grep -w "gcr.io/knative-nightly/knative.dev/net-kourier/cmd/kourier" third_party/kourier-latest/kourier.yaml  | awk '{print $NF}')
@@ -114,7 +114,7 @@ function install_knative(){
   sed -i -e 's/kourier-control.knative-serving/kourier-control.knative-serving-ingress/g'  third_party/kourier-latest/kourier.yaml
 
   sed -i -e "s|docker.io/maistra/proxyv2-ubi8:.*|${KOURIER_GATEWAY}|g"                                         ${CATALOG_SOURCE}
-  sed -i -e "s|registry.svc.ci.openshift.org/openshift/knative-.*:kourier|${KOURIER_CONTROL}|g"               ${CATALOG_SOURCE}
+  sed -i -e "s|registry.ci.openshift.org/openshift/knative-.*:kourier|${KOURIER_CONTROL}|g"               ${CATALOG_SOURCE}
 
   # release-next branch keeps updating the latest manifest in knative-serving-ci.yaml for serving resources.
   # see: https://github.com/openshift/knative-serving/blob/release-next/openshift/release/knative-serving-ci.yaml
