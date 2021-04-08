@@ -53,6 +53,9 @@ func TestServiceValidationWithInvalidPodSpec(t *testing.T) {
 	service, err := v1test.CreateService(t, clients, names,
 		WithServiceAnnotation(webhook.PodSpecDryRunAnnotation, string(webhook.DryRunStrict)))
 	if err != nil {
+		if strings.Contains(err.Error(), "dry run failed with admission webhook \"pod-identity-webhook.amazonaws.com\" does not support dry run") {
+			t.Skip("Skip due to https://github.com/openshift/cloud-credential-operator/issues/230")
+		}
 		t.Fatal("Create Service:", err)
 	}
 
