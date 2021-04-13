@@ -33,5 +33,5 @@ function resolve_file() {
   fi
 
   echo "---" >> "$to"
-  "$file" >> "$to"
+  cat "$file" >> "$to"
 }
