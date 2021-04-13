@@ -160,12 +160,12 @@ function update_csv(){
   path: spec.install.spec.deployments.(name==knative-openshift).spec.template.spec.containers.(name==knative-openshift).env.(name==KOURIER_MANIFEST_PATH)
   value:
     name: KOURIER_MANIFEST_PATH
-    value: "/tmp/kourier/kourier.yaml"
+    value: "/tmp/knative/ingress/${KOURIER_VERSION}/kourier.yaml"
 - command: update
   path: spec.install.spec.deployments.(name==knative-openshift).spec.template.spec.containers[0].volumeMounts[+]
   value:
     name: "kourier-manifest"
-    mountPath: "/tmp/kourier"
+    mountPath: "/tmp/knative/ingress/${KOURIER_VERSION}"
 - command: update
   path: spec.install.spec.deployments.(name==knative-openshift).spec.template.spec.volumes[+]
   value:
