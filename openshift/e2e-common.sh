@@ -95,6 +95,8 @@ function update_csv(){
   local SERVING_VERSION=$(metadata.get dependencies.serving)
   local EVENTING_VERSION=$(metadata.get dependencies.eventing)
   local KOURIER_VERSION=$(metadata.get dependencies.kourier)
+  local KOURIER_MINOR_VERSION=${KOURIER_VERSION%.*}    # e.g. "0.21.0" => "0.21"
+
 
   local KOURIER_CONTROL="registry.ci.openshift.org/openshift/knative-v${KOURIER_VERSION}:kourier"
   local KOURIER_GATEWAY=$(grep -w "docker.io/maistra/proxyv2-ubi8" $SERVING_DIR/third_party/kourier-latest/kourier.yaml  | awk '{print $NF}')
@@ -160,12 +162,12 @@ function update_csv(){
   path: spec.install.spec.deployments.(name==knative-openshift).spec.template.spec.containers.(name==knative-openshift).env.(name==KOURIER_MANIFEST_PATH)
   value:
     name: KOURIER_MANIFEST_PATH
-    value: "/tmp/knative/ingress/${KOURIER_VERSION}/kourier.yaml"
+    value: "/tmp/knative/ingress/${KOURIER_MINOR_VERSION}/kourier.yaml"
 - command: update
   path: spec.install.spec.deployments.(name==knative-openshift).spec.template.spec.containers[0].volumeMounts[+]
   value:
     name: "kourier-manifest"
-    mountPath: "/tmp/knative/ingress/${KOURIER_VERSION}"
+    mountPath: "/tmp/knative/ingress/${KOURIER_MINOR_VERSION}"
 - command: update
   path: spec.install.spec.deployments.(name==knative-openshift).spec.template.spec.volumes[+]
   value:
