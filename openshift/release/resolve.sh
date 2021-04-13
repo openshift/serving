@@ -17,18 +17,8 @@ function resolve_file() {
   local file=$1
   local to=$2
 
-  # Skip cert-manager, it's not part of upstream's release YAML either.
-  if grep -q 'networking.knative.dev/certificate-provider: cert-manager' "$1"; then
-    return
-  fi
-
   # Skip nscert, it's not part of upstream's release YAML either.
   if grep -q 'networking.knative.dev/wildcard-certificate-provider: nscert' "$1"; then
-    return
-  fi
-
-  # Skip istio resources, as we use kourier.
-  if grep -q 'networking.knative.dev/ingress-provider: istio' "$1"; then
     return
   fi
 
