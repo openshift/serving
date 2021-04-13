@@ -179,6 +179,24 @@ function update_csv(){
           path: "kourier.yaml"
 EOF
 
+  cat << EOF | yq write --inplace --script - $CSV || return $?
+# kourier
+- command: update
+  path: spec.install.spec.deployments.(name==knative-operator).spec.template.spec.containers[0].volumeMounts[+]
+  value:
+    name: "kourier-manifest"
+    mountPath: "/tmp/knative/ingress/${KOURIER_MINOR_VERSION}"
+- command: update
+  path: spec.install.spec.deployments.(name==knative-operator).spec.template.spec.volumes[+]
+  value:
+    name: "kourier-manifest"
+    configMap:
+      name: "kourier-cm"
+      items:
+        - key: "kourier.yaml"
+          path: "kourier.yaml"
+EOF
+
 }
 
 function install_catalogsource(){
