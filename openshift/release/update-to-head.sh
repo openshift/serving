@@ -20,8 +20,6 @@ git commit -m ":open_file_folder: Update openshift specific files."
 
 # Apply patches .
 git apply openshift/patches/*
-# TODO: enable autoscaler HA test once https://github.com/knative/operator/issues/337 was solved.
-rm test/ha/autoscaler_test.go
 git commit -am ":fire: Apply carried patches."
 
 git push -f openshift release-next
