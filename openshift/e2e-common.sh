@@ -95,6 +95,7 @@ function update_csv(){
   local SERVING_VERSION=$(metadata.get dependencies.serving)
   local EVENTING_VERSION=$(metadata.get dependencies.eventing)
   local KOURIER_VERSION=$(metadata.get dependencies.kourier)
+  local KOURIER_MINOR_VERSION=${KOURIER_VERSION%.*}    # e.g. "0.21.0" => "0.21"
 
   local KOURIER_CONTROL="registry.ci.openshift.org/openshift/knative-v${KOURIER_VERSION}:kourier"
   local KOURIER_GATEWAY=$(grep -w "docker.io/maistra/proxyv2-ubi8" $SERVING_DIR/third_party/kourier-latest/kourier.yaml  | awk '{print $NF}')
@@ -160,14 +161,35 @@ function update_csv(){
   path: spec.install.spec.deployments.(name==knative-openshift).spec.template.spec.containers.(name==knative-openshift).env.(name==KOURIER_MANIFEST_PATH)
   value:
     name: KOURIER_MANIFEST_PATH
-    value: "/tmp/kourier/kourier.yaml"
+    value: "/tmp/knative/ingress/${KOURIER_MINOR_VERSION}/kourier.yaml"
 - command: update
   path: spec.install.spec.deployments.(name==knative-openshift).spec.template.spec.containers[0].volumeMounts[+]
   value:
     name: "kourier-manifest"
-    mountPath: "/tmp/kourier"
+    mountPath: "/tmp/knative/ingress/${KOURIER_MINOR_VERSION}"
 - command: update
   path: spec.install.spec.deployments.(name==knative-openshift).spec.template.spec.volumes[+]
+  value:
+    name: "kourier-manifest"
+    configMap:
+      name: "kourier-cm"
+      items:
+        - key: "kourier.yaml"
+          path: "kourier.yaml"
+EOF
+
+# The mounted kourier.yaml is not used but the manifest in "knative-openshift" via KOURIER_MANIFEST_PATH is used.
+# Mounting configmap because knative-operator needs KO_DATA_PATH/ingress/0.21 directory.
+# TODO: Use manifest in this knative-operator instead of knative-openshift's KOURIER_MANIFEST_PATH.
+  cat << EOF | yq write --inplace --script - $CSV || return $?
+# kourier
+- command: update
+  path: spec.install.spec.deployments.(name==knative-operator).spec.template.spec.containers[0].volumeMounts[+]
+  value:
+    name: "kourier-manifest"
+    mountPath: "/tmp/knative/ingress/${KOURIER_MINOR_VERSION}"
+- command: update
+  path: spec.install.spec.deployments.(name==knative-operator).spec.template.spec.volumes[+]
   value:
     name: "kourier-manifest"
     configMap:
