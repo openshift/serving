@@ -300,6 +300,7 @@ func numberOfReadyPods(ctx *TestContext) (float64, *appsv1.Deployment, error) {
 		// Ref: #11092
 		// The deployment was updated and the update is being rolled out so we defensively
 		// pick the desired replicas to assert the autoscaling decisions.
+		// TODO: Drop this once we solved the underscale issue.
 		ctx.t.Logf("Deployment is being rolled, picking spec.replicas=%d", *deploy.Spec.Replicas)
 		return float64(*deploy.Spec.Replicas), deploy, nil
 	}
@@ -312,6 +313,7 @@ func checkPodScale(ctx *TestContext, targetPods, minPods, maxPods float64, done 
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 
+	originalMaxPods := maxPods
 	for {
 		select {
 		case <-ticker.C:
@@ -321,6 +323,14 @@ func checkPodScale(ctx *TestContext, targetPods, minPods, maxPods float64, done 
 			if err != nil {
 				return err
 			}
+
+			if isInRollout(d) {
+				// Ref: #11092
+				// Allow for a higher scale if the deployment is being rolled as that
+				// might be skewing metrics in the autoscaler.
+				maxPods = math.Ceil(originalMaxPods * 1.2)
+			}
+
 			mes := fmt.Sprintf("revision %q #replicas: %v, want at least: %v\ndeployment state: %s",
 				ctx.resources.Revision.Name, got, minPods, spew.Sdump(d))
 			ctx.logf(mes)
@@ -346,6 +356,14 @@ func checkPodScale(ctx *TestContext, targetPods, minPods, maxPods float64, done 
 			if err != nil {
 				return fmt.Errorf("failed to fetch number of ready pods: %w", err)
 			}
+
+			if isInRollout(d) {
+				// Ref: #11092
+				// Allow for a higher scale if the deployment is being rolled as that
+				// might be skewing metrics in the autoscaler.
+				maxPods = math.Ceil(originalMaxPods * 1.2)
+			}
+
 			mes := fmt.Sprintf("got %v replicas, expected between [%v, %v] replicas for revision %s\ndeployment state: %s",
 				got, targetPods-1, maxPods, ctx.resources.Revision.Name, spew.Sdump(d))
 			ctx.logf(mes)
