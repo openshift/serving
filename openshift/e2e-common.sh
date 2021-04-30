@@ -113,6 +113,8 @@ function update_csv(){
   sed -i -e "s|\"registry.ci.openshift.org/openshift/knative-.*:knative-serving-domain-mapping-webhook\"|\"${IMAGE_FORMAT//\$\{component\}/knative-serving-domain-mapping-webhook}\"|g"       ${CSV}
   sed -i -e "s|\"registry.ci.openshift.org/openshift/knative-.*:knative-serving-storage-version-migration\"|\"${IMAGE_FORMAT//\$\{component\}/knative-serving-storage-version-migration}\"|g" ${CSV}
 
+  # TODO: Replace the net-istio latest image.
+
   # Replace kourier's image with the latest ones from third_party/kourier-latest
   sed -i -e "s|\"docker.io/maistra/proxyv2-ubi8:.*\"|\"${KOURIER_GATEWAY}\"|g"                                        ${CSV}
   sed -i -e "s|\"registry.ci.openshift.org/openshift/knative-.*:kourier\"|\"${KOURIER_CONTROL}\"|g"               ${CSV}
@@ -156,21 +158,23 @@ function update_csv(){
       items:
         - key: "knative-eventing-ci.yaml"
           path: "knative-eventing-ci.yaml"
-# kourier
+# ingress
 - command: update
   path: spec.install.spec.deployments.(name==knative-operator).spec.template.spec.containers.(name==knative-operator).volumeMounts[+]
   value:
-    name: "kourier-manifest"
+    name: "ingress-manifest"
     mountPath: "/tmp/knative/ingress/${KOURIER_MINOR_VERSION}"
 - command: update
   path: spec.install.spec.deployments.(name==knative-operator).spec.template.spec.volumes[+]
   value:
-    name: "kourier-manifest"
+    name: "ingress-manifest"
     configMap:
-      name: "kourier-cm"
+      name: "ingress-cm"
       items:
         - key: "kourier.yaml"
           path: "kourier.yaml"
+        - key: "net-istio.yaml"
+          path: "net-istio.yaml"
 EOF
 }
 
@@ -183,6 +187,9 @@ function install_catalogsource(){
   pushd ${SERVERLESS_DIR}
 
   update_csv $CURRENT_DIR || return $?
+
+  # Install mesh and net-istio
+  FULL_MESH="true" UNINSTALL_MESH="false" ./hack/mesh.sh
 
   source ./test/lib.bash
   create_namespaces
@@ -201,6 +208,28 @@ function install_knative(){
   timeout 900 '[[ $(oc get crd | grep -c knativeservings) -eq 0 ]]' || return 1
 
   # Install Knative Serving with initial values in test/config/config-observability.yaml.
+#  cat <<-EOF | oc apply -f - || return $?
+#apiVersion: operator.knative.dev/v1alpha1
+#kind: KnativeServing
+#metadata:
+#  name: knative-serving
+#  namespace: ${SERVING_NAMESPACE}
+#spec:
+#  config:
+#    deployment:
+#      progressDeadline: "120s"
+#    observability:
+#      logging.request-log-template: '{"httpRequest": {"requestMethod": "{{.Request.Method}}",
+#        "requestUrl": "{{js .Request.RequestURI}}", "requestSize": "{{.Request.ContentLength}}",
+#        "status": {{.Response.Code}}, "responseSize": "{{.Response.Size}}", "userAgent":
+#        "{{js .Request.UserAgent}}", "remoteIp": "{{js .Request.RemoteAddr}}", "serverIp":
+#        "{{.Revision.PodIP}}", "referer": "{{js .Request.Referer}}", "latency": "{{.Response.Latency}}s",
+#        "protocol": "{{.Request.Proto}}"}, "traceId": "{{index .Request.Header "X-B3-Traceid"}}"}'
+#      logging.enable-probe-request-log: "true"
+#      logging.enable-request-log: "true"
+#EOF
+
+  # Install Knative Serving with initial values in test/config/config-observability.yaml.
   cat <<-EOF | oc apply -f - || return $?
 apiVersion: operator.knative.dev/v1alpha1
 kind: KnativeServing
@@ -208,7 +237,21 @@ metadata:
   name: knative-serving
   namespace: ${SERVING_NAMESPACE}
 spec:
+  ingress:
+    istio:
+      enabled: true
+  deployments:
+  - name: activator
+    annotations:
+      "sidecar.istio.io/inject": "true"
+      "sidecar.istio.io/rewriteAppHTTPProbers": "true"
+  - name: autoscaler
+    annotations:
+      "sidecar.istio.io/inject": "true"
+      "sidecar.istio.io/rewriteAppHTTPProbers": "true"
   config:
+    network:
+      "ingress.class": "istio.ingress.networking.knative.dev"
     deployment:
       progressDeadline: "120s"
     observability:
@@ -222,12 +265,12 @@ spec:
       logging.enable-request-log: "true"
 EOF
 
+  ## Test net-istio ##
+  oc apply -f https://raw.githubusercontent.com/nak3/metadata-webhook/main/examples/release.yaml
+
   # Wait for 4 pods to appear first
   timeout 600 '[[ $(oc get pods -n $SERVING_NAMESPACE --no-headers | wc -l) -lt 4 ]]' || return 1
   wait_until_pods_running $SERVING_NAMESPACE || return 1
-
-  wait_until_service_has_external_ip $SERVING_INGRESS_NAMESPACE kourier || fail_test "Ingress has no external IP"
-  wait_until_hostname_resolves "$(kubectl get svc -n $SERVING_INGRESS_NAMESPACE kourier -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')"
 
   header "Knative Installed successfully"
 }
@@ -242,7 +285,11 @@ function create_configmaps(){
 
   # Create configmap to use the latest kourier.
   sed -i -e 's/kourier-control.knative-serving/kourier-control.knative-serving-ingress/g' third_party/kourier-latest/kourier.yaml || return $?
-  oc create configmap kourier-cm -n $OPERATORS_NAMESPACE --from-file="third_party/kourier-latest/kourier.yaml" || return $?
+
+  # TODO: Remove knative-ingress-gateway Gateway. But it is difficult so just rename it.
+  sed -i -e 's/name: knative-ingress-gateway/name: dummy-knative-ingress-gateway/g' third_party/istio-latest/net-istio.yaml || return $?
+
+  oc create configmap ingress-cm -n $OPERATORS_NAMESPACE --from-file="third_party/kourier-latest/kourier.yaml" --from-file="third_party/istio-latest/net-istio.yaml" || return $?
 }
 
 function prepare_knative_serving_tests_nightly {
@@ -259,9 +306,6 @@ function prepare_knative_serving_tests_nightly {
   oc adm policy add-scc-to-user anyuid -z default -n serving-tests
 
   export SYSTEM_NAMESPACE="$SERVING_NAMESPACE"
-  export GATEWAY_OVERRIDE=kourier
-  export GATEWAY_NAMESPACE_OVERRIDE="$SERVING_INGRESS_NAMESPACE"
-  export INGRESS_CLASS=kourier.ingress.networking.knative.dev
 }
 
 function run_e2e_tests(){
@@ -274,6 +318,9 @@ function run_e2e_tests(){
   readonly OPENSHIFT_REPLICAS=2
   # TODO: Increase BUCKETS size more than 1 when operator supports configmap/config-leader-election setting.
   readonly OPENSHIFT_BUCKETS=1
+
+  OPENSHIFT_TEST_OPTIONS="--kubeconfig "$KUBECONFIG" --enable-alpha --enable-beta --resolvabledomain --https"
+  # OPENSHIFT_TEST_OPTIONS="--kubeconfig "$KUBECONFIG" --enable-alpha --enable-beta --resolvabledomain"
 
   # Changing the bucket count and cycling the controllers will leave around stale
   # lease resources at the old sharding factor, so clean these up.
@@ -289,15 +336,22 @@ function run_e2e_tests(){
   # Give the controller time to sync with the rest of the system components.
   sleep 30
 
+  # istio does not use these values.
+  export GATEWAY_OVERRIDE=kourier
+  export GATEWAY_NAMESPACE_OVERRIDE="$SERVING_INGRESS_NAMESPACE"
+
+  rm ./test/e2e/grpc_test.go
+  rm ./test/e2e/http2_test.go
+
+  export GODEBUG="x509ignoreCN=0"
+
   if [ -n "$test_name" ]; then
     go_test_e2e -tags=e2e -timeout=15m -parallel=1 \
     ./test/e2e ./test/conformance/api/... ./test/conformance/runtime/... \
     -run "^(${test_name})$" \
     --kubeconfig "$KUBECONFIG" \
     --imagetemplate "$TEST_IMAGE_TEMPLATE" \
-    --enable-alpha \
-    --enable-beta \
-    --resolvabledomain "$(ingress_class)" || failed=$?
+    ${OPENSHIFT_TEST_OPTIONS} || failed=$?
 
     return $failed
   fi
@@ -312,47 +366,34 @@ function run_e2e_tests(){
 
   go_test_e2e -tags=e2e -timeout=30m -parallel=$parallel \
     ./test/e2e ./test/conformance/api/... ./test/conformance/runtime/... \
-    --kubeconfig "$KUBECONFIG" \
     --imagetemplate "$TEST_IMAGE_TEMPLATE" \
-    --enable-alpha \
-    --enable-beta \
-    --resolvabledomain "$(ingress_class)" || failed=1
+    ${OPENSHIFT_TEST_OPTIONS} || failed=1
 
   oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"tag-header-based-routing": "enabled"}}}}' || fail_test
   go_test_e2e -timeout=2m ./test/e2e/tagheader \
-    --kubeconfig "$KUBECONFIG" \
     --imagetemplate "$TEST_IMAGE_TEMPLATE" \
-    --resolvabledomain "$(ingress_class)" || failed=1
+    ${OPENSHIFT_TEST_OPTIONS} || failed=1
   oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"tag-header-based-routing": "disabled"}}}}' || fail_test
-
-  go_test_e2e -timeout=2m ./test/e2e/multicontainer \
-    --kubeconfig "$KUBECONFIG" \
-    --imagetemplate "$TEST_IMAGE_TEMPLATE" \
-    --resolvabledomain "$(ingress_class)" || failed=1
 
   oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "autoscaler": {"allow-zero-initial-scale": "true"}}}}' || fail_test
   # wait 10 sec until sync.
   sleep 10
   go_test_e2e -timeout=2m ./test/e2e/initscale \
-    --kubeconfig "$KUBECONFIG" \
     --imagetemplate "$TEST_IMAGE_TEMPLATE" \
-    --resolvabledomain "$(ingress_class)" || failed=1
+    ${OPENSHIFT_TEST_OPTIONS} || failed=1
   oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "autoscaler": {"allow-zero-initial-scale": "false"}}}}' || fail_test
 
-  oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"responsive-revision-gc": "enabled"}}}}' || fail_test
   # immediate_gc
   oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "gc": {"retain-since-create-time":"disabled","retain-since-last-active-time":"disabled","min-non-active-revisions":"0","max-non-active-revisions":"0"}}}}' || fail_test
   go_test_e2e -timeout=2m ./test/e2e/gc \
-    --kubeconfig "$KUBECONFIG" \
     --imagetemplate "$TEST_IMAGE_TEMPLATE" \
-    --resolvabledomain "$(ingress_class)" || failed=1
-  oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"responsive-revision-gc": "disabled"}}}}' || fail_test
+    ${OPENSHIFT_TEST_OPTIONS} || failed=1
 
- # Run the helloworld test with an image pulled into the internal registry.
+  # Run the helloworld test with an image pulled into the internal registry.
   local image_to_tag=$(echo "$TEST_IMAGE_TEMPLATE" | sed 's/\(.*\){{.Name}}\(.*\)/\1helloworld\2/')
   oc tag -n serving-tests "$image_to_tag" "helloworld:latest" --reference-policy=local
   go_test_e2e -tags=e2e -timeout=30m ./test/e2e -run "^(TestHelloWorld)$" \
-    --resolvabledomain --kubeconfig "$KUBECONFIG" \
+    ${OPENSHIFT_TEST_OPTIONS} \
     --imagetemplate "image-registry.openshift-image-registry.svc:5000/serving-tests/{{.Name}}" || failed=2
 
   # Prevent HPA from scaling to make the tests more stable
@@ -368,9 +409,8 @@ function run_e2e_tests(){
   go_test_e2e -tags=e2e -timeout=15m -failfast -parallel=1 \
     ./test/ha \
     -replicas="${OPENSHIFT_REPLICAS}" -buckets="${OPENSHIFT_BUCKETS}" -spoofinterval="10ms" \
-    --kubeconfig "$KUBECONFIG" \
     --imagetemplate "$TEST_IMAGE_TEMPLATE" \
-    --resolvabledomain "$(ingress_class)"|| failed=3
+    ${OPENSHIFT_TEST_OPTIONS} || failed=3
 
   return $failed
 }
