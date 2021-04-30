@@ -582,7 +582,7 @@ data:
                     serviceAccountName: knative-serving-operator
                     containers:
                       - name: knative-openshift
-                        image: registry.svc.ci.openshift.org/openshift/openshift-serverless-nightly:knative-operator
+                        image: registry.ci.openshift.org/openshift/openshift-serverless-nightly:knative-operator
                         command:
                         - knative-openshift
                         imagePullPolicy: Always
@@ -669,7 +669,7 @@ data:
                     serviceAccountName: knative-openshift-ingress
                     containers:
                       - name: knative-openshift-ingress
-                        image: registry.svc.ci.openshift.org/openshift/openshift-serverless-nightly:knative-openshift-ingress
+                        image: registry.ci.openshift.org/openshift/openshift-serverless-nightly:knative-openshift-ingress
                         command:
                         - knative-openshift-ingress
                         imagePullPolicy: Always
