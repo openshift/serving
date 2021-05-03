@@ -526,7 +526,7 @@ data:
                             fieldPath: metadata.namespace
                       - name: METRICS_DOMAIN
                         value: knative.dev/serving-operator
-                      image: registry.svc.ci.openshift.org/openshift/knative-v0.14.2:knative-serving-operator
+                      image: registry.ci.openshift.org/openshift/knative-v0.14.2:knative-serving-operator
                       imagePullPolicy: IfNotPresent
                       name: knative-serving-operator
                       ports:
@@ -560,7 +560,7 @@ data:
                             fieldPath: metadata.namespace
                       - name: METRICS_DOMAIN
                         value: knative.dev/eventing-operator
-                      image: registry.svc.ci.openshift.org/openshift/knative-v0.14.2:knative-eventing-operator
+                      image: registry.ci.openshift.org/openshift/knative-v0.14.2:knative-eventing-operator
                       imagePullPolicy: IfNotPresent
                       name: knative-eventing-operator
                       ports:
@@ -781,13 +781,13 @@ data:
           - name: IMAGE_3scale-kourier-gateway
             image: docker.io/maistra/proxyv2-ubi8:1.1.0
           - name: knative-serving-operator
-            image: registry.svc.ci.openshift.org/openshift/knative-v0.14.2:knative-serving-operator
+            image: registry.ci.openshift.org/openshift/knative-v0.14.2:knative-serving-operator
           - name: knative-operator
             image: registry.svc.ci.openshift.org/openshift/openshift-serverless-v1.10.0:knative-operator
           - name: knative-openshift-ingress
             image: registry.svc.ci.openshift.org/openshift/openshift-serverless-v1.10.0:knative-openshift-ingress
           - name: knative-eventing-operator
-            image: registry.svc.ci.openshift.org/openshift/knative-v0.14.2:knative-eventing-operator
+            image: registry.ci.openshift.org/openshift/knative-v0.14.2:knative-eventing-operator
           - name: IMAGE_eventing-controller__eventing-controller
             image: registry.svc.ci.openshift.org/openshift/knative-v0.14.2:knative-eventing-controller
           - name: IMAGE_eventing-webhook__eventing-webhook
