@@ -582,7 +582,7 @@ data:
                     serviceAccountName: knative-serving-operator
                     containers:
                       - name: knative-openshift
-                        image: registry.ci.openshift.org/openshift/openshift-serverless-nightly:knative-operator
+                        image: registry.ci.openshift.org/openshift/openshift-serverless-v1.10.0:knative-operator
                         command:
                         - knative-openshift
                         imagePullPolicy: Always
@@ -669,7 +669,7 @@ data:
                     serviceAccountName: knative-openshift-ingress
                     containers:
                       - name: knative-openshift-ingress
-                        image: registry.ci.openshift.org/openshift/openshift-serverless-nightly:knative-openshift-ingress
+                        image: registry.ci.openshift.org/openshift/openshift-serverless-v1.10.0:knative-openshift-ingress
                         command:
                         - knative-openshift-ingress
                         imagePullPolicy: Always
@@ -783,9 +783,9 @@ data:
           - name: knative-serving-operator
             image: registry.svc.ci.openshift.org/openshift/knative-v0.14.2:knative-serving-operator
           - name: knative-operator
-            image: registry.svc.ci.openshift.org/openshift/openshift-serverless-nightly:knative-operator
+            image: registry.svc.ci.openshift.org/openshift/openshift-serverless-v1.10.0:knative-operator
           - name: knative-openshift-ingress
-            image: registry.svc.ci.openshift.org/openshift/openshift-serverless-nightly:knative-openshift-ingress
+            image: registry.svc.ci.openshift.org/openshift/openshift-serverless-v1.10.0:knative-openshift-ingress
           - name: knative-eventing-operator
             image: registry.svc.ci.openshift.org/openshift/knative-v0.14.2:knative-eventing-operator
           - name: IMAGE_eventing-controller__eventing-controller
