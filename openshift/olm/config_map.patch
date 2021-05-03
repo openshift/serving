@@ -45,7 +45,7 @@ index 129615a3f..744375b50 100644
 +                        volumeMounts:
 +                        - mountPath: /tmp/kourier
 +                          name: kourier-manifest
-                         image: registry.svc.ci.openshift.org/openshift/openshift-serverless-nightly:knative-operator
+                         image: registry.ci.openshift.org/openshift/openshift-serverless-v1.10.0:knative-operator
                          command:
                          - knative-openshift
 @@ -602,7 +624,7 @@ data:
