@@ -177,28 +177,6 @@ function update_csv(){
         - key: "kourier.yaml"
           path: "kourier.yaml"
 EOF
-
-# The mounted kourier.yaml is not used but the manifest in "knative-openshift" via KOURIER_MANIFEST_PATH is used.
-# Mounting configmap because knative-operator needs KO_DATA_PATH/ingress/0.21 directory.
-# TODO: Use manifest in this knative-operator instead of knative-openshift's KOURIER_MANIFEST_PATH.
-  cat << EOF | yq write --inplace --script - $CSV || return $?
-# kourier
-- command: update
-  path: spec.install.spec.deployments.(name==knative-operator).spec.template.spec.containers[0].volumeMounts[+]
-  value:
-    name: "kourier-manifest"
-    mountPath: "/tmp/knative/ingress/${KOURIER_MINOR_VERSION}"
-- command: update
-  path: spec.install.spec.deployments.(name==knative-operator).spec.template.spec.volumes[+]
-  value:
-    name: "kourier-manifest"
-    configMap:
-      name: "kourier-cm"
-      items:
-        - key: "kourier.yaml"
-          path: "kourier.yaml"
-EOF
-
 }
 
 function install_catalogsource(){
