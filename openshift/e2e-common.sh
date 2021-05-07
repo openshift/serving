@@ -347,13 +347,6 @@ function run_e2e_tests(){
     --resolvabledomain "$(ingress_class)" || failed=1
   oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"tag-header-based-routing": "disabled"}}}}' || fail_test
 
-  oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"multi-container": "enabled"}}}}' || fail_test
-  go_test_e2e -timeout=2m ./test/e2e/multicontainer \
-    --kubeconfig "$KUBECONFIG" \
-    --imagetemplate "$TEST_IMAGE_TEMPLATE" \
-    --resolvabledomain "$(ingress_class)" || failed=1
-  oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"multi-container": "disabled"}}}}' || fail_test
-
   oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "autoscaler": {"allow-zero-initial-scale": "true"}}}}' || fail_test
   # wait 10 sec until sync.
   sleep 10
