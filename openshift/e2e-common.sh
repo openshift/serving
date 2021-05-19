@@ -163,7 +163,7 @@ function update_csv(){
     name: "kourier-manifest"
     mountPath: "/tmp/knative/ingress/${KOURIER_MINOR_VERSION}"
 - command: update
-  path: spec.install.spec.deployments.(name==knative-openshift).spec.template.spec.volumes[+]
+  path: spec.install.spec.deployments.(name==knative-operator).spec.template.spec.volumes[+]
   value:
     name: "kourier-manifest"
     configMap:
