@@ -158,17 +158,12 @@ function update_csv(){
           path: "knative-eventing-ci.yaml"
 # kourier
 - command: update
-  path: spec.install.spec.deployments.(name==knative-openshift).spec.template.spec.containers.(name==knative-openshift).env.(name==KOURIER_MANIFEST_PATH)
-  value:
-    name: KOURIER_MANIFEST_PATH
-    value: "/tmp/knative/ingress/${KOURIER_MINOR_VERSION}/kourier.yaml"
-- command: update
-  path: spec.install.spec.deployments.(name==knative-openshift).spec.template.spec.containers[0].volumeMounts[+]
+  path: spec.install.spec.deployments.(name==knative-operator).spec.template.spec.containers.(name==knative-operator).volumeMounts[+]
   value:
     name: "kourier-manifest"
     mountPath: "/tmp/knative/ingress/${KOURIER_MINOR_VERSION}"
 - command: update
-  path: spec.install.spec.deployments.(name==knative-openshift).spec.template.spec.volumes[+]
+  path: spec.install.spec.deployments.(name==knative-operator).spec.template.spec.volumes[+]
   value:
     name: "kourier-manifest"
     configMap:
@@ -177,23 +172,6 @@ function update_csv(){
         - key: "kourier.yaml"
           path: "kourier.yaml"
 EOF
-
-# Mount emptyDir because knative-operator needs KO_DATA_PATH/ingress/0.21 directory.
-# The actual manifest is located in KOURIER_MANIFEST_PATH. Please see also SRVKS-721.
-  cat << EOF | yq write --inplace --script - $CSV || return $?
-# kourier
-- command: update
-  path: spec.install.spec.deployments.(name==knative-operator).spec.template.spec.containers[0].volumeMounts[+]
-  value:
-    name: "ingress-directory"
-    mountPath: "/tmp/knative/ingress/${KOURIER_MINOR_VERSION}"
-- command: update
-  path: spec.install.spec.deployments.(name==knative-operator).spec.template.spec.volumes[+]
-  value:
-    name: "ingress-directory"
-    emptyDir: {}
-EOF
-
 }
 
 function install_catalogsource(){
