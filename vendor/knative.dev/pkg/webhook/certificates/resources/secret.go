@@ -32,8 +32,6 @@ const (
 	// CACert is the name of the key associated with the certificate of the CA for
 	// the keypair.
 	CACert = "ca-cert.pem"
-
-	oneWeek = 7 * 24 * time.Hour
 )
 
 // MakeSecret synthesizes a Kubernetes Secret object with the keys specified by
@@ -43,7 +41,7 @@ var MakeSecret = MakeSecretInternal
 
 // MakeSecretInternal is only public so MakeSecret can be restored in testing.  Use MakeSecret.
 func MakeSecretInternal(ctx context.Context, name, namespace, serviceName string) (*corev1.Secret, error) {
-	serverKey, serverCert, caCert, err := CreateCerts(ctx, serviceName, namespace, time.Now().Add(oneWeek))
+	serverKey, serverCert, caCert, err := CreateCerts(ctx, serviceName, namespace, time.Now().AddDate(1, 0, 0))
 	if err != nil {
 		return nil, err
 	}
