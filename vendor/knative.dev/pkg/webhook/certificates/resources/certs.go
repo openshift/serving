@@ -18,8 +18,8 @@ package resources
 
 import (
 	"context"
-	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
@@ -62,7 +62,7 @@ func createCertTemplate(name, namespace string, notAfter time.Time) (*x509.Certi
 			Organization: []string{organization},
 			CommonName:   commonName,
 		},
-		SignatureAlgorithm:    x509.PureEd25519,
+		SignatureAlgorithm:    x509.SHA256WithRSA,
 		NotBefore:             time.Now(),
 		NotAfter:              notAfter,
 		BasicConstraintsValid: true,
@@ -112,9 +112,9 @@ func createCert(template, parent *x509.Certificate, pub, parentPriv interface{})
 	return
 }
 
-func createCA(ctx context.Context, name, namespace string, notAfter time.Time) (ed25519.PrivateKey, *x509.Certificate, []byte, error) {
+func createCA(ctx context.Context, name, namespace string, notAfter time.Time) (*rsa.PrivateKey, *x509.Certificate, []byte, error) {
 	logger := logging.FromContext(ctx)
-	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	rootKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		logger.Errorw("error generating random key", zap.Error(err))
 		return nil, nil, nil, err
@@ -126,12 +126,12 @@ func createCA(ctx context.Context, name, namespace string, notAfter time.Time) (
 		return nil, nil, nil, err
 	}
 
-	rootCert, rootCertPEM, err := createCert(rootCertTmpl, rootCertTmpl, publicKey, privateKey)
+	rootCert, rootCertPEM, err := createCert(rootCertTmpl, rootCertTmpl, &rootKey.PublicKey, rootKey)
 	if err != nil {
 		logger.Errorw("error signing the CA cert", zap.Error(err))
 		return nil, nil, nil, err
 	}
-	return privateKey, rootCert, rootCertPEM, nil
+	return rootKey, rootCert, rootCertPEM, nil
 }
 
 // CreateCerts creates and returns a CA certificate and certificate and
@@ -148,7 +148,7 @@ func CreateCerts(ctx context.Context, name, namespace string, notAfter time.Time
 	}
 
 	// Then create the private key for the serving cert
-	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	servKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		logger.Errorw("error generating random key", zap.Error(err))
 		return nil, nil, nil, err
@@ -160,18 +160,13 @@ func CreateCerts(ctx context.Context, name, namespace string, notAfter time.Time
 	}
 
 	// create a certificate which wraps the server's public key, sign it with the CA private key
-	_, servCertPEM, err := createCert(servCertTemplate, caCertificate, publicKey, caKey)
+	_, servCertPEM, err := createCert(servCertTemplate, caCertificate, &servKey.PublicKey, caKey)
 	if err != nil {
 		logger.Errorw("error signing server certificate template", zap.Error(err))
 		return nil, nil, nil, err
 	}
-	privKeyBytes, err := x509.MarshalPKCS8PrivateKey(privateKey)
-	if err != nil {
-		logger.Errorw("error marshaling private key", zap.Error(err))
-		return nil, nil, nil, err
-	}
 	servKeyPEM := pem.EncodeToMemory(&pem.Block{
-		Type: "PRIVATE KEY", Bytes: privKeyBytes,
+		Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(servKey),
 	})
 	return servKeyPEM, servCertPEM, caCertificatePEM, nil
 }
