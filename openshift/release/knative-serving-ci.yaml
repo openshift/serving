@@ -154,6 +154,9 @@ rules:
     resources: ["pods", "namespaces", "secrets", "configmaps", "endpoints", "services", "events", "serviceaccounts"]
     verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]
   - apiGroups: [""]
+    resources: ["namespaces/finalizers"] # finalizers are needed for the owner reference of the webhook
+    verbs: ["update"]
+  - apiGroups: [""]
     resources: ["endpoints/restricted"] # Permission for RestrictedEndpointsAdmission
     verbs: ["create"]
   - apiGroups: ["apps"]
