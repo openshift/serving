@@ -66,12 +66,18 @@ fi
 
 TEST_OPTIONS="${TEST_OPTIONS:-${alpha} --enable-beta --resolvabledomain=$(use_resolvable_domain) ${use_https}}"
 
+subdomain=$(oc get ingresses.config.openshift.io cluster  -o jsonpath="{.spec.domain}")
+
 go_test_e2e -timeout=30m \
- ./test/conformance/api/... \
- ./test/conformance/runtime/... \
+ ./test/conformance/api/v1alpha1/...
  ./test/e2e \
   ${parallelism} \
+  --customdomain="$subdomain" \
   ${TEST_OPTIONS} || failed=1
+
+(( failed )) && fail_test
+
+success
 
 toggle_feature tag-header-based-routing Enabled
 go_test_e2e -timeout=2m ./test/e2e/tagheader ${TEST_OPTIONS} || failed=1
