@@ -344,12 +344,14 @@ function run_e2e_tests(){
   rm ./test/e2e/http2_test.go
 
   export GODEBUG="x509ignoreCN=0"
+  export subdomain=$(oc get ingresses.config.openshift.io cluster  -o jsonpath="{.spec.domain}")
 
   if [ -n "$test_name" ]; then
     go_test_e2e -tags=e2e -timeout=15m -parallel=1 \
-    ./test/e2e ./test/conformance/api/... ./test/conformance/runtime/... \
+    ./test/e2e ./test/conformance/api/v1alpha1/... \
     -run "^(${test_name})$" \
     --kubeconfig "$KUBECONFIG" \
+    --customdomain="$subdomain" \
     --imagetemplate "$TEST_IMAGE_TEMPLATE" \
     ${OPENSHIFT_TEST_OPTIONS} || failed=$?
 
