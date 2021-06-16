@@ -367,9 +367,12 @@ function run_e2e_tests(){
   fi
 
   go_test_e2e -tags=e2e -timeout=30m -parallel=$parallel \
-    ./test/e2e ./test/conformance/api/... ./test/conformance/runtime/... \
+    ./test/conformance/api/v1alpha1/... \
+    --customdomain="$subdomain" \
     --imagetemplate "$TEST_IMAGE_TEMPLATE" \
     ${OPENSHIFT_TEST_OPTIONS} || failed=1
+
+  return $failed
 
   oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"tag-header-based-routing": "enabled"}}}}' || fail_test
   go_test_e2e -timeout=2m ./test/e2e/tagheader \
