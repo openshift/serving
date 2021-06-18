@@ -297,7 +297,7 @@ function run_e2e_tests(){
     --imagetemplate "$TEST_IMAGE_TEMPLATE" \
     --enable-alpha \
     --enable-beta \
-    --resolvabledomain "$(ingress_class)" || failed=$?
+    --resolvabledomain || failed=$?
 
     return $failed
   fi
@@ -316,13 +316,13 @@ function run_e2e_tests(){
     --imagetemplate "$TEST_IMAGE_TEMPLATE" \
     --enable-alpha \
     --enable-beta \
-    --resolvabledomain "$(ingress_class)" || failed=1
+    --resolvabledomain || failed=1
 
   oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"tag-header-based-routing": "enabled"}}}}' || fail_test
   go_test_e2e -timeout=2m ./test/e2e/tagheader \
     --kubeconfig "$KUBECONFIG" \
     --imagetemplate "$TEST_IMAGE_TEMPLATE" \
-    --resolvabledomain "$(ingress_class)" || failed=1
+    --resolvabledomain || failed=1
   oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"tag-header-based-routing": "disabled"}}}}' || fail_test
 
   oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "autoscaler": {"allow-zero-initial-scale": "true"}}}}' || fail_test
@@ -331,7 +331,7 @@ function run_e2e_tests(){
   go_test_e2e -timeout=2m ./test/e2e/initscale \
     --kubeconfig "$KUBECONFIG" \
     --imagetemplate "$TEST_IMAGE_TEMPLATE" \
-    --resolvabledomain "$(ingress_class)" || failed=1
+    --resolvabledomain || failed=1
   oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "autoscaler": {"allow-zero-initial-scale": "false"}}}}' || fail_test
 
   oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"responsive-revision-gc": "enabled"}}}}' || fail_test
@@ -340,7 +340,7 @@ function run_e2e_tests(){
   go_test_e2e -timeout=2m ./test/e2e/gc \
     --kubeconfig "$KUBECONFIG" \
     --imagetemplate "$TEST_IMAGE_TEMPLATE" \
-    --resolvabledomain "$(ingress_class)" || failed=1
+    --resolvabledomain || failed=1
   oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"responsive-revision-gc": "disabled"}}}}' || fail_test
 
  # Run the helloworld test with an image pulled into the internal registry.
@@ -365,7 +365,7 @@ function run_e2e_tests(){
     -replicas="${OPENSHIFT_REPLICAS}" -buckets="${OPENSHIFT_BUCKETS}" -spoofinterval="10ms" \
     --kubeconfig "$KUBECONFIG" \
     --imagetemplate "$TEST_IMAGE_TEMPLATE" \
-    --resolvabledomain "$(ingress_class)"|| failed=3
+    --resolvabledomain || failed=3
 
   return $failed
 }
