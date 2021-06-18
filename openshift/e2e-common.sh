@@ -348,6 +348,12 @@ function run_e2e_tests(){
     --resolvabledomain || failed=1
   oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"responsive-revision-gc": "disabled"}}}}' || fail_test
 
+  # Run HPA tests
+  go_test_e2e -timeout=15m -tags=hpa ./test/e2e \
+    --kubeconfig "$KUBECONFIG" \
+    --imagetemplate "$TEST_IMAGE_TEMPLATE" \
+    --resolvabledomain || failed=1
+
  # Run the helloworld test with an image pulled into the internal registry.
   local image_to_tag=$(echo "$TEST_IMAGE_TEMPLATE" | sed 's/\(.*\){{.Name}}\(.*\)/\1helloworld\2/')
   oc tag -n serving-tests "$image_to_tag" "helloworld:latest" --reference-policy=local
