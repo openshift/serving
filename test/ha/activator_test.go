@@ -96,7 +96,7 @@ func testActivatorHA(t *testing.T, gracePeriod *int64, slo float64) {
 	}
 
 	t.Log("Starting prober")
-	prober := test.NewProberManager(t.Logf, clients, minProbes)
+	prober := test.NewProberManager(t.Logf, clients, minProbes, test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS))
 	prober.Spawn(resources.Service.Status.URL.URL())
 	defer assertSLO(t, prober, slo)
 
