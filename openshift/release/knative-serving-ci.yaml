@@ -3942,7 +3942,7 @@ metadata:
   labels:
     serving.knative.dev/release: "v0.22.0"
   annotations:
-    knative.dev/example-checksum: "79e56eb4"
+    knative.dev/example-checksum: "d9570453"
 data:
   _example: |
     ################################
@@ -3995,7 +3995,7 @@ data:
     loglevel.hpaautoscaler: "info"
     loglevel.certcontroller: "info"
     loglevel.istiocontroller: "info"
-    loglevel.net-nscert-controller: "info"
+    loglevel.nscontroller: "info"
 ---
 # Copyright 2018 The Knative Authors
 #
