@@ -27,6 +27,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/reconciler"
+	pkgtest "knative.dev/pkg/test"
+	"knative.dev/pkg/test/spoof"
 	"knative.dev/serving/pkg/apis/serving/v1alpha1"
 	"knative.dev/serving/test"
 	"knative.dev/serving/test/conformance/api/shared"
@@ -61,17 +63,11 @@ func TestDomainMapping(t *testing.T) {
 	host := svc.Service.Name + ".example.org"
 	// Set resolvabledomain for custom domain to false by default.
 	resolvableCustomDomain := false
-	// Schema for test access.
-	schema := "http"
 
 	if test.ServingFlags.CustomDomain != "" {
 		host = svc.Service.Name + "." + test.ServingFlags.CustomDomain
 		resolvableCustomDomain = true
 	}
-	if test.ServingFlags.HTTPS {
-		schema = "https"
-	}
-
 	// Point DomainMapping at our service.
 	var dm *v1alpha1.DomainMapping
 	if err := reconciler.RetryTestErrors(func(int) error {
@@ -111,8 +107,21 @@ func TestDomainMapping(t *testing.T) {
 		t.Fatalf("The DomainMapping %s was not marked as Ready: %v", dm.Name, waitErr)
 	}
 
+	t.Log("Probing", host)
+	if _, err := pkgtest.WaitForEndpointState(
+		context.Background(),
+		clients.KubeClient,
+		t.Logf,
+		&url.URL{Host: host, Scheme: "http"},
+		v1test.RetryingRouteInconsistency(spoof.IsStatusOK),
+		"WaitForSuccessfulResponse",
+		test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS)); err != nil {
+		t.Fatalf("Error probing %s: %v", host, err)
+	}
+
 	// Should be able to access the test image text via the mapped domain.
-	if err := shared.CheckDistribution(ctx, t, clients, &url.URL{Host: host, Scheme: schema}, test.ConcurrentRequests, test.ConcurrentRequests, []string{test.PizzaPlanetText1}, resolvableCustomDomain); err != nil {
+	if err := shared.CheckDistribution(ctx, t, clients, &url.URL{Host: host, Scheme: "http"}, test.ConcurrentRequests, test.ConcurrentRequests, []string{test.PizzaPlanetText1}, resolvableCustomDomain); err != nil {
 		t.Errorf("CheckDistribution=%v, expected no error", err)
 	}
 
@@ -170,7 +179,7 @@ func TestDomainMapping(t *testing.T) {
 	}
 
 	// Because the second DomainMapping collided with the first, it should not have taken effect.
-	if err := shared.CheckDistribution(ctx, t, clients, &url.URL{Host: host, Scheme: schema}, test.ConcurrentRequests, test.ConcurrentRequests, []string{test.PizzaPlanetText1}, resolvableCustomDomain); err != nil {
+	if err := shared.CheckDistribution(ctx, t, clients, &url.URL{Host: host, Scheme: "http"}, test.ConcurrentRequests, test.ConcurrentRequests, []string{test.PizzaPlanetText1}, resolvableCustomDomain); err != nil {
 		t.Errorf("CheckDistribution=%v, expected no error", err)
 	}
 
@@ -192,8 +201,21 @@ func TestDomainMapping(t *testing.T) {
 		t.Fatalf("The second DomainMapping %s was not marked as Ready: %v", dm.Name, waitErr)
 	}
 
+	t.Log("Probing", host)
+	if _, err := pkgtest.WaitForEndpointState(
+		context.Background(),
+		clients.KubeClient,
+		t.Logf,
+		&url.URL{Host: host, Scheme: "http"},
+		v1test.RetryingRouteInconsistency(spoof.IsStatusOK),
+		"WaitForSuccessfulResponse",
+		test.ServingFlags.ResolvableDomain,
+		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS)); err != nil {
+		t.Fatalf("Error probing %s: %v", host, err)
+	}
+
 	// The domain name should now point to the second service.
-	if err := shared.CheckDistribution(ctx, t, clients, &url.URL{Host: host, Scheme: schema}, test.ConcurrentRequests, test.ConcurrentRequests, []string{test.PizzaPlanetText2}, resolvableCustomDomain); err != nil {
+	if err := shared.CheckDistribution(ctx, t, clients, &url.URL{Host: host, Scheme: "http"}, test.ConcurrentRequests, test.ConcurrentRequests, []string{test.PizzaPlanetText2}, resolvableCustomDomain); err != nil {
 		t.Errorf("CheckDistribution=%v, expected no error", err)
 	}
 }
