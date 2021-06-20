@@ -65,7 +65,7 @@ func TestDomainMapping(t *testing.T) {
 	resolvableCustomDomain := false
 
 	if test.ServingFlags.CustomDomain != "" {
-		host = svc.Service.Name + "-diff." + test.ServingFlags.CustomDomain
+		host = svc.Service.Name + "a." + test.ServingFlags.CustomDomain
 		resolvableCustomDomain = true
 	}
 	// Point DomainMapping at our service.
@@ -113,16 +113,11 @@ func TestDomainMapping(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		&url.URL{Host: host, Scheme: "http"},
-		v1test.RetryingRouteInconsistency(spoof.IsStatusOK),
+		v1test.RetryingRouteInconsistency(spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(test.PizzaPlanetText1))),
 		"WaitForSuccessfulResponse",
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS)); err != nil {
 		t.Fatalf("Error probing %s: %v", host, err)
-	}
-
-	// Should be able to access the test image text via the mapped domain.
-	if err := shared.CheckDistribution(ctx, t, clients, &url.URL{Host: host, Scheme: "http"}, test.ConcurrentRequests, test.ConcurrentRequests, []string{test.PizzaPlanetText1}, resolvableCustomDomain); err != nil {
-		t.Errorf("CheckDistribution=%v, expected no error", err)
 	}
 
 	altClients := e2e.SetupAlternativeNamespace(t)
@@ -207,15 +202,10 @@ func TestDomainMapping(t *testing.T) {
 		clients.KubeClient,
 		t.Logf,
 		&url.URL{Host: host, Scheme: "http"},
-		v1test.RetryingRouteInconsistency(spoof.IsStatusOK),
+		v1test.RetryingRouteInconsistency(spoof.MatchesAllOf(spoof.IsStatusOK, spoof.MatchesBody(test.PizzaPlanetText2))),
 		"WaitForSuccessfulResponse",
 		test.ServingFlags.ResolvableDomain,
 		test.AddRootCAtoTransport(context.Background(), t.Logf, clients, test.ServingFlags.HTTPS)); err != nil {
 		t.Fatalf("Error probing %s: %v", host, err)
-	}
-
-	// The domain name should now point to the second service.
-	if err := shared.CheckDistribution(ctx, t, clients, &url.URL{Host: host, Scheme: "http"}, test.ConcurrentRequests, test.ConcurrentRequests, []string{test.PizzaPlanetText2}, resolvableCustomDomain); err != nil {
-		t.Errorf("CheckDistribution=%v, expected no error", err)
 	}
 }
