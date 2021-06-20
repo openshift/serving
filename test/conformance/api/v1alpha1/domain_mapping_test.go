@@ -65,7 +65,7 @@ func TestDomainMapping(t *testing.T) {
 	resolvableCustomDomain := false
 
 	if test.ServingFlags.CustomDomain != "" {
-		host = svc.Service.Name + "." + test.ServingFlags.CustomDomain
+		host = svc.Service.Name + "-diff." + test.ServingFlags.CustomDomain
 		resolvableCustomDomain = true
 	}
 	// Point DomainMapping at our service.
