@@ -220,6 +220,9 @@ spec:
         "protocol": "{{.Request.Proto}}"}, "traceId": "{{index .Request.Header "X-B3-Traceid"}}"}'
       logging.enable-probe-request-log: "true"
       logging.enable-request-log: "true"
+  deployments:
+  - name: domain-mapping
+    replicas: 2
 EOF
 
   # Wait for 4 pods to appear first
