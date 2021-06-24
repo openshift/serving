@@ -58,12 +58,12 @@ func TestDomainMapping(t *testing.T) {
 
 	// Using fixed hostnames can lead to conflicts when multiple tests run at
 	// once, so include the svc name to avoid collisions.
-	host := "alt-" + svc.Service.Name + ".example.org"
+	host := svc.Service.Name + ".example.org"
 	// Set resolvabledomain for custom domain to false by default.
 	resolvableCustomDomain := false
 
 	if test.ServingFlags.CustomDomain != "" {
-		host = "alt-" + svc.Service.Name + "." + test.ServingFlags.CustomDomain
+		host = svc.Service.Name + "." + test.ServingFlags.CustomDomain
 		resolvableCustomDomain = true
 	}
 	// Point DomainMapping at our service.
