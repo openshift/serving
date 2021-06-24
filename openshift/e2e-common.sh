@@ -313,7 +313,6 @@ function run_e2e_tests(){
     parallel=2
   fi
 
-  oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "network": {"autocreateClusterDomainClaims": "true"}}}}' || fail_test
   go_test_e2e -tags=e2e -timeout=30m -parallel=$parallel \
     ./test/e2e ./test/conformance/api/... ./test/conformance/runtime/... \
     --kubeconfig "$KUBECONFIG" \
@@ -321,7 +320,6 @@ function run_e2e_tests(){
     --enable-alpha \
     --enable-beta \
     --resolvabledomain || failed=1
-  oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "network": {"autocreateClusterDomainClaims": "false"}}}}' || fail_test
 
   oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"tag-header-based-routing": "enabled"}}}}' || fail_test
   go_test_e2e -timeout=2m ./test/e2e/tagheader \
@@ -365,7 +363,6 @@ function run_e2e_tests(){
 
   # Run HA tests separately as they're stopping core Knative Serving pods
   # Define short -spoofinterval to ensure frequent probing while stopping pods
-  oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "network": {"autocreateClusterDomainClaims": "true"}}}}' || fail_test
   go_test_e2e -tags=e2e -timeout=15m -failfast -parallel=1 \
     ./test/ha \
     -replicas="${OPENSHIFT_REPLICAS}" -buckets="${OPENSHIFT_BUCKETS}" -spoofinterval="10ms" \
@@ -374,7 +371,6 @@ function run_e2e_tests(){
     --enable-alpha \
     --enable-beta \
     --resolvabledomain || failed=3
-  oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "network": {"autocreateClusterDomainClaims": "false"}}}}' || fail_test
 
   return $failed
 }
