@@ -7,8 +7,6 @@ set -x
 
 env
 
-scale_up_workers || exit $?
-
 failed=0
 
 (( !failed )) && install_knative || failed=1

@@ -26,19 +26,6 @@ fi
 
 env
 
-function scale_up_workers(){
-  local cluster_api_ns="openshift-machine-api"
-
-  oc get machineset -n ${cluster_api_ns} --show-labels
-
-  # Get the name of the first machineset that has at least 1 replica
-  local machineset
-  machineset=$(oc get machineset -n ${cluster_api_ns} -o custom-columns="name:{.metadata.name},replicas:{.spec.replicas}" | grep " 1" | head -n 1 | awk '{print $1}')
-  # Bump the number of replicas to 6 (+ 1 + 1 == 8 workers)
-  oc patch machineset -n ${cluster_api_ns} "${machineset}" -p '{"spec":{"replicas":6}}' --type=merge
-  wait_until_machineset_scales_up ${cluster_api_ns} "${machineset}" 6
-}
-
 # Waits until the machineset in the given namespaces scales up to the
 # desired number of replicas
 # Parameters: $1 - namespace
