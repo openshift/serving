@@ -14,25 +14,25 @@ readonly OLM_NAMESPACE="openshift-marketplace"
 # Determine if we're running locally or in CI.
 if [ -n "$OPENSHIFT_BUILD_NAMESPACE" ]; then
   TEST_IMAGE_TEMPLATE=$(cat <<-END
-{{with .Name }}
-{{if eq . "readiness"}}$KNATIVE_SERVING_TEST_READINESS{{end}}
-{{if eq . "pizzaplanetv1"}}$KNATIVE_SERVING_TEST_PIZZAPLANETV1{{end}}
-{{if eq . "pizzaplanetv2"}}$KNATIVE_SERVING_TEST_PIZZAPLANETV2{{end}}
-{{if eq . "helloworld"}}$KNATIVE_SERVING_TEST_HELLOWORLD{{end}}
-{{if eq . "runtime"}}$KNATIVE_SERVING_TEST_RUNTIME{{end}}
-{{if eq . "timeout"}}$KNATIVE_SERVING_TEST_TIMEOUT{{end}}
-{{if eq . "observed-concurrency"}}$KNATIVE_SERVING_TEST_OBSERVED_CONCURRENCY{{end}}
-{{if eq . "grpc-ping"}}$KNATIVE_SERVING_TEST_GRPC_PING{{end}}
-{{if eq . "failing"}}$KNATIVE_SERVING_TEST_FAILING{{end}}
-{{if eq . "autoscale"}}$KNATIVE_SERVING_TEST_AUTOSCALE{{end}}
-{{if eq . "wsserver"}}$KNATIVE_SERVING_TEST_WSSERVER{{end}}
-{{if eq . "httpproxy"}}$KNATIVE_SERVING_TEST_HTTPPROXY{{end}}
-{{if eq . "singlethreaded"}}$KNATIVE_SERVING_TEST_SINGLETHREADED{{end}}
-{{if eq . "servingcontainer"}}$KNATIVE_SERVING_TEST_SERVINGCONTAINER{{end}}
-{{if eq . "sidecarcontainer"}}$KNATIVE_SERVING_TEST_SIDECARCONTAINER{{end}}
-{{if eq . "hellohttp2"}}$KNATIVE_SERVING_TEST_HELLOHTTP2{{end}}
-{{if eq . "hellovolume"}}$KNATIVE_SERVING_TEST_HELLOVOLUME{{end}}
-{{end}}
+{{- with .Name }}
+{{- if eq . "readiness"}}{{- $KNATIVE_SERVING_TEST_READINESS -}}{{end -}}
+{{- if eq . "pizzaplanetv1"}}$KNATIVE_SERVING_TEST_PIZZAPLANETV1{{end -}}
+{{- if eq . "pizzaplanetv2"}}$KNATIVE_SERVING_TEST_PIZZAPLANETV2{{end -}}
+{{- if eq . "helloworld"}}$KNATIVE_SERVING_TEST_HELLOWORLD{{end -}}
+{{- if eq . "runtime"}}$KNATIVE_SERVING_TEST_RUNTIME{{end -}}
+{{- if eq . "timeout"}}$KNATIVE_SERVING_TEST_TIMEOUT{{end -}}
+{{- if eq . "observed-concurrency"}}$KNATIVE_SERVING_TEST_OBSERVED_CONCURRENCY{{end -}}
+{{- if eq . "grpc-ping"}}$KNATIVE_SERVING_TEST_GRPC_PING{{end -}}
+{{- if eq . "failing"}}$KNATIVE_SERVING_TEST_FAILING{{end -}}
+{{- if eq . "autoscale"}}$KNATIVE_SERVING_TEST_AUTOSCALE{{end -}}
+{{- if eq . "wsserver"}}$KNATIVE_SERVING_TEST_WSSERVER{{end -}}
+{{- if eq . "httpproxy"}}$KNATIVE_SERVING_TEST_HTTPPROXY{{end -}}
+{{- if eq . "singlethreaded"}}$KNATIVE_SERVING_TEST_SINGLETHREADED{{end -}}
+{{- if eq . "servingcontainer"}}$KNATIVE_SERVING_TEST_SERVINGCONTAINER{{end -}}
+{{- if eq . "sidecarcontainer"}}$KNATIVE_SERVING_TEST_SIDECARCONTAINER{{end -}}
+{{- if eq . "hellohttp2"}}$KNATIVE_SERVING_TEST_HELLOHTTP2{{end -}}
+{{- if eq . "hellovolume"}}$KNATIVE_SERVING_TEST_HELLOVOLUME{{end -}}
+{{end -}}
 END
 )
 elif [ -n "$DOCKER_REPO_OVERRIDE" ]; then
