@@ -23,5 +23,9 @@ function resolve_file() {
   fi
 
   echo "---" >> "$to"
-  cat "$file" >> "$to"
+  # 1. Rewrite image references
+  # 2. Update config map entry
+  # 3. Replace serving.knative.dev/release label.
+  sed -e "s+serving.knative.dev/release: devel+serving.knative.dev/release: \"v0.22.0\"+" \
+      "$file" >> "$to"
 }
