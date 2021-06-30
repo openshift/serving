@@ -108,7 +108,7 @@ func init() {
 func main() {
 	flag.Parse()
 
-	var timeout time.Duration
+	var timeout time.Duration = -1
 
 	// If either of those are set, we run as a standalone binary to probe the queue-proxy.
 	if startupProbeTimeout != nil && *startupProbeTimeout >= 0 {
