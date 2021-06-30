@@ -13,7 +13,29 @@ readonly OLM_NAMESPACE="openshift-marketplace"
 
 # Determine if we're running locally or in CI.
 if [ -n "$OPENSHIFT_BUILD_NAMESPACE" ]; then
-  readonly TEST_IMAGE_TEMPLATE="${IMAGE_FORMAT//\$\{component\}/knative-serving-test-{{.Name}}}"
+  TEST_IMAGE_TEMPLATE=$(cat <<-END
+{{- with .Name }}
+{{- if eq . "readiness"}}$KNATIVE_SERVING_TEST_READINESS{{end -}}
+{{- if eq . "pizzaplanetv1"}}$KNATIVE_SERVING_TEST_PIZZAPLANETV1{{end -}}
+{{- if eq . "pizzaplanetv2"}}$KNATIVE_SERVING_TEST_PIZZAPLANETV2{{end -}}
+{{- if eq . "helloworld"}}$KNATIVE_SERVING_TEST_HELLOWORLD{{end -}}
+{{- if eq . "runtime"}}$KNATIVE_SERVING_TEST_RUNTIME{{end -}}
+{{- if eq . "timeout"}}$KNATIVE_SERVING_TEST_TIMEOUT{{end -}}
+{{- if eq . "observed-concurrency"}}$KNATIVE_SERVING_TEST_OBSERVED_CONCURRENCY{{end -}}
+{{- if eq . "grpc-ping"}}$KNATIVE_SERVING_TEST_GRPC_PING{{end -}}
+{{- if eq . "failing"}}$KNATIVE_SERVING_TEST_FAILING{{end -}}
+{{- if eq . "autoscale"}}$KNATIVE_SERVING_TEST_AUTOSCALE{{end -}}
+{{- if eq . "wsserver"}}$KNATIVE_SERVING_TEST_WSSERVER{{end -}}
+{{- if eq . "httpproxy"}}$KNATIVE_SERVING_TEST_HTTPPROXY{{end -}}
+{{- if eq . "singlethreaded"}}$KNATIVE_SERVING_TEST_SINGLETHREADED{{end -}}
+{{- if eq . "servingcontainer"}}$KNATIVE_SERVING_TEST_SERVINGCONTAINER{{end -}}
+{{- if eq . "sidecarcontainer"}}$KNATIVE_SERVING_TEST_SIDECARCONTAINER{{end -}}
+{{- if eq . "hellohttp2"}}$KNATIVE_SERVING_TEST_HELLOHTTP2{{end -}}
+{{- if eq . "hellovolume"}}$KNATIVE_SERVING_TEST_HELLOVOLUME{{end -}}
+{{- if eq . "invalidhelloworld"}}quay.io/openshift-knative/helloworld:invalid{{end -}}
+{{end -}}
+END
+)
 elif [ -n "$DOCKER_REPO_OVERRIDE" ]; then
   readonly TEST_IMAGE_TEMPLATE="${DOCKER_REPO_OVERRIDE}/{{.Name}}"
 elif [ -n "$BRANCH" ]; then
@@ -90,15 +112,15 @@ function update_csv(){
 
   # Install CatalogSource in OLM namespace
   # TODO: Rework this into a loop
-  sed -i -e "s|\"registry.ci.openshift.org/openshift/knative-.*:knative-serving-queue\"|\"${IMAGE_FORMAT//\$\{component\}/knative-serving-queue}\"|g"                   ${CSV}
-  sed -i -e "s|\"registry.ci.openshift.org/openshift/knative-.*:knative-serving-activator\"|\"${IMAGE_FORMAT//\$\{component\}/knative-serving-activator}\"|g"           ${CSV}
-  sed -i -e "s|\"registry.ci.openshift.org/openshift/knative-.*:knative-serving-autoscaler\"|\"${IMAGE_FORMAT//\$\{component\}/knative-serving-autoscaler}\"|g"         ${CSV}
-  sed -i -e "s|\"registry.ci.openshift.org/openshift/knative-.*:knative-serving-autoscaler-hpa\"|\"${IMAGE_FORMAT//\$\{component\}/knative-serving-autoscaler-hpa}\"|g" ${CSV}
-  sed -i -e "s|\"registry.ci.openshift.org/openshift/knative-.*:knative-serving-controller\"|\"${IMAGE_FORMAT//\$\{component\}/knative-serving-controller}\"|g"         ${CSV}
-  sed -i -e "s|\"registry.ci.openshift.org/openshift/knative-.*:knative-serving-webhook\"|\"${IMAGE_FORMAT//\$\{component\}/knative-serving-webhook}\"|g"               ${CSV}
-  sed -i -e "s|\"registry.ci.openshift.org/openshift/knative-.*:knative-serving-domain-mapping\"|\"${IMAGE_FORMAT//\$\{component\}/knative-serving-domain-mapping}\"|g"                       ${CSV}
-  sed -i -e "s|\"registry.ci.openshift.org/openshift/knative-.*:knative-serving-domain-mapping-webhook\"|\"${IMAGE_FORMAT//\$\{component\}/knative-serving-domain-mapping-webhook}\"|g"       ${CSV}
-  sed -i -e "s|\"registry.ci.openshift.org/openshift/knative-.*:knative-serving-storage-version-migration\"|\"${IMAGE_FORMAT//\$\{component\}/knative-serving-storage-version-migration}\"|g" ${CSV}
+  sed -i -e "s|\"registry.ci.openshift.org/openshift/knative-.*:knative-serving-queue\"|\"${KNATIVE_SERVING_QUEUE}\"|g"                   ${CSV}
+  sed -i -e "s|\"registry.ci.openshift.org/openshift/knative-.*:knative-serving-activator\"|\"${KNATIVE_SERVING_ACTIVATOR}\"|g"           ${CSV}
+  sed -i -e "s|\"registry.ci.openshift.org/openshift/knative-.*:knative-serving-autoscaler\"|\"${KNATIVE_SERVING_AUTOSCALER}\"|g"         ${CSV}
+  sed -i -e "s|\"registry.ci.openshift.org/openshift/knative-.*:knative-serving-autoscaler-hpa\"|\"${KNATIVE_SERVING_AUTOSCALER_HPA}\"|g" ${CSV}
+  sed -i -e "s|\"registry.ci.openshift.org/openshift/knative-.*:knative-serving-controller\"|\"${KNATIVE_SERVING_CONTROLLER}\"|g"         ${CSV}
+  sed -i -e "s|\"registry.ci.openshift.org/openshift/knative-.*:knative-serving-webhook\"|\"${KNATIVE_SERVING_WEBHOOK}\"|g"               ${CSV}
+  sed -i -e "s|\"registry.ci.openshift.org/openshift/knative-.*:knative-serving-domain-mapping\"|\"${KNATIVE_SERVING_DOMAIN_MAPPING}\"|g"                       ${CSV}
+  sed -i -e "s|\"registry.ci.openshift.org/openshift/knative-.*:knative-serving-domain-mapping-webhook\"|\"${KNATIVE_SERVING_DOMAIN_MAPPING_WEBHOOK}\"|g"       ${CSV}
+  sed -i -e "s|\"registry.ci.openshift.org/openshift/knative-.*:knative-serving-storage-version-migration\"|\"${KNATIVE_SERVING_STORAGE_VERSION_MIGRATION}\"|g" ${CSV}
 
   # Replace kourier's image with the latest ones from third_party/kourier-latest
   sed -i -e "s|\"docker.io/maistra/proxyv2-ubi8:.*\"|\"${KOURIER_GATEWAY}\"|g"                                        ${CSV}
@@ -336,7 +358,7 @@ function run_e2e_tests(){
   oc -n ${SYSTEM_NAMESPACE} patch knativeserving/knative-serving --type=merge --patch='{"spec": {"config": { "features": {"responsive-revision-gc": "disabled"}}}}' || fail_test
 
  # Run the helloworld test with an image pulled into the internal registry.
-  local image_to_tag=$(echo "$TEST_IMAGE_TEMPLATE" | sed 's/\(.*\){{.Name}}\(.*\)/\1helloworld\2/')
+  local image_to_tag=$KNATIVE_SERVING_TEST_HELLOWORLD
   oc tag -n serving-tests "$image_to_tag" "helloworld:latest" --reference-policy=local
   go_test_e2e -tags=e2e -timeout=30m ./test/e2e -run "^(TestHelloWorld)$" \
     --resolvabledomain --kubeconfig "$KUBECONFIG" \
