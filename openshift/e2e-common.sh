@@ -32,6 +32,7 @@ if [ -n "$OPENSHIFT_BUILD_NAMESPACE" ]; then
 {{- if eq . "sidecarcontainer"}}$KNATIVE_SERVING_TEST_SIDECARCONTAINER{{end -}}
 {{- if eq . "hellohttp2"}}$KNATIVE_SERVING_TEST_HELLOHTTP2{{end -}}
 {{- if eq . "hellovolume"}}$KNATIVE_SERVING_TEST_HELLOVOLUME{{end -}}
+{{- if eq . "invalidhelloworld"}}docker pull quay.io/openshift-knative/helloworld:invalid{{end -}}
 {{end -}}
 END
 )
