@@ -79,8 +79,6 @@ function update_csv(){
   local SERVING_DIR=$1
 
   source ./hack/lib/metadata.bash
-  local SERVING_VERSION=$(metadata.get dependencies.serving)
-  local EVENTING_VERSION=$(metadata.get dependencies.eventing)
   local KOURIER_VERSION=$(metadata.get dependencies.kourier)
   local KOURIER_MINOR_VERSION=${KOURIER_VERSION%.*}    # e.g. "0.21.0" => "0.21"
 
@@ -118,7 +116,7 @@ function update_csv(){
   path: spec.install.spec.deployments.(name==knative-operator).spec.template.spec.containers.(name==knative-operator).volumeMounts[+]
   value:
     name: "serving-manifest"
-    mountPath: "/tmp/knative/knative-serving/${SERVING_VERSION}"
+    mountPath: "/tmp/knative/knative-serving/latest"
 - command: update
   path: spec.install.spec.deployments.(name==knative-operator).spec.template.spec.volumes[+]
   value:
@@ -133,7 +131,7 @@ function update_csv(){
   path: spec.install.spec.deployments.(name==knative-operator).spec.template.spec.containers.(name==knative-operator).volumeMounts[+]
   value:
     name: "eventing-manifest"
-    mountPath: "/tmp/knative/knative-eventing/${EVENTING_VERSION}"
+    mountPath: "/tmp/knative/knative-eventing/latest"
 - command: update
   path: spec.install.spec.deployments.(name==knative-operator).spec.template.spec.volumes[+]
   value:
@@ -148,7 +146,7 @@ function update_csv(){
   path: spec.install.spec.deployments.(name==knative-operator).spec.template.spec.containers.(name==knative-operator).volumeMounts[+]
   value:
     name: "kourier-manifest"
-    mountPath: "/tmp/knative/ingress/${KOURIER_MINOR_VERSION}"
+    mountPath: "/tmp/knative/ingress/latest"
 - command: update
   path: spec.install.spec.deployments.(name==knative-operator).spec.template.spec.volumes[+]
   value:
@@ -195,6 +193,7 @@ metadata:
   name: knative-serving
   namespace: ${SERVING_NAMESPACE}
 spec:
+  version: latest
   config:
     deployment:
       progressDeadline: "120s"
