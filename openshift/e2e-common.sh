@@ -15,7 +15,7 @@ readonly OLM_NAMESPACE="openshift-marketplace"
 if [ -n "$OPENSHIFT_BUILD_NAMESPACE" ]; then
   TEST_IMAGE_TEMPLATE=$(cat <<-END
 {{- with .Name }}
-{{- if eq . "readiness"}}{{- $KNATIVE_SERVING_TEST_READINESS -}}{{end -}}
+{{- if eq . "readiness"}}$KNATIVE_SERVING_TEST_READINESS{{end -}}
 {{- if eq . "pizzaplanetv1"}}$KNATIVE_SERVING_TEST_PIZZAPLANETV1{{end -}}
 {{- if eq . "pizzaplanetv2"}}$KNATIVE_SERVING_TEST_PIZZAPLANETV2{{end -}}
 {{- if eq . "helloworld"}}$KNATIVE_SERVING_TEST_HELLOWORLD{{end -}}
