@@ -263,6 +263,7 @@ function prepare_knative_serving_tests_nightly {
   run_ytt \
     -f "test/config/ytt/lib" \
     -f "test/config/ytt/values.yaml" \
+    -f "test/config/ytt/core/cluster-resources.yaml" \
     -f "test/config/ytt/core/conformance-resources.yaml" | kubectl apply -f -
 
   oc adm policy add-scc-to-user privileged -z default -n serving-tests
